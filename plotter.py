@@ -86,10 +86,6 @@ for phi, inc in zip([phi_1, phi_2], [inc_1, inc_2]):
 
 #Use the Rotation matrices to find the orbital positions.
 for ix, R in enumerate(Rs):
-    #R = [[o[2] ,    0, o[0]],\
-    #     [0    , o[2], o[1]],\
-    #    [-o[0],-o[1], o[2]]]
-    #R = np.array(R)
     for iy in range(n_p):
         xyzo[ix,iy] = np.dot(R, xyzc[iy])
 
