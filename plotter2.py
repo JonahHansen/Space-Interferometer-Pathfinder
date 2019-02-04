@@ -16,11 +16,11 @@ plt.ion()
 
 alt = 500.0e3   #In m
 R_e = 6375.0e3  #In m
-n_p = 10 #Number of phases
+n_p = 1000 #Number of phases
 
 #Orbital orientation
-inc0 = np.radians(45) #Inclination
-Om0 = np.radians(10) #Longitude of the accending node
+inc0 = np.radians(49) #Inclination
+Om0 = np.radians(30) #Longitude of the accending node
 
 #Stellar vector
 ra = np.radians(0)
@@ -91,8 +91,10 @@ for ix, R in enumerate(Rs):
 
 #Lets compute dot products for the full orbit
 for ix in range(n_p):
-    sep1 = xyzo[1,ix] - xyzo[0,ix]
-    sep2 = xyzo[2,ix] - xyzo[0,ix]
+    sep1 = np.abs(xyzo[1,ix] - xyzo[0,ix])
+    sep2 = np.abs(xyzo[2,ix] - xyzo[0,ix])
+    total_sep = np.abs(xyzo[2,ix] - xyzo[1,ix])
+    #print(np.linalg.norm(sep1+sep2),np.linalg.norm(total_sep))
     print("Dot products with star vector: {:6.1f} {:6.1f}".format(np.dot(s_hat, sep1), np.dot(s_hat, sep2)))
 
 #Make pretty plots.
@@ -110,14 +112,13 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,2.*np.pi,6)): #np.pi, 31*np.
         in_to_eclipse = np.where(np.logical_not(visible[1:]) & visible[:-1])[0]
         for oute, ine in zip(out_of_eclipse, in_to_eclipse):
             plt.plot(xyz[oute:ine+1,0] + R_e, xyz[oute:ine+1,2] + R_e,line)
-        
+
         #Interpolate to current time.
         sat_xyz = [np.interp( (sat_phase-poffset) % (2*np.pi), phase, xyz[:,ii]) for ii in range(3)]
-        
+
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
     plt.tight_layout()
     #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
     plt.pause(.1)
-    
