@@ -61,7 +61,7 @@ s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 s_hat /= np.linalg.norm(s_hat)
 
 pt1_0 = np.dot(R_0, xyzc[0])
-pt2_0 = np.dot(R_0, xyzc[250])
+pt2_0 = np.dot(R_0, xyzc[12])
 
 perp_ln_1 = np.cross(s_hat,pt1_0/np.linalg.norm(pt1_0))
 perp_ln_2 = np.cross(s_hat,pt2_0/np.linalg.norm(pt2_0))
@@ -78,11 +78,11 @@ def sphere_line_intersection(p0,m,r):
     p1 = p0 + m*t1
     p2 = p0 + m*t2
     return p1,p2
-    
+
 pt2_1,pt2_2 = sphere_line_intersection(pt2_0,perp_ln_2,deputy_rad)
 
-o_1 = -np.cross(pt1_1,pt2_2)
-o_2 = -np.cross(pt1_2,pt2_1)
+o_1 = -np.cross(pt1_1,pt2_1)
+o_2 = -np.cross(pt1_2,pt2_2)
 o_1 /= np.linalg.norm(o_1)
 o_2 /= np.linalg.norm(o_2)
 inc_1 = np.arccos(o_1[2])
@@ -98,7 +98,7 @@ delta = b/R_orb
 Rs = [R_0]
 #poffsets = [0, -delta, delta]
 radii_fraction = deputy_rad/R_orb
-radii = [1,radii_fraction,radii_fraction]
+radii = [R_orb,deputy_rad,deputy_rad]
 print(radii)
 print(phi0, inc0)
 for phi, inc in zip([phi_1, phi_2], [inc_1, inc_2]):
@@ -107,14 +107,8 @@ for phi, inc in zip([phi_1, phi_2], [inc_1, inc_2]):
     R_th = np.array([[np.cos(inc),0,np.sin(inc)], [0, 1, 0], [-np.sin(inc), 0, np.cos(inc)]])
     Rs.append(R_phi.dot(R_th).dot(np.linalg.inv(R_phi)))
 
-#Use the Rotation matrices to find the orbital positions.
-for ix, R in enumerate(Rs):
-    for iy in range(n_p):
-        xyzo[ix,iy] = np.dot(R, xyzc[iy]*radii[ix])
-
 init_pos_diff_1 = np.dot(np.linalg.inv(Rs[1]),pt1_1) - xyzc[0]*radii_fraction
 init_pos_diff_2 = np.dot(np.linalg.inv(Rs[2]),pt1_2) - xyzc[0]*radii_fraction
-
 
 print(init_pos_diff_1,init_pos_diff_2)
 if init_pos_diff_1[1]>=0:
@@ -127,8 +121,13 @@ else:
     phase2 = -np.linalg.norm(init_pos_diff_2)/deputy_rad
 poffsets = [0, phase1, phase2]
 
+#Use the Rotation matrices to find the orbital positions.
+for ix, R in enumerate(Rs):
+    for iy in range(n_p):
+        xyzo[ix,iy] = np.dot(R, ((xyzc[iy]*radii[ix]/R_orb)/radii + poffsets[ix])*radii)
+
 #Lets compute dot products for the full orbit
-"""
+
 for ix in range(n_p):
     sep1 = xyzo[1,ix] - xyzo[0,ix]
     sep2 = xyzo[2,ix] - xyzo[0,ix]
@@ -136,7 +135,7 @@ for ix in range(n_p):
     sep2 /= np.linalg.norm(sep2)
     print(sep1,sep2,s_hat)
     print("Dot products with star vector: {:6.1f} {:6.1f}".format(np.dot(s_hat, sep1), np.dot(s_hat, sep2)))
-"""
+
 #Make pretty plots.
 for im_ix, sat_phase in enumerate(np.linspace(np.pi,2.*np.pi,6)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
@@ -154,7 +153,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,2.*np.pi,6)): #np.pi, 31*np.
             plt.plot(xyz[oute:ine+1,0] + R_e, xyz[oute:ine+1,2] + R_e,line)
 
         #Interpolate to current time.
-        sat_xyz = [np.interp( (sat_phase-poffset) % (2*np.pi), phase, xyz[:,ii]) for ii in range(3)]
+        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), phase, xyz[:,ii]) for ii in range(3)]
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
