@@ -3,7 +3,7 @@ Jonah Honours Project on Orbital Dynamics
 
 Files:
 
-plotter1 - your original code
+plotter1 - Mike's original code
 
 plotter2 - Messed around with the rotations, though it doesn't keep phase
 
