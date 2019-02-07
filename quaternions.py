@@ -54,7 +54,7 @@ def from_q(q):
         v = [0,0,0]
     else:
         v = q.v/norm_v
-    return v, theta*180/np.pi
+    return v, theta
  
 #Rotate all points in a list of positions
 def rotate_points(ls,q):
