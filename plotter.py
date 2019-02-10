@@ -19,13 +19,13 @@ R_e = 6375.0e3  #In m
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(24) #49
+inc_0 = np.radians(0) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(-24) #-30
+Om_0 = np.radians(0) #-30
 
 #Stellar vector
 ra = np.radians(0) #23
-dec = np.radians(43)#43
+dec = np.radians(45)#43
 
 #The distance to the other satellites in km
 b = 350e3
@@ -72,7 +72,7 @@ s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 z_hat = h_0/np.linalg.norm(h_0) #In direction of angular momentum
 y = s_hat-z_hat*(np.dot(s_hat,z_hat)) #Projection of the star vector on the orbital plane
 y_hat = y/np.linalg.norm(y)
-x_hat = np.cross(y_hat,z_hat) #Remaining orthogonal vector
+x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
 #Angle between angular momentum vector and star:
 theta =np.arccos(np.dot(z_hat,s_hat))
@@ -80,16 +80,16 @@ theta =np.arccos(np.dot(z_hat,s_hat))
 psi = b/R_orb #Angle between chief and deputy WRT Earth
 
 #Define deputy orbital planes in terms of a rotation of the chief satellite
-axis1 = np.cos(psi)*y_hat - np.sin(psi)*x_hat #Axis of rotation
+axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
 angle1 = psi*np.tan(theta) #Amount of rotation
-q_phase1 = qt.to_q(z_hat,psi) #Rotate in phase
+q_phase1 = qt.to_q(z_hat,-psi) #Rotate in phase
 q_plane1 = qt.to_q(axis1,angle1) #Rotate around axis
 q_orb1 = qt.comb_rot(q_phase1,q_plane1) #Combine
 
 #Same as above but for the second deputy
-axis2 = np.cos(-psi)*y_hat - np.sin(-psi)*x_hat
+axis2 = -np.cos(-psi)*y_hat + np.sin(-psi)*x_hat
 angle2 = -psi*np.tan(theta)
-q_phase2 = qt.to_q(z_hat,-psi)
+q_phase2 = qt.to_q(z_hat,psi)
 q_plane2 = qt.to_q(axis2,angle2)
 q_orb2 = qt.comb_rot(q_phase2,q_plane2)
 
