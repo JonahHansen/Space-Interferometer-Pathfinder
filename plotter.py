@@ -13,6 +13,19 @@ import astropy.units as u
 from mpl_toolkits.basemap import Basemap
 import quaternions as qt
 import LVLH as lvlh
+import matplotlib.ticker
+
+class OOMFormatter(matplotlib.ticker.ScalarFormatter):
+    def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
+        self.oom = order
+        self.fformat = fformat
+        matplotlib.ticker.ScalarFormatter.__init__(self,useOffset=offset,useMathText=mathText)
+    def _set_orderOfMagnitude(self, nothing):
+        self.orderOfMagnitude = self.oom
+    def _set_format(self, vmin, vmax):
+        self.format = self.fformat
+        if self._useMathText:
+            self.format = '$%s$' % matplotlib.ticker._mathdefault(self.format)
 
 
 plt.ion()
@@ -113,6 +126,7 @@ for ix in range(0,n_p,10):
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
 """
 #Make pretty plots.
+pos_ls = []
 for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
@@ -140,14 +154,27 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np
     plt.tight_layout()
     #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
 
-    plt.subplot(1, 2, 2)
-    plt.xlim(-2*b,2*b)
-    plt.ylim(-2*b,2*b)
+    plt.subplot(3, 3, 6)
+    km = 1e-3
+    plt.xlim(-2*b*km,2*b*km)
+    plt.ylim(-2*b*km,2*b*km)
+
     c,d1,d2,s = lvlh.orbits_to_LVLH(xyz_ls[0],xyz_ls[1],xyz_ls[2],s_hat,q_0)
     #s_factor = b/np.sqrt(s[0]**2+s[1]**2+s[2]**2)
     #plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b/40,color='k')
-    plt.plot(c[1],c[2],'ro')
-    plt.plot(d1[1],d1[2],'bo')
-    plt.plot(d2[1],d2[2],'bo')
+    pos_ls.append([c,d1,d2])
+    pos_arr = np.array(pos_ls)
+    
+    plt.plot(pos_arr[:,0,1]*km,pos_arr[:,0,2]*km,'r--')
+    plt.plot(pos_arr[:,1,1]*km,pos_arr[:,1,2]*km,'b--')
+    plt.plot(pos_arr[:,2,1]*km,pos_arr[:,2,2]*km,'b--')
+    
+    plt.plot(pos_arr[-1,0,1]*km,pos_arr[-1,0,2]*km,'ro')
+    plt.plot(pos_arr[-1,1,1]*km,pos_arr[-1,1,2]*km,'bo')
+    plt.plot(pos_arr[-1,2,1]*km,pos_arr[-1,2,2]*km,'bo')
+    plt.title("LVLH Frame")
+    plt.xlabel("Y Direction (along orbit) (km)")
+    plt.ylabel("Z Direction (along chief orbital axis) (km)")
+    
 
     plt.pause(.01)
