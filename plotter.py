@@ -12,6 +12,9 @@ import astropy.constants as const
 import astropy.units as u
 from mpl_toolkits.basemap import Basemap
 import quaternions as qt
+import LVLH as lvlh
+
+
 plt.ion()
 
 alt = 500.0e3   #In m
@@ -19,12 +22,12 @@ R_e = 6375.0e3  #In m
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(0) #49
+inc_0 = np.radians(56) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #-30
+Om_0 = np.radians(8) #-30
 
 #Stellar vector
-ra = np.radians(0) #23
+ra = np.radians(4) #23
 dec = np.radians(45)#43
 
 #The distance to the other satellites in km
@@ -81,14 +84,14 @@ psi = b/R_orb #Angle between chief and deputy WRT Earth
 
 #Define deputy orbital planes in terms of a rotation of the chief satellite
 axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
-angle1 = psi*np.tan(theta) #Amount of rotation
+angle1 = np.arctan(psi*np.tan(theta)) #Amount of rotation
 q_phase1 = qt.to_q(z_hat,-psi) #Rotate in phase
 q_plane1 = qt.to_q(axis1,angle1) #Rotate around axis
 q_orb1 = qt.comb_rot(q_phase1,q_plane1) #Combine
 
 #Same as above but for the second deputy
 axis2 = -np.cos(-psi)*y_hat + np.sin(-psi)*x_hat
-angle2 = -psi*np.tan(theta)
+angle2 = np.arctan(-psi*np.tan(theta))
 q_phase2 = qt.to_q(z_hat,psi)
 q_plane2 = qt.to_q(axis2,angle2)
 q_orb2 = qt.comb_rot(q_phase2,q_plane2)
@@ -97,20 +100,27 @@ q_orb2 = qt.comb_rot(q_phase2,q_plane2)
 xyzo[1] = qt.rotate_points(xyzo[0],q_orb1)
 xyzo[2] = qt.rotate_points(xyzo[0],q_orb2)
 
+"""
+def c_lvlh(i):
+    c,d1,d2 = lvlh.orbits_to_LVLH(xyzo[0,i],xyzo[1,i],xyzo[2,i],q_0)
+    return c,d1,d2
+
 #Lets compute dot products for the full orbit
 for ix in range(0,n_p,10):
     sep1 = xyzo[1,ix] - xyzo[0,ix]
     sep2 = xyzo[2,ix] - xyzo[0,ix]
     print(np.dot(sep1,s_hat),np.dot(sep2,s_hat))
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
-
+"""
 #Make pretty plots.
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,2.*np.pi,6)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
+    plt.subplot(1, 2, 1)
     map = Basemap(projection='ortho',lat_0=0,lon_0=180 - np.degrees(sat_phase*period/24/60),resolution='l')
     map.bluemarble(scale=0.4)
     plt.axis([-0.1*R_orb, 2.1*R_orb, -0.0*R_orb, 2.0*R_orb])
+    xyz_ls = []
     #Find non-vignetted parts (two vectors)
     for xyz, point, line in zip(xyzo, points, lines):
         visible = (xyz[:,1] > 0) | (np.sqrt(xyz[:,0]**2 + xyz[:,2]**2) > R_e)
@@ -122,10 +132,22 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,2.*np.pi,6)): #np.pi, 31*np.
 
         #Interpolate to current time.
         sat_xyz = [np.interp( (sat_phase) % (2*np.pi), phase, xyz[:,ii]) for ii in range(3)]
+        xyz_ls.append(sat_xyz)
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
     plt.tight_layout()
     #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
-    plt.pause(.05)
+
+    plt.subplot(1, 2, 2)
+    plt.xlim(-2*b,2*b)
+    plt.ylim(-2*b,2*b)
+    c,d1,d2,s = lvlh.orbits_to_LVLH(xyz_ls[0],xyz_ls[1],xyz_ls[2],s_hat,q_0)
+    #s_factor = b/np.sqrt(s[0]**2+s[1]**2+s[2]**2)
+    #plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b/40,color='k')
+    plt.plot(c[1],c[2],'ro')
+    plt.plot(d1[1],d1[2],'bo')
+    plt.plot(d2[1],d2[2],'bo')
+
+    plt.pause(.01)
