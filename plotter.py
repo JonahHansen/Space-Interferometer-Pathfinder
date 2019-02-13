@@ -13,20 +13,6 @@ import astropy.units as u
 from mpl_toolkits.basemap import Basemap
 import quaternions as qt
 import LVLH as lvlh
-import matplotlib.ticker
-
-class OOMFormatter(matplotlib.ticker.ScalarFormatter):
-    def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
-        self.oom = order
-        self.fformat = fformat
-        matplotlib.ticker.ScalarFormatter.__init__(self,useOffset=offset,useMathText=mathText)
-    def _set_orderOfMagnitude(self, nothing):
-        self.orderOfMagnitude = self.oom
-    def _set_format(self, vmin, vmax):
-        self.format = self.fformat
-        if self._useMathText:
-            self.format = '$%s$' % matplotlib.ticker._mathdefault(self.format)
-
 
 plt.ion()
 
@@ -125,6 +111,19 @@ for ix in range(0,n_p,10):
     print(np.dot(sep1,s_hat),np.dot(sep2,s_hat))
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
 """
+
+#Perturbations
+perturbs = [1]
+
+xyzp = np.zeros( (3,n_p,3) )
+
+tof = (period * u.min).to(u.s).value
+
+for i in range(3):
+    orb = ptb.from_pos_to_orbit(xyzo[i,0],xyzo[i,1],n_p,period)
+    rr, vv = cowell(orb, np.linspace(0, tof, n_p), ad=ptb.perturbations, index_ls = perturbs)
+    xyzp[i] = rr
+
 #Make pretty plots.
 pos_ls = [] #list of positions
 for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,10)): #np.pi, 31*np.pi,450))

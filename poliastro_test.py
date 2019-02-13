@@ -15,6 +15,7 @@ import perturbations as ptb
 #from poliastro.core.perturbations import atmospheric_drag, third_body, J2_perturbation
 
 
+
 a = 7000 * u.km #m
 ecc = 0. *u.one
 inc = 45 * u.deg

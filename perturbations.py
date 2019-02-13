@@ -4,11 +4,19 @@ import numpy as np
 from astropy import units as unit
 from poliastro.core.perturbations import atmospheric_drag, third_body, J2_perturbation, radiation_pressure
 from poliastro.bodies import Earth
+from poliastro.twobody import Orbit
+
+def null_accel(t0, state, k):
+    """Constant acceleration aligned with the velocity. """
+    return 0
 
 def perturbations(t0,u,k,index_ls,**kwargs):
     
     final_accel = 0
     R_E=Earth.R.to(unit.km).value
+    
+    if 0 in index_ls:
+        return np.zeros(3)
     
     ### J2 = 1 ###
     if 1 in index_ls:
@@ -55,3 +63,11 @@ def perturbations(t0,u,k,index_ls,**kwargs):
     
     return final_accel
     
+def from_pos_to_orbit(pos1,pos2,n_p,period):
+    ave_pos = 0.5*(pos1+pos2)
+    sep = pos2-pos1
+    #Velocity = dr/dt = dr/(T/num_phases)
+    vel = sep*n_p/period
+    
+    orbit = Orbit.from_vectors(Earth, ave_pos*unit.km, vel*unit.km/unit.min)
+    return orbit
