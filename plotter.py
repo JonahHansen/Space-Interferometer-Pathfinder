@@ -8,16 +8,19 @@ Note that cartopy and Basemap both should work here.
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.basemap import Basemap
 import astropy.constants as const
 import astropy.units as u
-from mpl_toolkits.basemap import Basemap
+from poliastro.bodies import Earth
+from poliastro.twobody.propagation import cowell
+import perturbations as ptb
 import quaternions as qt
-import LVLH as lvlh
+from LVLH import orbits_to_LVLH
 
 plt.ion()
 
-alt = 500.0e3   #In m
-R_e = 6375.0e3  #In m
+alt = 500.0e3   #In km
+R_e = Earth.R.to(u.km).value*1000  #In km
 n_p = 1000 #Number of phases
 
 #Orbital inclination
@@ -112,16 +115,21 @@ for ix in range(0,n_p,10):
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
 """
 
-#Perturbations
+#Perturbations (see module)
 perturbs = [1]
 
+#Array of perturbed orbits
 xyzp = np.zeros( (3,n_p,3) )
 
-tof = (period * u.min).to(u.s).value
+t_f = period
+times = np.linspace(0, t_f, n_p) #Times for orbit
 
 for i in range(3):
+    #Orbit from poliastro
     orb = ptb.from_pos_to_orbit(xyzo[i,0],xyzo[i,1],n_p,period)
-    rr, vv = cowell(orb, np.linspace(0, tof, n_p), ad=ptb.perturbations, index_ls = perturbs)
+
+    #Integrate orbit with given peturbations and append to array
+    rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs)
     xyzp[i] = rr
 
 #Make pretty plots.
@@ -150,27 +158,31 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,10)): #np.pi, 31*np
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
-    plt.tight_layout()
-    #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
 
+    plt.tight_layout()
     plt.subplot(3, 3, 6)
+
     km = 1e-3
+
     plt.xlim(-2*b*km,2*b*km)
     plt.ylim(-2*b*km,2*b*km)
 
     #LVLH positions
-    c,d1,d2,s = lvlh.orbits_to_LVLH(xyz_ls[0],xyz_ls[1],xyz_ls[2],s_hat,q_0)
-    s_factor = b*km
+    lvlh_vecs = orbits_to_LVLH(xyz_ls[0],[xyz_ls[1],xyz_ls[2],s_hat],q_0)
+
     #Star vector
-    plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b*km/40,color='k')
-    pos_ls.append([c,d1,d2])
+    s = lvlh_vecs[3]
+    plt.arrow(0,0,b*km*s[1],b*km*s[2],width=b*km/40,color='k')
+
+    #List of positions
+    pos_ls.append([lvlh_vecs[0],lvlh_vecs[1],lvlh_vecs[2]])
     pos_arr = np.array(pos_ls)
-    
+
     #Plot previous positions as a line
     plt.plot(pos_arr[:,0,1]*km,pos_arr[:,0,2]*km,'r--')
     plt.plot(pos_arr[:,1,1]*km,pos_arr[:,1,2]*km,'b--')
     plt.plot(pos_arr[:,2,1]*km,pos_arr[:,2,2]*km,'b--')
-    
+
     #Plot the current point
     plt.plot(pos_arr[-1,0,1]*km,pos_arr[-1,0,2]*km,'ro')
     plt.plot(pos_arr[-1,1,1]*km,pos_arr[-1,1,2]*km,'bo')
@@ -178,6 +190,6 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,10)): #np.pi, 31*np
     plt.title("LVLH Frame")
     plt.xlabel("Y Direction (along orbit) (km)")
     plt.ylabel("Z Direction (along chief orbital axis) (km)")
-    
+
 
     plt.pause(.01)

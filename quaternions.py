@@ -1,9 +1,10 @@
-## QUATERNION ROTATION SCRIPT ##
-## TO USE:
-## 1. First define rotation using to_q
-## 2. Add more rotations by multiplying quaternions
-## 3. Use either rotate or rotate_points to apply final quaternion rotation
-
+""" Quaternion Module """
+"""
+TO USE:
+1. First define rotation using to_q
+2. Add more rotations by multiplying quaternions
+3. Use either rotate or rotate_points to apply final quaternion rotation
+"""
 import numpy as np
 
 class quaternion:
@@ -11,27 +12,27 @@ class quaternion:
     def __init__(self,scalar,vector):
         self.s = scalar
         self.v = vector
-    
+
     #Normalise the quaternion
     def normalise(self):
         norm = np.sqrt(self.s**2 + np.dot(self.v,self.v))
         self.s = self.s/norm
         self.v = self.v/norm
         return
-    
+
 #Conjugate of a quaternion
 def conjugate(q):
     q2 = quaternion(q.s,q.v)
     q2.v = -(q2.v)
     return q2
-    
+
 #Take two normalised quaternions (rotations), and multiply them
 def q_mult(q1,q2):
     q3 = quaternion(0,np.array([0,0,0]))
     q3.s = q1.s*q2.s - np.dot(q1.v,q2.v)
     q3.v = q1.s*q2.v + q2.s*q1.v + np.cross(q1.v,q2.v)
     return q3
-    
+
 #Turn a rotation into a normalised quaternion (angle in radians). Axis does not need to be normalised
 def to_q(axis,angle):
     axis_norm = np.linalg.norm(axis)
@@ -39,7 +40,7 @@ def to_q(axis,angle):
     q = quaternion(np.cos(angle),axis/axis_norm*np.sin(angle))
     q.normalise()
     return q
-    
+
 #Rotate a vector by the quaternion
 def rotate(v,q):
     p = quaternion(0,v)
@@ -55,7 +56,7 @@ def from_q(q):
     else:
         v = q.v/norm_v
     return v, theta
- 
+
 #Rotate all points in a list of positions
 def rotate_points(ls,q):
     new_ls = np.zeros(ls.shape)
