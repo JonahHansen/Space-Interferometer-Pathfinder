@@ -35,9 +35,9 @@ R_e = 6375.0e3  #In m
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(56) #49
+inc_0 = np.radians(29) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(8) #-30
+Om_0 = np.radians(-32) #-30
 
 #Stellar vector
 ra = np.radians(4) #23
@@ -115,8 +115,8 @@ xyzo[2] = qt.rotate_points(xyzo[0],q_orb2)
 
 """
 def c_lvlh(i):
-    c,d1,d2 = lvlh.orbits_to_LVLH(xyzo[0,i],xyzo[1,i],xyzo[2,i],q_0)
-    return c,d1,d2
+    c,d1,d2,s = lvlh.orbits_to_LVLH(xyzo[0,i],xyzo[1,i],xyzo[2,i],s_hat,q_0)
+    return c,d1,d2,s
 
 #Lets compute dot products for the full orbit
 for ix in range(0,n_p,10):
@@ -126,8 +126,8 @@ for ix in range(0,n_p,10):
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
 """
 #Make pretty plots.
-pos_ls = []
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np.pi,450))
+pos_ls = [] #list of positions
+for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,10)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
@@ -159,16 +159,20 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np
     plt.xlim(-2*b*km,2*b*km)
     plt.ylim(-2*b*km,2*b*km)
 
+    #LVLH positions
     c,d1,d2,s = lvlh.orbits_to_LVLH(xyz_ls[0],xyz_ls[1],xyz_ls[2],s_hat,q_0)
-    #s_factor = b/np.sqrt(s[0]**2+s[1]**2+s[2]**2)
-    #plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b/40,color='k')
+    s_factor = b*km
+    #Star vector
+    plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b*km/40,color='k')
     pos_ls.append([c,d1,d2])
     pos_arr = np.array(pos_ls)
     
+    #Plot previous positions as a line
     plt.plot(pos_arr[:,0,1]*km,pos_arr[:,0,2]*km,'r--')
     plt.plot(pos_arr[:,1,1]*km,pos_arr[:,1,2]*km,'b--')
     plt.plot(pos_arr[:,2,1]*km,pos_arr[:,2,2]*km,'b--')
     
+    #Plot the current point
     plt.plot(pos_arr[-1,0,1]*km,pos_arr[-1,0,2]*km,'ro')
     plt.plot(pos_arr[-1,1,1]*km,pos_arr[-1,1,2]*km,'bo')
     plt.plot(pos_arr[-1,2,1]*km,pos_arr[-1,2,2]*km,'bo')
