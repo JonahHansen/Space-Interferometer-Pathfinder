@@ -16,7 +16,7 @@ from LVLH import orbits_to_LVLH
 
 alt = 500 #In km
 R_e = Earth.R.to(u.km).value  #In km
-n_p = 10000 #Number of phases
+n_p = 1000 #Number of phases
 
 #Orbital inclination
 inc_0 = np.radians(60) #49
@@ -134,6 +134,19 @@ for i in range(n_p):
     lvlho[:,i] = orbits_to_LVLH(xyzo[0,i],[xyzo[1,i],xyzo[2,i]],q_0)
     lvlhp[:,i] = orbits_to_LVLH(xyzp[0,i],[xyzp[1,i],xyzp[2,i]],q_0)
 
+del_deputy_xyz = xyzo[1]-xyzo[2]-(xyzp[1]-xyzp[2])
+del_deputy_lvlh = xyzo[1]-xyzo[2]-(xyzp[1]-xyzp[2])
+
+del_deputy_mag = np.array([np.linalg.norm(i) for i in del_deputy_xyz])
+
+delt = 360
+del_deputy_xyz[:int(delt*n_p/period)]
+del_deputy_lvlh[:int(delt*n_p/period)]
+del_deputy_mag[:int(delt*n_p/period)]
+times[:int(delt*n_p/period)]
+
+### PLOTTING STUFF ###
+
 ### Functions to set 3D axis aspect ratio as equal
 def set_axes_radius(ax, origin, radius):
     ax.set_xlim3d([origin[0] - radius, origin[0] + radius])
@@ -154,6 +167,7 @@ def set_axes_equal(ax):
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     set_axes_radius(ax, origin, radius)
 
+"""
 
 ### 3D Geocentric Cartesian plot of the effect of perturbations ###
 plt.figure(1)
@@ -220,5 +234,57 @@ ax4_2.set_ylabel('Delta v (km)')
 ax4_3.set_ylabel('Delta h (km)')
 ax4_3.set_xlabel('Time (s)')
 ax4_1.set_title('Effect of perturbation on orbit in LVLH coordinates')
+
+"""
+
+### 3D Geocentric Cartesian plot of the effect of perturbations on deputy separation###
+plt.figure(1)
+ax1 = plt.axes(projection='3d')
+ax1.set_aspect('equal')
+ax1.plot3D(del_deputy_xyz[:,0],del_deputy_xyz[:,1],del_deputy_xyz[:,2],'k-')
+ax1.set_xlabel('Delta x (km)')
+ax1.set_ylabel('Delta y (km)')
+ax1.set_zlabel('Delta z (km)')
+ax1.set_title('Effect of perturbation on deputy separation in geocentric cartesian coordinates')
+set_axes_equal(ax1)
+
+### 2D Geocentric Cartesian plots: Effect of perturbation on deputy separation against time for each axis ###
+fig2, [ax2_1, ax2_2, ax2_3] = plt.subplots(3, 1, sharex=True, sharey=True)
+ax2_1.plot(times,del_deputy_xyz[:,0],"b-")
+ax2_2.plot(times,del_deputy_xyz[:,1],"r-")
+ax2_3.plot(times,del_deputy_xyz[:,2],"g-")
+ax2_1.set_ylabel('Delta x (km)')
+ax2_2.set_ylabel('Delta y (km)')
+ax2_3.set_ylabel('Delta z (km)')
+ax2_3.set_xlabel('Time (s)')
+ax2_1.set_title('Effect of perturbation on deputy separation in geocentric cartesian coordinates')
+
+### 3D LVLH plot of the effect of perturbations on deputy separation###
+plt.figure(3)
+ax3 = plt.axes(projection='3d')
+ax3.set_aspect('equal')
+ax3.plot3D(del_deputy_lvlh[:,0],del_deputy_lvlh[:,1],del_deputy_lvlh[:,2],'k-')
+ax3.set_xlabel('Delta r (km)')
+ax3.set_ylabel('Delta v (km)')
+ax3.set_zlabel('Delta h (km)')
+ax3.set_title('Effect of perturbation on deputy separation in LVLH coordinates')
+set_axes_equal(ax3)
+
+### 2D LVLH plots: Effect of perturbation on deputy separation against time for each axis ###
+fig4, [ax4_1, ax4_2, ax4_3] = plt.subplots(3, 1, sharex=True, sharey=True)
+ax4_1.plot(times,del_deputy_lvlh[:,0],"b-")
+ax4_2.plot(times,del_deputy_lvlh[:,1],"r-")
+ax4_3.plot(times,del_deputy_lvlh[:,2],"g-")
+ax4_1.set_ylabel('Delta r (km)')
+ax4_2.set_ylabel('Delta v (km)')
+ax4_3.set_ylabel('Delta h (km)')
+ax4_3.set_xlabel('Time (s)')
+ax4_1.set_title('Effect of perturbation on deputy separation in LVLH coordinates')
+
+plt.figure(5)
+plt.plot(times,del_deputy_mag,'k-')
+plt.ylabel("Magnitude of separation (km)")
+plt.xlabel("Time (s)")
+plt.title("Magnitude of change in separation due to peturbation against time")
 
 plt.show()
