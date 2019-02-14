@@ -7,20 +7,21 @@ import astropy.constants as const
 from astropy import units as u
 from poliastro.bodies import Earth, Moon, Sun
 from poliastro.twobody.propagation import cowell
+from poliastro.twobody import Orbit
 import quaternions as qt
 import perturbations as ptb
 from LVLH import orbits_to_LVLH
 
-plt.ion()
+#plt.ion()
 
 alt = 500 #In km
 R_e = Earth.R.to(u.km).value  #In km
-n_p = 100 #Number of phases
+n_p = 10000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(80) #49
+inc_0 = np.radians(60) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(14) #-30
+Om_0 = np.radians(34) #-30
 
 #Stellar vector
 ra = np.radians(52) #23
@@ -29,7 +30,7 @@ dec = np.radians(45)#43
 #The distance to the other satellites in km
 b = 350
 
-period = 95.5*60
+#period = 95.5*60
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
 
@@ -39,16 +40,22 @@ R_orb = R_e + alt
 #Orbital phase, i.e. mean longitude. n_p the number of phases
 phase = np.linspace(0, 2*np.pi, n_p)
 
-#period = 2*np.pi*np.sqrt((R_orb*1e3)**3/const.GM_earth) #In seconds.
+period = 2*np.pi*np.sqrt((R_orb*1e3)**3/const.GM_earth).value #In seconds.
 
-#Central spacecraft Cartesian coordinates for a circular orbit in the x,y plane.
+ang_vel = 2*np.pi/period
+
+#Central spacecraft Cartesian coordinates (and velocities) for a circular orbit in the x,y plane.
 xyzc = np.zeros( (n_p,3) )
+uvwc = np.zeros( (n_p,3) )
 for i in range(n_p):
     xyzc[i,0] = np.cos(phase[i]) * R_orb
     xyzc[i,1] = np.sin(-phase[i]) * R_orb
+    uvwc[i,0] = -np.sin(phase[i]) * R_orb * ang_vel
+    uvwc[i,1] = -np.cos(phase[i]) * R_orb * ang_vel
 
 #Cartesian coordinates for all 3 spacecraft
 xyzo = np.zeros( (3,n_p,3) )
+uvwo = np.zeros( (3,n_p,3) )
 
 #Initial axis unit vectors
 xaxis = np.array([1,0,0])
@@ -57,11 +64,12 @@ zaxis = np.array([0,0,1])
 
 #Quaternion rotation, using Mike's "No phase difference" rotation!
 q_Om = qt.to_q(zaxis,Om_0)
-q_inc = qt.to_q(yaxis,inc_0)
+q_inc = qt.to_q(xaxis,inc_0) #xaxis to be consistent with poliastro
 q_0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
 
 #Cartesian points on the rotated orbit
 xyzo[0] = qt.rotate_points(xyzc,q_0)
+uvwo[0] = qt.rotate_points(uvwc,q_0)
 
 #Angular momentum vector of chief satellite
 h_0 = qt.rotate(zaxis,q_0)
@@ -76,7 +84,7 @@ y_hat = y/np.linalg.norm(y)
 x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
 #Angle between angular momentum vector and star:
-theta =np.arccos(np.dot(z_hat,s_hat))
+theta = np.arccos(np.dot(z_hat,s_hat))
 
 psi = b/R_orb #Angle between chief and deputy WRT Earth
 
@@ -97,6 +105,9 @@ q_orb2 = qt.comb_rot(q_phase2,q_plane2)
 #Rotate the chiefs orbit
 xyzo[1] = qt.rotate_points(xyzo[0],q_orb1)
 xyzo[2] = qt.rotate_points(xyzo[0],q_orb2)
+uvwo[1] = qt.rotate_points(uvwo[0],q_orb1)
+uvwo[2] = qt.rotate_points(uvwo[0],q_orb2)
+
 
 #Perturbations (see module)
 perturbs = [1]
@@ -109,7 +120,8 @@ times = np.linspace(0, t_f, n_p) #Times for orbit
 
 for i in range(3):
     #Orbit from poliastro
-    orb = ptb.from_pos_to_orbit(xyzo[i,0],xyzo[i,1],n_p,period)
+    #orb = ptb.from_pos_to_orbit(xyzo[i,0],xyzo[i,1],n_p,period)
+    orb = Orbit.from_vectors(Earth, xyzo[i,0]*u.km, uvwo[i,0]*u.km / u.s)
 
     #Integrate orbit with given peturbations and append to array
     rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs)
@@ -208,3 +220,5 @@ ax4_2.set_ylabel('Delta v (km)')
 ax4_3.set_ylabel('Delta h (km)')
 ax4_3.set_xlabel('Time (s)')
 ax4_1.set_title('Effect of perturbation on orbit in LVLH coordinates')
+
+plt.show()

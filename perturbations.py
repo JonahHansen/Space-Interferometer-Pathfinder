@@ -61,15 +61,17 @@ def perturbations(t0,u,k,index_ls,**kwargs):
 
     return final_accel
 
+"""
 #Take two consecutive positions, and the period, to calculate the velocity vectors
 # and then calculate the poliastro orbit
 def from_pos_to_orbit(pos1,pos2,n_p,period):
-    ave_pos = 0.5*(pos1+pos2) #Average position vector between the two
+    #ave_pos = 0.5*(pos1+pos2) #Average position vector between the two
     sep = pos2-pos1 #Separation vector
 
     #Velocity = dr/dt = dr/(T/num_phases)
     vel = sep*n_p/period
 
     #Make orbit
-    orbit = Orbit.from_vectors(Earth, ave_pos*unit.km, vel*unit.km / unit.s)
+    orbit = Orbit.from_vectors(Earth, pos1*unit.km, vel*unit.km / unit.s)
     return orbit
+"""
