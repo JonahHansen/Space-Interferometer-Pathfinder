@@ -28,7 +28,7 @@ ra = np.radians(52) #23
 dec = np.radians(45)#43
 
 #The distance to the other satellites in km
-b = 350
+b = 3
 
 #period = 95.5*60
 lines = ['r:', 'g:', 'g:']
@@ -134,16 +134,18 @@ for i in range(n_p):
     lvlho[:,i] = orbits_to_LVLH(xyzo[0,i],[xyzo[1,i],xyzo[2,i]],q_0)
     lvlhp[:,i] = orbits_to_LVLH(xyzp[0,i],[xyzp[1,i],xyzp[2,i]],q_0)
 
+#Effects on separation of deputy spacecraft due to peturbation
+
 del_deputy_xyz = xyzo[1]-xyzo[2]-(xyzp[1]-xyzp[2])
-del_deputy_lvlh = xyzo[1]-xyzo[2]-(xyzp[1]-xyzp[2])
+del_deputy_lvlh = lvlho[1]-lvlho[2]-(lvlhp[1]-lvlhp[2])
 
 del_deputy_mag = np.array([np.linalg.norm(i) for i in del_deputy_xyz])
 
-delt = 360
-del_deputy_xyz[:int(delt*n_p/period)]
-del_deputy_lvlh[:int(delt*n_p/period)]
-del_deputy_mag[:int(delt*n_p/period)]
-times[:int(delt*n_p/period)]
+delt = 6000 #Times to plot in s
+del_deputy_xyz = del_deputy_xyz[0:int(delt*n_p/period)]*1e3
+del_deputy_lvlh = del_deputy_lvlh[0:int(delt*n_p/period)]*1e3
+del_deputy_mag = del_deputy_mag[0:int(delt*n_p/period)]*1e3
+times = times[0:int(delt*n_p/period)]
 
 ### PLOTTING STUFF ###
 
@@ -242,9 +244,9 @@ plt.figure(1)
 ax1 = plt.axes(projection='3d')
 ax1.set_aspect('equal')
 ax1.plot3D(del_deputy_xyz[:,0],del_deputy_xyz[:,1],del_deputy_xyz[:,2],'k-')
-ax1.set_xlabel('Delta x (km)')
-ax1.set_ylabel('Delta y (km)')
-ax1.set_zlabel('Delta z (km)')
+ax1.set_xlabel('Delta x (m)')
+ax1.set_ylabel('Delta y (m)')
+ax1.set_zlabel('Delta z (m)')
 ax1.set_title('Effect of perturbation on deputy separation in geocentric cartesian coordinates')
 set_axes_equal(ax1)
 
@@ -253,9 +255,9 @@ fig2, [ax2_1, ax2_2, ax2_3] = plt.subplots(3, 1, sharex=True, sharey=True)
 ax2_1.plot(times,del_deputy_xyz[:,0],"b-")
 ax2_2.plot(times,del_deputy_xyz[:,1],"r-")
 ax2_3.plot(times,del_deputy_xyz[:,2],"g-")
-ax2_1.set_ylabel('Delta x (km)')
-ax2_2.set_ylabel('Delta y (km)')
-ax2_3.set_ylabel('Delta z (km)')
+ax2_1.set_ylabel('Delta x (m)')
+ax2_2.set_ylabel('Delta y (m)')
+ax2_3.set_ylabel('Delta z (m)')
 ax2_3.set_xlabel('Time (s)')
 ax2_1.set_title('Effect of perturbation on deputy separation in geocentric cartesian coordinates')
 
@@ -264,9 +266,9 @@ plt.figure(3)
 ax3 = plt.axes(projection='3d')
 ax3.set_aspect('equal')
 ax3.plot3D(del_deputy_lvlh[:,0],del_deputy_lvlh[:,1],del_deputy_lvlh[:,2],'k-')
-ax3.set_xlabel('Delta r (km)')
-ax3.set_ylabel('Delta v (km)')
-ax3.set_zlabel('Delta h (km)')
+ax3.set_xlabel('Delta r (m)')
+ax3.set_ylabel('Delta v (m)')
+ax3.set_zlabel('Delta h (m)')
 ax3.set_title('Effect of perturbation on deputy separation in LVLH coordinates')
 set_axes_equal(ax3)
 
@@ -275,15 +277,15 @@ fig4, [ax4_1, ax4_2, ax4_3] = plt.subplots(3, 1, sharex=True, sharey=True)
 ax4_1.plot(times,del_deputy_lvlh[:,0],"b-")
 ax4_2.plot(times,del_deputy_lvlh[:,1],"r-")
 ax4_3.plot(times,del_deputy_lvlh[:,2],"g-")
-ax4_1.set_ylabel('Delta r (km)')
-ax4_2.set_ylabel('Delta v (km)')
-ax4_3.set_ylabel('Delta h (km)')
+ax4_1.set_ylabel('Delta r (m)')
+ax4_2.set_ylabel('Delta v (m)')
+ax4_3.set_ylabel('Delta h (m)')
 ax4_3.set_xlabel('Time (s)')
 ax4_1.set_title('Effect of perturbation on deputy separation in LVLH coordinates')
 
 plt.figure(5)
 plt.plot(times,del_deputy_mag,'k-')
-plt.ylabel("Magnitude of separation (km)")
+plt.ylabel("Magnitude of separation (m)")
 plt.xlabel("Time (s)")
 plt.title("Magnitude of change in separation due to peturbation against time")
 
