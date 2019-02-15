@@ -1,4 +1,4 @@
-""" LVLH module""" 
+""" Frames module"""
 
 import numpy as np
 import quaternions as qt
@@ -11,7 +11,7 @@ def to_LVLH_func(r_c,q):
   r_hat = r_c/np.linalg.norm(r_c) #Position vector pointing away from the centre of the Earth
   v_hat = np.cross(h_hat,r_hat) #Velocity vector pointing counter-clockwise
 
-  rot_mat = np.linalg.inv(np.transpose([r_hat,v_hat,h_hat])) #Rotation matrix from three unit vectors
+  rot_mat = np.array([r_hat,v_hat,h_hat]) #Rotation matrix from three unit vectors
 
   #Function to take a vector in ECEF and return it in LVLH
   def LVLH(v):
@@ -20,16 +20,38 @@ def to_LVLH_func(r_c,q):
   return LVLH
 
 #Convert chief,deputies and star orbits into LVLH frame
-def orbits_to_LVLH(chief,other_vectors,chiefq):
-    func = to_LVLH_func(chief,chiefq) #Create change of basis function
+def orbits_to_LVLH(r_c,other_vectors,chiefq):
+    func = to_LVLH_func(r_c,chiefq) #Create change of basis function
 
     #New vectors in lvlh frame
-    return_ls = [func(chief)]
+    return_ls = [func(r_c)]
     for vec in other_vectors:
         return_ls.append(func(vec))
 
     return np.array(return_ls)
+    
+def to_baseline_func(r_c,r_d2,s_hat):
+    sep_v = r_d2 - r_c
+    sep_v /= np.linalg.norm(sep_v)
+    oth_v = np.cross(s_hat,sep_v)
+    
+    rot_mat = np.array([oth_v,sep_v,s_hat])
+    
+    def baseline(v):
+        return np.dot(rot_mat,v)-np.dot(rot_mat,r_c)
+        
+    return baseline
+    
+def orbits_to_baseline(r_c,r_d1,r_d2,s_hat,other_vectors):
+    func = to_baseline_func(r_c,r_d2,s_hat)
+    
+    return_ls = [func(r_c),func(r_d1),func(r_d2)]
+    for vec in other_vectors:
+        return_ls.append(func(vec))
 
+    return np.array(return_ls)
+    
+    
 """
 def to_LVLH(v_c,q):
   x = np.array([1,0,0])

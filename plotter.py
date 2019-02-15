@@ -15,7 +15,7 @@ from poliastro.bodies import Earth
 from poliastro.twobody.propagation import cowell
 import perturbations as ptb
 import quaternions as qt
-from LVLH import orbits_to_LVLH
+from frame import orbits_to_LVLH
 
 plt.ion()
 
