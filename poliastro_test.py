@@ -15,7 +15,7 @@ from frame import orbits_to_LVLH, orbits_to_baseline
 
 plt.ion()
 
-alt = 500e3 #In km
+alt = 1000e3 #In km
 
 n_p = 1000 #Number of phases
 
@@ -34,14 +34,15 @@ b = 0.3*1e3
 #Perturbations (see module)
 perturbs = [3,4]
 j_date = 2454283.0 * u.day
-drag_coeff = 0
-front_area = 0
-mass = 0
-atm_scale_height = 0
-exponent_density_prefactor = 0
 
-rad_pressure_coeff = 0
-effective_spacecraft_area = 0
+drag_coeff = [0,0,0]
+front_area = [0,0,0]
+mass = [0,0,0]
+atm_scale_height = [0,0,0]
+exponent_density_prefactor = [0,0,0]
+
+rad_pressure_coeff = [0,0,0]
+effective_spacecraft_area = [0,0,0]
 
 #------------------------------------------------------------------------------------------
 #Orbital radius the sum of earth radius and altitude
@@ -138,7 +139,7 @@ if 3 in perturbs:
 else:
     moon = 0
 
-if 4 or 5 in perturbs:
+if 4 in perturbs or 5 in perturbs:
     print("BUILDING SUN EPHEM")
     sun = ptb.sun_ephem(t_f,j_date)
 else:
@@ -158,9 +159,9 @@ for i in range(3):
     orb = Orbit.from_vectors(Earth, xyzo[i,0]*u.m, uvwo[i,0]*u.m / u.s, epoch = epoch)
 
     #Integrate orbit with given peturbations and append to array
-    rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs, C_D = drag_coeff,
-                    A = front_area, m = mass, H0 = atm_scale_height,rho0 = exponent_density_prefactor,
-                    moon = moon, sun = sun, C_R = rad_pressure_coeff, A2 = effective_spacecraft_area)
+    rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs, C_D = drag_coeff[i],
+                    A = front_area[i], m = mass[i], H0 = atm_scale_height[i], rho0 = exponent_density_prefactor[i],
+                    moon = moon, sun = sun, C_R = rad_pressure_coeff[i], A2 = effective_spacecraft_area[i])
     xyzf[i+3] = rr
     xyzf[i+3] *= 1e3 #To m
 
