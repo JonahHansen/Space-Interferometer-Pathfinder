@@ -114,7 +114,7 @@ for ix in range(0,n_p,10):
     print(np.dot(sep1,s_hat),np.dot(sep2,s_hat))
     print("Angles to correct plane: {:6.3f} {:6.3f}".format(np.arcsin(np.dot(s_hat, sep1/np.linalg.norm(sep1))), np.arcsin(np.dot(s_hat, sep2/np.linalg.norm(sep2)))))
 """
-
+"""
 #Perturbations (see module)
 perturbs = [1]
 
@@ -131,10 +131,10 @@ for i in range(3):
     #Integrate orbit with given peturbations and append to array
     rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs)
     xyzp[i] = rr
-
+"""
 #Make pretty plots.
 pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,10)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)

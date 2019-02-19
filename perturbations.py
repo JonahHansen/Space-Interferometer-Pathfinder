@@ -2,9 +2,13 @@
 
 import numpy as np
 from astropy import units as unit
+import astropy.constants as const
 from poliastro.core.perturbations import atmospheric_drag, third_body, J2_perturbation, radiation_pressure
-from poliastro.bodies import Earth
+from poliastro.bodies import Earth, Moon, Sun
 from poliastro.twobody import Orbit
+from poliastro.ephem import build_ephem_interpolant
+from astropy.coordinates import solar_system_ephemeris
+from astropy.time import Time
 
 def perturbations(t0,u,k,index_ls,**kwargs):
 
@@ -36,30 +40,50 @@ def perturbations(t0,u,k,index_ls,**kwargs):
         final_accel += drag
 
 
-    ### Third Body = 3 ###
+    ### Third Body: MOON = 3 ###
     if 3 in index_ls:
 
-        #k (float) – gravitational constant of third body (km^3/s^2)
         #third_body (a callable object returning the position of 3rd body) – third body that causes the perturbation
 
-        t_body = third_body(t0,u,k,kwargs["k_third"],kwargs["third_body"])
+        t_body = third_body(t0,u,k,Moon.k.to(unit.km**3 / unit.s**2).value,kwargs["moon"])
         final_accel += t_body
 
 
-    ### Rad_pressure = 4 ###
+    ### Third Body: SUN = 4 ###
     if 4 in index_ls:
+
+        #third_body (a callable object returning the position of 3rd body) – third body that causes the perturbation
+
+        t_body = third_body(t0,u,k,Sun.k.to(unit.km**3 / unit.s**2).value,kwargs["sun"])
+        final_accel += t_body
+
+    ### Rad_pressure of sun = 5 ###
+    if 5 in index_ls:
 
         #C_R (float) – dimensionless radiation pressure coefficient, 1 < C_R < 2 ()
         #A (float) – effective spacecraft area (km^2)
         #m (float) – mass of the spacecraft (kg)
-        #Wdivc_s (float) – total star emitted power divided by the speed of light (W * s / km)
-        #star (a callable object returning the position of star in attractor frame) – star position
-
-        rad_pressure = (t0,u,k,R_E,kwargs["C_R"],kwargs["A2"],kwargs["m"],kwargs["Wdivc_s"],kwargs["star"])
+        #W (float) – total star emitted power (W)
+        
+        #4 Pi in there due to incorrect module
+        Wdivc_s = const.L_sun/(4*np.pi*const.c.to('km/s'))
+        
+        rad_pressure = (t0,u,k,R_E,kwargs["C_R"],kwargs["A2"],kwargs["m"],Wdivc_s,kwargs["sun"])
         final_accel += rad_pressure
 
 
     return final_accel
+
+
+def moon_ephem(tof,j_date):
+    solar_system_ephemeris.set('de432s')
+    body_r = build_ephem_interpolant(Moon, 28 * unit.day, (j_date, j_date + tof* unit.day), rtol=1e-2)
+    return body_r
+
+def sun_ephem(tof,j_date):
+    solar_system_ephemeris.set('de432s')
+    body_r = build_ephem_interpolant(Sun, 365 * unit.day, (j_date, j_date + tof* unit.day), rtol=1e-2)
+    return body_r
 
 """
 #Take two consecutive positions, and the period, to calculate the velocity vectors

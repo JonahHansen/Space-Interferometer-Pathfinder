@@ -5,7 +5,8 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from astropy import units as u
-from poliastro.bodies import Earth, Moon, Sun
+from astropy.time import Time
+from poliastro.bodies import Earth
 from poliastro.twobody.propagation import cowell
 from poliastro.twobody import Orbit
 import quaternions as qt
@@ -15,11 +16,11 @@ from frame import orbits_to_LVLH, orbits_to_baseline
 plt.ion()
 
 alt = 500e3 #In km
-R_e = Earth.R.to(u.m).value #In m
+
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(60) #49
+inc_0 = np.radians(0) #49
 #Longitude of the Ascending Node
 Om_0 = np.radians(34) #-30
 
@@ -30,12 +31,21 @@ dec = np.radians(45)#43
 #The distance to the other satellites in km
 b = 0.3*1e3
 
-#period = 95.5*60
-lines = ['r:', 'g:', 'g:']
-points = ['r.', 'g.', 'g.']
+#Perturbations (see module)
+perturbs = [3,4]
+j_date = 2454283.0 * u.day
+drag_coeff = 0
+front_area = 0
+mass = 0
+atm_scale_height = 0
+exponent_density_prefactor = 0
+
+rad_pressure_coeff = 0
+effective_spacecraft_area = 0
 
 #------------------------------------------------------------------------------------------
 #Orbital radius the sum of earth radius and altitude
+R_e = Earth.R.to(u.m).value #In m
 R_orb = R_e + alt
 #Orbital phase, i.e. mean longitude. n_p the number of phases
 phase = np.linspace(0, 2*np.pi, n_p)
@@ -43,6 +53,9 @@ phase = np.linspace(0, 2*np.pi, n_p)
 period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #In seconds.
 
 ang_vel = 2*np.pi/period
+
+lines = ['r:', 'g:', 'g:']
+points = ['r.', 'g.', 'g.']
 
 #Central spacecraft Cartesian coordinates (and velocities) for a circular orbit in the x,y plane.
 xyzc = np.zeros( (n_p,3) )
@@ -108,24 +121,46 @@ xyzo[2] = qt.rotate_points(xyzo[0],q_orb2)
 uvwo[1] = qt.rotate_points(uvwo[0],q_orb1)
 uvwo[2] = qt.rotate_points(uvwo[0],q_orb2)
 
-#Perturbations (see module)
-perturbs = [1]
+
 
 #Array of orbits, both normal and perturbed
 xyzf = np.zeros( (6,n_p,3) )
 
 t_f = period
+
+epoch = Time(j_date, format='jd', scale = 'tdb')
+
 times = np.linspace(0, t_f, n_p) #Times for orbit
+
+if 3 in perturbs:
+    print("BUILDING MOON EPHEM")
+    moon = ptb.moon_ephem(t_f,j_date)
+else:
+    moon = 0
+
+if 4 or 5 in perturbs:
+    print("BUILDING SUN EPHEM")
+    sun = ptb.sun_ephem(t_f,j_date)
+else:
+    sun = 0
+
+#C_D (float) – dimensionless drag coefficient ()
+        #A (float) – frontal area of the spacecraft (km^2)
+        #m (float) – mass of the spacecraft (kg)
+        #H0 (float) – atmospheric scale height (km)
+        #rho0
 
 xyzf[0:3] = xyzo
 
 for i in range(3):
     #Orbit from poliastro
     #orb = ptb.from_pos_to_orbit(xyzo[i,0],xyzo[i,1],n_p,period)
-    orb = Orbit.from_vectors(Earth, xyzo[i,0]*u.m, uvwo[i,0]*u.m / u.s)
+    orb = Orbit.from_vectors(Earth, xyzo[i,0]*u.m, uvwo[i,0]*u.m / u.s, epoch = epoch)
 
     #Integrate orbit with given peturbations and append to array
-    rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs)
+    rr, vv = cowell(orb, times, ad=ptb.perturbations, index_ls = perturbs, C_D = drag_coeff,
+                    A = front_area, m = mass, H0 = atm_scale_height,rho0 = exponent_density_prefactor,
+                    moon = moon, sun = sun, C_R = rad_pressure_coeff, A2 = effective_spacecraft_area)
     xyzf[i+3] = rr
     xyzf[i+3] *= 1e3 #To m
 
@@ -168,6 +203,7 @@ del_deputy_lvlh = del_deputy_lvlh[0:int(delt*n_p/period)]*1e3
 del_deputy_mag = del_deputy_mag[0:int(delt*n_p/period)]*1e3
 times = times[0:int(delt*n_p/period)]
 """
+# ---------------------------------------------------------------------- #
 ### PLOTTING STUFF ###
 
 ### Functions to set 3D axis aspect ratio as equal
