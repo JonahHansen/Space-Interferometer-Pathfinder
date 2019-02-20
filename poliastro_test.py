@@ -20,7 +20,7 @@ alt = 1000e3 #In km
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(0) #49
+inc_0 = np.radians(20) #49
 #Longitude of the Ascending Node
 Om_0 = np.radians(34) #-30
 
@@ -32,7 +32,7 @@ dec = np.radians(45)#43
 b = 0.3*1e3
 
 #Perturbations (see module)
-perturbs = [3,4]
+perturbs = [1]
 j_date = 2454283.0 * u.day
 
 drag_coeff = [0,0,0]
@@ -196,6 +196,7 @@ del_deputy_base2 = basef[2]-basef[0]-(basef[5]-basef[3])
 del_deputy_mag0 = np.array([np.linalg.norm(i) for i in del_deputy_xyz0])
 del_deputy_mag1 = np.array([np.linalg.norm(i) for i in del_deputy_xyz1])
 del_deputy_mag2 = np.array([np.linalg.norm(i) for i in del_deputy_xyz2])
+
 
 """
 delt = 6000 #Times to plot in s
