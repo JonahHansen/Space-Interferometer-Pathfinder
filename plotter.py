@@ -33,15 +33,16 @@ ra = np.radians(4) #23
 dec = np.radians(45)#43
 
 #The distance to the other satellites in km
-b = 350e3
+delta_max = 350e3
 
-period = 96.0 #In minutes.
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
 
 #------------------------------------------------------------------------------------------
 #Orbital radius the sum of earth radius and altitude
 R_orb = R_e + alt
+period = 2*np.pi*np.sqrt((R_orb/1000.)**3/const.GM_earth).value*60 #In minutes.
+
 #Orbital phase, i.e. mean longitude. n_p the number of phases
 phase = np.linspace(0, 2*np.pi, n_p)
 
@@ -80,9 +81,11 @@ y_hat = y/np.linalg.norm(y)
 x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
 #Angle between angular momentum vector and star:
-theta =np.arccos(np.dot(z_hat,s_hat))
+theta = np.arccos(np.dot(z_hat,s_hat))
 
-psi = b/R_orb #Angle between chief and deputy WRT Earth
+delta_min = delta_max*np.cos(theta)
+
+psi = delta_min/R_orb #Angle between chief and deputy WRT Earth
 
 #Define deputy orbital planes in terms of a rotation of the chief satellite
 axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
@@ -160,19 +163,20 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
 
     plt.tight_layout()
-    plt.subplot(3, 3, 6)
+    plt.subplot(336, aspect='equal')
+    #plt.axes().set_aspect('equal')
 
     km = 1e-3
 
-    plt.xlim(-2*b*km,2*b*km)
-    plt.ylim(-2*b*km,2*b*km)
+    plt.xlim(-2*delta_max*km,2*delta_max*km)
+    plt.ylim(-2*delta_max*km,2*delta_max*km)
 
     #LVLH positions
     lvlh_vecs = orbits_to_LVLH(xyz_ls[0],[xyz_ls[1],xyz_ls[2],s_hat],q_0)
 
     #Star vector
     s = lvlh_vecs[3]
-    plt.arrow(0,0,b*km*s[1],b*km*s[2],width=b*km/40,color='k')
+    plt.arrow(0,0,delta_max*km*s[1],delta_max*km*s[2],width=delta_max*km/40,color='k')
 
     #List of positions
     pos_ls.append([lvlh_vecs[0],lvlh_vecs[1],lvlh_vecs[2]])

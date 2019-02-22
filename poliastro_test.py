@@ -17,8 +17,6 @@ plt.ion()
 
 alt = 1000e3 #In km
 
-n_p = 1000 #Number of phases
-
 #Orbital inclination
 inc_0 = np.radians(20) #49
 #Longitude of the Ascending Node
@@ -29,7 +27,7 @@ ra = np.radians(52) #23
 dec = np.radians(45)#43
 
 #The distance to the other satellites in km
-b = 0.3*1e3
+delta_max = 0.3*1e3
 
 #Perturbations (see module)
 perturbs = [1]
@@ -48,10 +46,12 @@ effective_spacecraft_area = [0,0,0]
 #Orbital radius the sum of earth radius and altitude
 R_e = Earth.R.to(u.m).value #In m
 R_orb = R_e + alt
-#Orbital phase, i.e. mean longitude. n_p the number of phases
-phase = np.linspace(0, 2*np.pi, n_p)
 
 period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #In seconds.
+
+n_p = int(period) #Each phase iteration = 1 second
+#Orbital phase, i.e. mean longitude. n_p the number of phases
+phase = np.linspace(0, 2*np.pi, n_p)
 
 ang_vel = 2*np.pi/period
 
@@ -100,7 +100,9 @@ x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 #Angle between angular momentum vector and star:
 theta = np.arccos(np.dot(z_hat,s_hat))
 
-psi = b/R_orb #Angle between chief and deputy WRT Earth
+delta_min = delta_max*np.cos(theta)
+
+psi = delta_min/R_orb #Angle between chief and deputy WRT Earth
 
 #Define deputy orbital planes in terms of a rotation of the chief satellite
 axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
@@ -122,17 +124,14 @@ xyzo[2] = qt.rotate_points(xyzo[0],q_orb2)
 uvwo[1] = qt.rotate_points(uvwo[0],q_orb1)
 uvwo[2] = qt.rotate_points(uvwo[0],q_orb2)
 
-
-
 #Array of orbits, both normal and perturbed
 xyzf = np.zeros( (6,n_p,3) )
 
 t_f = period
-
-epoch = Time(j_date, format='jd', scale = 'tdb')
-
+epoch = Time(j_date, format='jd', scale = 'tdb') #Epoch
 times = np.linspace(0, t_f, n_p) #Times for orbit
 
+#Build ephemeris if required
 if 3 in perturbs:
     print("BUILDING MOON EPHEM")
     moon = ptb.moon_ephem(t_f,j_date)

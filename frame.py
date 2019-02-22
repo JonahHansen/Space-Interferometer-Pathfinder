@@ -23,57 +23,34 @@ def to_LVLH_func(r_c,q):
 def orbits_to_LVLH(r_c,other_vectors,chiefq):
     func = to_LVLH_func(r_c,chiefq) #Create change of basis function
 
-    #New vectors in lvlh frame
+    #New vectors in LVLH frame
     return_ls = [func(r_c)]
     for vec in other_vectors:
         return_ls.append(func(vec))
 
     return np.array(return_ls)
-    
+
+#Creates a function that transforms from geocentric cartesian coordinates (ECEF) to Baseline frame
+# Takes r_c (position of chief satellite), r_d2 (position of second/forward deputy) and star direction s_hat
 def to_baseline_func(r_c,r_d2,s_hat):
-    sep_v = r_d2 - r_c
-    sep_v /= np.linalg.norm(sep_v)
-    oth_v = np.cross(s_hat,sep_v)
-    
-    rot_mat = np.array([oth_v,sep_v,s_hat])
-    
+    b_hat = (r_d2 - r_c)/np.linalg.norm(r_d2 - r_c) #Direction along baseline
+    k_hat = np.cross(s_hat,b_hat) #Other direction
+
+    rot_mat = np.array([k_hat,b_hat,s_hat]) #Create rotation matrix
+
+    #Function to take a vector in ECEF and return it in Baseline
     def baseline(v):
         return np.dot(rot_mat,v)-np.dot(rot_mat,r_c)
-        
+
     return baseline
-    
+
+#Convert chief, deputies, star and other vectors into Baseline frame
 def orbits_to_baseline(r_c,r_d1,r_d2,s_hat,other_vectors):
-    func = to_baseline_func(r_c,r_d2,s_hat)
-    
+    func = to_baseline_func(r_c,r_d2,s_hat) #Change of basis function
+
+    #New vectors in Baseline frame
     return_ls = [func(r_c),func(r_d1),func(r_d2)]
     for vec in other_vectors:
         return_ls.append(func(vec))
 
     return np.array(return_ls)
-    
-    
-"""
-def to_LVLH(v_c,q):
-  x = np.array([1,0,0])
-  y = np.array([0,1,0])
-  z = np.array([0,0,1])
-
-  X = qt.rotate(x,q)
-  Y = qt.rotate(y,q)
-  Z = qt.rotate(z,q)
-
-  r = np.linalg.norm(v_c)
-
-  rot_mat = np.linalg.inv(np.transpose([X,Y,Z]))
-  print(np.dot(rot_mat,v_c))
-
-
-  A1 = np.linalg.inv([[v_c[0]/r,-v_c[1]/r,0],[v_c[1]/r,v_c[0]/r,0],[0,0,1]])
-
-  A2 = np.matmul(A1,rot_mat)
-
-  def LVLH(v):
-      return np.dot(A2,v)-np.dot(A2,v_c)
-
-  return LVLH
-"""

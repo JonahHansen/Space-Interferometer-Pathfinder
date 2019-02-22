@@ -10,6 +10,7 @@ from poliastro.ephem import build_ephem_interpolant
 from astropy.coordinates import solar_system_ephemeris
 from astropy.time import Time
 
+#Perturbation partial function to combine perturbations
 def perturbations(t0,u,k,index_ls,**kwargs):
 
     final_accel = 0 #Starting acceleration
@@ -64,38 +65,24 @@ def perturbations(t0,u,k,index_ls,**kwargs):
         #A (float) – effective spacecraft area (km^2)
         #m (float) – mass of the spacecraft (kg)
         #W (float) – total star emitted power (W)
-        
+
         #4 Pi in there due to incorrect module
         Wdivc_s = const.L_sun/(4*np.pi*const.c.to('km/s'))
-        
+
         rad_pressure = (t0,u,k,R_E,kwargs["C_R"],kwargs["A2"],kwargs["m"],Wdivc_s,kwargs["sun"])
         final_accel += rad_pressure
 
 
     return final_accel
 
-
+#Build moon ephemeris for perturbation #3
 def moon_ephem(tof,j_date):
     solar_system_ephemeris.set('de432s')
     body_r = build_ephem_interpolant(Moon, 28 * unit.day, (j_date, j_date + tof* unit.day), rtol=1e-2)
     return body_r
 
+#Build sun ephemeris for perturbation #4
 def sun_ephem(tof,j_date):
     solar_system_ephemeris.set('de432s')
     body_r = build_ephem_interpolant(Sun, 365 * unit.day, (j_date, j_date + tof* unit.day), rtol=1e-2)
     return body_r
-
-"""
-#Take two consecutive positions, and the period, to calculate the velocity vectors
-# and then calculate the poliastro orbit
-def from_pos_to_orbit(pos1,pos2,n_p,period):
-    #ave_pos = 0.5*(pos1+pos2) #Average position vector between the two
-    sep = pos2-pos1 #Separation vector
-
-    #Velocity = dr/dt = dr/(T/num_phases)
-    vel = sep*n_p/period
-
-    #Make orbit
-    orbit = Orbit.from_vectors(Earth, pos1*unit.km, vel*unit.km / unit.s)
-    return orbit
-"""
