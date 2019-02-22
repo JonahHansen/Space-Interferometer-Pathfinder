@@ -32,7 +32,7 @@ Om_0 = np.radians(-32) #-30
 ra = np.radians(4) #23
 dec = np.radians(45)#43
 
-#The distance to the other satellites in km
+#The max distance to the other satellites in km
 delta_max = 350e3
 
 lines = ['r:', 'g:', 'g:']

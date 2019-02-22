@@ -24,12 +24,14 @@ len_iy = 360
 ix_vals = np.linspace(0,90,len_ix)
 iy_vals = np.linspace(-90,90,len_iy)
 
-#The distance to the other satellites in km
-b = 0.3*1e3
+#The max distance to the other satellites in km
+delta_max = 0.3*1e3
 
 #Perturbations (see module)
 perturbs = [1]
-j_date = 2454283.0 * u.day
+j_date = 2454283.0 * u.day #Epoch
+
+#Parameters for peturbations
 
 drag_coeff = [0,0,0]
 front_area = [0,0,0]
@@ -89,16 +91,13 @@ def worker(ix):
     #Angular momentum vector of chief satellite
     h_0 = qt.rotate(zaxis,q_0)
 
-
     z_hat = h_0/np.linalg.norm(h_0) #In direction of angular momentum
-    psi = b/R_orb #Angle between chief and deputy WRT Earth
 
     t_f = period
-
-    epoch = Time(j_date, format='jd', scale = 'tdb')
-
+    epoch = Time(j_date, format='jd', scale = 'tdb') #Epoch
     times = np.linspace(0, t_f, n_p) #Times for orbit
 
+    #Build ephemeris if required
     if 3 in perturbs:
         print("BUILDING MOON EPHEM")
         moon = ptb.moon_ephem(t_f,j_date)
@@ -111,7 +110,7 @@ def worker(ix):
     else:
         sun = 0
 
-    result = np.zeros((len_iy,6))
+    result = np.zeros((len_iy,8))
 
     for iy in range(len_iy):
 
@@ -130,6 +129,10 @@ def worker(ix):
 
         #Angle between angular momentum vector and star:
         theta = np.arccos(np.dot(z_hat,s_hat))
+
+        delta_min = delta_max*np.cos(theta)
+
+        psi = delta_min/R_orb #Angle between chief and deputy WRT Earth
 
         #Define deputy orbital planes in terms of a rotation of the chief satellite
         axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
@@ -178,13 +181,11 @@ def worker(ix):
         #Effects on separation of deputy spacecraft due to peturbation
         #Separation of both
 
-        del_deputy_base1 = basef[1]-basef[0]-(basef[4]-basef[3])
-        del_deputy_base2 = basef[2]-basef[0]-(basef[5]-basef[3])
+        s1 = (basef[4]-basef[3])[:,2]
+        s2 = (basef[5]-basef[3])[:,2]
+        delta_b = np.abs((basef[4]-basef[3])[:,1])-np.abs((basef[5]-basef[3])[:,1])
 
         ## --------------------------------------------------------------------##
-
-        s1 = del_deputy_base1[:,2]
-        s2 = del_deputy_base2[:,2]
 
         def acc(pos):
             vel = np.gradient(pos, edge_order=2)
@@ -193,22 +194,24 @@ def worker(ix):
 
         acc_s1 = acc(s1)
         acc_s2 = acc(s2)
+        acc_delta_b = acc(delta_b)
 
         max_acc_s1 = max(acc_s1)
         max_acc_s2 = max(acc_s2)
+        max_acc_delta_b = max(acc_delta_b)
 
         delta_v_s1 = np.trapz(np.abs(acc_s1))
         delta_v_s2 = np.trapz(np.abs(acc_s2))
+        delta_v_delta_b = np.trapz(np.abs(acc_delta_b))
 
-        result[iy]  = np.array([ix,iy,max_acc_s1,max_acc_s2,delta_v_s1,delta_v_s2])
+        result[iy]  = np.array([ix,iy,max_acc_s1,max_acc_s2,max_acc_delta_b,delta_v_s1,delta_v_s2,delta_v_delta_b])
 
     return result
 
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("s_acc_variance_alt1000.npy",result)
-
+np.save("acc_variance_alt1000.npy",result)
 
 alt = 500e3 #In km
 R_orb = R_e + alt
@@ -221,8 +224,7 @@ phase = np.linspace(0, 2*np.pi, n_p)
 
 ang_vel = 2*np.pi/period
 
-
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("s_acc_variance_alt500.npy",result)
+np.save("acc_variance_alt500.npy",result)

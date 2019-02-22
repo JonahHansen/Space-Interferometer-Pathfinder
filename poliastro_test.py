@@ -26,13 +26,14 @@ Om_0 = np.radians(34) #-30
 ra = np.radians(52) #23
 dec = np.radians(45)#43
 
-#The distance to the other satellites in km
+#The max distance to the other satellites in km
 delta_max = 0.3*1e3
 
 #Perturbations (see module)
 perturbs = [1]
-j_date = 2454283.0 * u.day
+j_date = 2454283.0 * u.day #Epoch
 
+#Parameters for peturbations
 drag_coeff = [0,0,0]
 front_area = [0,0,0]
 mass = [0,0,0]
