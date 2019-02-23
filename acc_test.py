@@ -209,7 +209,7 @@ def worker(ix):
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("acc_variance_alt1000_ra0.npy",result)
+np.save("2acc_variance_alt1000_ra0.npy",result)
 
 alt = 500e3 #In km
 R_orb = R_e + alt
@@ -225,4 +225,4 @@ ang_vel = 2*np.pi/period
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("acc_variance_alt500_ra0.npy",result)
+np.save("2acc_variance_alt500_ra0.npy",result)

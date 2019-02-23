@@ -24,16 +24,16 @@ R_e = Earth.R.to(u.km).value*1000  #In km
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(29) #49
+inc_0 = np.radians(0) #49
 #Longitude of the Ascending Node
 Om_0 = np.radians(-32) #-30
 
 #Stellar vector
 ra = np.radians(4) #23
-dec = np.radians(45)#43
+dec = np.radians(0)#43
 
 #The max distance to the other satellites in km
-delta_max = 350e3
+delta_max = 550e3
 
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
@@ -135,7 +135,7 @@ for i in range(3):
 """
 #Make pretty plots.
 pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
