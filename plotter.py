@@ -33,7 +33,7 @@ ra = np.radians(4) #23
 dec = np.radians(0)#43
 
 #The max distance to the other satellites in km
-delta_max = 550e3
+delta_r_max = 550e3
 
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
@@ -83,18 +83,18 @@ x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 #Angle between angular momentum vector and star:
 theta = np.arccos(np.dot(z_hat,s_hat))
 
-psi = delta_max*np.cos(theta)/R_orb #Angle between chief and deputy WRT Earth
+psi = delta_r_max*np.cos(theta)/R_orb #Angle between chief and deputy WRT Earth
 
 #Define deputy orbital planes in terms of a rotation of the chief satellite
 axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
-omega1 = np.arctan(delta_max/R_orb*np.sin(theta)) #Amount of rotation
+omega1 = np.arctan(delta_r_max/R_orb*np.sin(theta)) #Amount of rotation
 q_phase1 = qt.to_q(z_hat,-psi) #Rotate in phase
 q_plane1 = qt.to_q(axis1,omega1) #Rotate around axis
 q_orb1 = qt.comb_rot(q_phase1,q_plane1) #Combine
 
 #Same as above but for the second deputy
 axis2 = -np.cos(-psi)*y_hat + np.sin(-psi)*x_hat
-omega2 = np.arctan(-delta_max/R_orb*np.sin(theta))
+omega2 = np.arctan(-delta_r_max/R_orb*np.sin(theta))
 q_phase2 = qt.to_q(z_hat,psi)
 q_plane2 = qt.to_q(axis2,omega2)
 q_orb2 = qt.comb_rot(q_phase2,q_plane2)
@@ -166,15 +166,15 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.
 
     km = 1e-3
 
-    plt.xlim(-2*delta_max*km,2*delta_max*km)
-    plt.ylim(-2*delta_max*km,2*delta_max*km)
+    plt.xlim(-2*delta_r_max*km,2*delta_r_max*km)
+    plt.ylim(-2*delta_r_max*km,2*delta_r_max*km)
 
     #LVLH positions
     lvlh_vecs = orbits_to_LVLH(xyz_ls[0],[xyz_ls[1],xyz_ls[2],s_hat],q_0)
 
     #Star vector
     s = lvlh_vecs[3]
-    plt.arrow(0,0,delta_max*km*s[1],delta_max*km*s[2],width=delta_max*km/40,color='k')
+    plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
 
     #List of positions
     pos_ls.append([lvlh_vecs[0],lvlh_vecs[1],lvlh_vecs[2]])
