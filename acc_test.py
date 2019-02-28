@@ -59,7 +59,7 @@ def worker(ix):
     #Orbital inclination
     inc_0 = np.radians(ix_vals[ix]) #49
     #Longitude of the Ascending Node
-    Om_0 = np.radians(34) #-30
+    Om_0 = np.radians(0) #-30
 
     #Central spacecraft Cartesian coordinates (and velocities) for a circular orbit in the x,y plane.
     xyzc = np.zeros( (n_p,3) )
@@ -116,7 +116,7 @@ def worker(ix):
 
         print(ix,iy)
         #Stellar vector
-        ra = np.radians(52) #23
+        ra = np.radians(90) #23
         dec = np.radians(iy_vals[iy])#43
 
         #Vector pointing to the star, from right ascension and declination
@@ -130,22 +130,20 @@ def worker(ix):
         #Angle between angular momentum vector and star:
         theta = np.arccos(np.dot(z_hat,s_hat))
 
-        delta_min = delta_max*np.cos(theta)
-
-        psi = delta_min/R_orb #Angle between chief and deputy WRT Earth
+        psi = delta_max*np.cos(theta)/R_orb #Angle between chief and deputy WRT Earth
 
         #Define deputy orbital planes in terms of a rotation of the chief satellite
         axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
-        angle1 = np.arctan(psi*np.tan(theta)) #Amount of rotation
+        omega1 = np.arctan(delta_max/R_orb*np.sin(theta)) #Amount of rotation
         q_phase1 = qt.to_q(z_hat,-psi) #Rotate in phase
-        q_plane1 = qt.to_q(axis1,angle1) #Rotate around axis
+        q_plane1 = qt.to_q(axis1,omega1) #Rotate around axis
         q_orb1 = qt.comb_rot(q_phase1,q_plane1) #Combine
 
         #Same as above but for the second deputy
         axis2 = -np.cos(-psi)*y_hat + np.sin(-psi)*x_hat
-        angle2 = np.arctan(-psi*np.tan(theta))
+        omega2 = np.arctan(-delta_max/R_orb*np.sin(theta))
         q_phase2 = qt.to_q(z_hat,psi)
-        q_plane2 = qt.to_q(axis2,angle2)
+        q_plane2 = qt.to_q(axis2,omega2)
         q_orb2 = qt.comb_rot(q_phase2,q_plane2)
 
         #Rotate the chiefs orbit
@@ -211,7 +209,7 @@ def worker(ix):
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("acc_variance_alt1000.npy",result)
+np.save("2acc_variance_alt1000_ra90.npy",result)
 
 alt = 500e3 #In km
 R_orb = R_e + alt
@@ -227,4 +225,4 @@ ang_vel = 2*np.pi/period
 p = Pool(processes=25)
 result = p.map(worker,range(len_ix))
 result = np.array(result)
-np.save("acc_variance_alt500.npy",result)
+np.save("2acc_variance_alt500_ra90.npy",result)
