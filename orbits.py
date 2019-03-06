@@ -3,10 +3,14 @@ import astropy.constants as const
 import quaternions as qt
 
 class sat_orbit:
-    def __init__(self, n_p):
+    def __init__(self, n_p, R_orb):
 
         self.n_p = n_p
         self.phase = np.linspace(0, 2*np.pi, n_p)
+
+        self.R_orb = R_orb
+        self.period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #In seconds.
+        self.ang_vel = 2*np.pi/self.period
 
         self.chief_pos = np.zeros((n_p,3))
         self.chief_vel = np.zeros((n_p,3))
@@ -14,21 +18,30 @@ class sat_orbit:
         self.deputy1_vel = np.zeros((n_p,3))
         self.deputy2_pos = np.zeros((n_p,3))
         self.deputy2_vel = np.zeros((n_p,3))
+        
+    def chief_state_vec(self):
+        return np.array([self.chief_pos[:,0],self.chief_pos[:,1],self.chief_pos[:,2],
+                         self.chief_vel[:,0],self.chief_vel[:,1],self.chief_vel[:,2]])
+    
+    def deputy1_state_vec(self):
+        return np.array([self.deputy1_pos[:,0],self.deputy1_pos[:,1],self.deputy1_pos[:,2],
+                         self.deputy1_vel[:,0],self.deputy1_vel[:,1],self.deputy1_vel[:,2]])
+    
+    def deputy2_state_vec(self):
+        return np.array([self.deputy2_pos[:,0],self.deputy2_pos[:,1],self.deputy2_pos[:,2],
+                         self.deputy2_vel[:,0],self.deputy2_vel[:,1],self.deputy2_vel[:,2]])
 
 
 class ECEF_orbit(sat_orbit):
 
     def __init__(self, n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec):
-        sat_orbit.__init__(self, n_p)
-
-        self.R_orb = R_orb
-        self.period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #In seconds.
-        self.ang_vel = 2*np.pi/self.period
-
-        self.delta_r_max = delta_r_max
+        sat_orbit.__init__(self, n_p, R_orb)
 
         self.Om_0 = Om_0
         self.inc_0 = inc_0
+        
+        self.delta_r_max = delta_r_max
+        
         self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 
         for i in range(self.n_p):
@@ -93,9 +106,9 @@ class ECEF_orbit(sat_orbit):
 
 class LVLH_orbit(sat_orbit):
 
-    def __init__(self, n_p, ECEF):
+    def __init__(self, n_p, R_orb, ECEF):
 
-        sat_orbit.__init__(self, n_p)
+        sat_orbit.__init__(self, n_p, R_orb)
         self.s_hats = np.zeros((n_p,3))
 
         def to_LVLH_func(r_c,q):
@@ -124,9 +137,9 @@ class LVLH_orbit(sat_orbit):
 
 class Baseline_orbit(sat_orbit):
 
-    def __init__(self, n_p, ECEF):
+    def __init__(self, n_p, R_orb, ECEF):
 
-        sat_orbit.__init__(self, n_p)
+        sat_orbit.__init__(self, n_p, R_orb)
 
         def to_baseline_func(r_c,r_d2,s_hat):
             b_hat = (r_d2 - r_c)/np.linalg.norm(r_d2 - r_c) #Direction along baseline
@@ -149,3 +162,4 @@ class Baseline_orbit(sat_orbit):
             self.deputy1_vel[ix] = func(ECEF.deputy1_vel[ix])
             self.deputy2_pos[ix] = func(ECEF.deputy2_pos[ix])
             self.deputy2_vel[ix] = func(ECEF.deputy2_vel[ix])
+
