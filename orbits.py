@@ -18,19 +18,31 @@ class sat_orbit:
         self.deputy1_vel = np.zeros((n_p,3))
         self.deputy2_pos = np.zeros((n_p,3))
         self.deputy2_vel = np.zeros((n_p,3))
-        
+
+        self.deputy1_pos_sep = np.zeros((n_p,3))
+        self.deputy1_vel_sep = np.zeros((n_p,3))
+        self.deputy2_pos_sep = np.zeros((n_p,3))
+        self.deputy2_vel_sep = np.zeros((n_p,3))
+
     def chief_state_vec(self):
         return np.array([self.chief_pos[:,0],self.chief_pos[:,1],self.chief_pos[:,2],
                          self.chief_vel[:,0],self.chief_vel[:,1],self.chief_vel[:,2]])
-    
+
     def deputy1_state_vec(self):
         return np.array([self.deputy1_pos[:,0],self.deputy1_pos[:,1],self.deputy1_pos[:,2],
                          self.deputy1_vel[:,0],self.deputy1_vel[:,1],self.deputy1_vel[:,2]])
-    
+
     def deputy2_state_vec(self):
         return np.array([self.deputy2_pos[:,0],self.deputy2_pos[:,1],self.deputy2_pos[:,2],
                          self.deputy2_vel[:,0],self.deputy2_vel[:,1],self.deputy2_vel[:,2]])
 
+    def deputy1_sep_state_vec(self):
+        return np.array([self.deputy1_pos_sep[:,0],self.deputy1_pos_sep[:,1],self.deputy1_pos_sep[:,2],
+                         self.deputy1_vel_sep[:,0],self.deputy1_vel_sep[:,1],self.deputy1_vel_sep[:,2]])
+
+    def deputy2_sep_state_vec(self):
+        return np.array([self.deputy2_pos_sep[:,0],self.deputy2_pos_sep[:,1],self.deputy2_pos_sep[:,2],
+                         self.deputy2_vel_sep[:,0],self.deputy2_vel_sep[:,1],self.deputy2_vel_sep[:,2]])
 
 class ECEF_orbit(sat_orbit):
 
@@ -39,9 +51,9 @@ class ECEF_orbit(sat_orbit):
 
         self.Om_0 = Om_0
         self.inc_0 = inc_0
-        
+
         self.delta_r_max = delta_r_max
-        
+
         self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 
         for i in range(self.n_p):
@@ -104,12 +116,18 @@ class ECEF_orbit(sat_orbit):
         self.deputy2_pos = qt.rotate_points(self.chief_pos,self.q2)
         self.deputy2_vel = qt.rotate_points(self.chief_vel,self.q2)
 
+        self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
+        self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
+        self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
+        self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
+
 class LVLH_orbit(sat_orbit):
 
     def __init__(self, n_p, R_orb, ECEF):
 
         sat_orbit.__init__(self, n_p, R_orb)
         self.s_hats = np.zeros((n_p,3))
+
 
         def to_LVLH_func(r_c,q):
           h_hat = qt.rotate(np.array([0,0,1]),q) #Angular momentum vector (rotated "z" axis)
@@ -133,6 +151,10 @@ class LVLH_orbit(sat_orbit):
             self.deputy1_vel[ix] = func(ECEF.deputy1_vel[ix])
             self.deputy2_pos[ix] = func(ECEF.deputy2_pos[ix])
             self.deputy2_vel[ix] = func(ECEF.deputy2_vel[ix])
+            self.deputy1_pos_sep[ix] = func(ECEF.deputy1_pos_sep[ix])
+            self.deputy1_vel_sep[ix] = func(ECEF.deputy1_vel_sep[ix])
+            self.deputy2_pos_sep[ix] = func(ECEF.deputy2_pos_sep[ix])
+            self.deputy2_vel_sep[ix] = func(ECEF.deputy2_vel_sep[ix])
             self.s_hats[ix] = func(ECEF.s_hat)
 
 class Baseline_orbit(sat_orbit):
@@ -162,4 +184,7 @@ class Baseline_orbit(sat_orbit):
             self.deputy1_vel[ix] = func(ECEF.deputy1_vel[ix])
             self.deputy2_pos[ix] = func(ECEF.deputy2_pos[ix])
             self.deputy2_vel[ix] = func(ECEF.deputy2_vel[ix])
-
+            self.deputy1_pos_sep[ix] = func(ECEF.deputy1_pos_sep[ix])
+            self.deputy1_vel_sep[ix] = func(ECEF.deputy1_vel_sep[ix])
+            self.deputy2_pos_sep[ix] = func(ECEF.deputy2_pos_sep[ix])
+            self.deputy2_vel_sep[ix] = func(ECEF.deputy2_vel_sep[ix])
