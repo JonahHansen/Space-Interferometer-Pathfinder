@@ -14,12 +14,12 @@ def none_dX_dt(t, state, LVLH_orbit):
     mu = n**2*LVLH_orbit.R_orb**3
     omega = np.array([0,0,n])
 
-    K = np.diag(np.array([3*n**2,0,-(n**2)]))
-    Gamma2 = n**2/LVLH_orbit.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
+    #K = np.diag(np.array([3*n**2,0,-(n**2)]))
+    #Gamma2 = n**2/LVLH_orbit.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
 
-    a = -2*np.cross(omega,v) + np.matmul(K,r)# + Gamma2
-    #rd = np.array([LVLH_orbit.R_orb+r[0],r[1],r[2]])
-    #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - mu*rd/np.linalg.norm(rd)**3
+    #a = -2*np.cross(omega,v) + np.matmul(K,r)# + Gamma2
+    rd = np.array([LVLH_orbit.R_orb+r[0],r[1],r[2]])
+    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - mu*rd/np.linalg.norm(rd)**3
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]

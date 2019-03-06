@@ -14,13 +14,13 @@ plt.ion()
 alt = 1000e3 #In m
 
 #Orbital inclination
-inc_0 = np.radians(20) #49
+inc_0 = np.radians(0) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(34) #-30
+Om_0 = np.radians(0) #-30
 
 #Stellar vector
-ra = np.radians(52) #23
-dec = np.radians(45)#43
+ra = np.radians(0) #23
+dec = np.radians(90)#43
 
 #The max distance to the other satellites in km
 delta_r_max = 0.3*1e3

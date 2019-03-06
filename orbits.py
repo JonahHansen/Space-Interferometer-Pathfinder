@@ -58,9 +58,9 @@ class ECEF_orbit(sat_orbit):
 
         for i in range(self.n_p):
             self.chief_pos[i,0] = np.cos(self.phase[i]) * self.R_orb
-            self.chief_pos[i,1] = np.sin(-self.phase[i]) * self.R_orb
+            self.chief_pos[i,1] = np.sin(self.phase[i]) * self.R_orb
             self.chief_vel[i,0] = -np.sin(self.phase[i]) * self.R_orb * self.ang_vel
-            self.chief_vel[i,1] = -np.cos(self.phase[i]) * self.R_orb * self.ang_vel
+            self.chief_vel[i,1] = np.cos(self.phase[i]) * self.R_orb * self.ang_vel
 
         #Initial axis unit vectors
         xaxis = np.array([1,0,0])
@@ -128,34 +128,26 @@ class LVLH_orbit(sat_orbit):
         sat_orbit.__init__(self, n_p, R_orb)
         self.s_hats = np.zeros((n_p,3))
 
-
-        def to_LVLH_func(r_c,q):
-          h_hat = qt.rotate(np.array([0,0,1]),q) #Angular momentum vector (rotated "z" axis)
-          r_hat = r_c/np.linalg.norm(r_c) #Position vector pointing away from the centre of the Earth
-          v_hat = np.cross(h_hat,r_hat) #Velocity vector pointing counter-clockwise
-
-          rot_mat = np.array([r_hat,v_hat,h_hat]) #Rotation matrix from three unit vectors
-
-          #Function to take a vector in ECEF and return it in LVLH
-          def LVLH(v):
-              return np.dot(rot_mat,v)-np.dot(rot_mat,r_c)
-
-          return LVLH
-
         for ix in range(ECEF.n_p):
-            func = to_LVLH_func(ECEF.chief_pos[ix],ECEF.q0)
 
-            self.chief_pos[ix] = func(ECEF.chief_pos[ix])
-            self.chief_vel[ix] = func(ECEF.chief_vel[ix])
-            self.deputy1_pos[ix] = func(ECEF.deputy1_pos[ix])
-            self.deputy1_vel[ix] = func(ECEF.deputy1_vel[ix])
-            self.deputy2_pos[ix] = func(ECEF.deputy2_pos[ix])
-            self.deputy2_vel[ix] = func(ECEF.deputy2_vel[ix])
-            self.deputy1_pos_sep[ix] = func(ECEF.deputy1_pos_sep[ix])
-            self.deputy1_vel_sep[ix] = func(ECEF.deputy1_vel_sep[ix])
-            self.deputy2_pos_sep[ix] = func(ECEF.deputy2_pos_sep[ix])
-            self.deputy2_vel_sep[ix] = func(ECEF.deputy2_vel_sep[ix])
-            self.s_hats[ix] = func(ECEF.s_hat)
+            h_hat = qt.rotate(np.array([0,0,1]),ECEF.q0) #Angular momentum vector (rotated "z" axis)
+            r_hat = ECEF.chief_pos[ix]/np.linalg.norm(ECEF.chief_pos[ix]) #Position vector pointing away from the centre of the Earth
+            v_hat = np.cross(h_hat,r_hat) #Velocity vector pointing counter-clockwise
+
+            rot_mat = np.array([r_hat,v_hat,h_hat]) #Rotation matrix from three unit vectors
+
+            self.chief_pos[ix] = np.dot(rot_mat,ECEF.chief_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.chief_vel[ix] = np.dot(rot_mat,ECEF.chief_vel[ix])
+            self.deputy1_pos[ix] = np.dot(rot_mat,ECEF.deputy1_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.deputy1_vel[ix] = np.dot(rot_mat,ECEF.deputy1_vel[ix])
+            self.deputy2_pos[ix] = np.dot(rot_mat,ECEF.deputy2_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.deputy2_vel[ix] = np.dot(rot_mat,ECEF.deputy2_vel[ix])
+            self.s_hats[ix] = np.dot(rot_mat,ECEF.s_hat)
+            
+        self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
+        self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
+        self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
+        self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
 
 class Baseline_orbit(sat_orbit):
 
@@ -163,28 +155,22 @@ class Baseline_orbit(sat_orbit):
 
         sat_orbit.__init__(self, n_p, R_orb)
 
-        def to_baseline_func(r_c,r_d2,s_hat):
-            b_hat = (r_d2 - r_c)/np.linalg.norm(r_d2 - r_c) #Direction along baseline
-            k_hat = np.cross(s_hat,b_hat) #Other direction
-
-            rot_mat = np.array([k_hat,b_hat,s_hat]) #Create rotation matrix
-
-            #Function to take a vector in ECEF and return it in Baseline
-            def baseline(v):
-                return np.dot(rot_mat,v)-np.dot(rot_mat,r_c)
-
-            return baseline
-
         for ix in range(ECEF.n_p):
-            func = to_baseline_func(ECEF.chief_pos[ix],ECEF.deputy2_pos[ix],ECEF.s_hat)
+            
+            b_hat = (ECEF.deputy2_pos[ix] - ECEF.chief_pos[ix])/np.linalg.norm(ECEF.deputy2_pos[ix] - ECEF.chief_pos[ix]) #Direction along baseline
+            k_hat = np.cross(ECEF.s_hat,b_hat) #Other direction
 
-            self.chief_pos[ix] = func(ECEF.chief_pos[ix])
-            self.chief_vel[ix] = func(ECEF.chief_vel[ix])
-            self.deputy1_pos[ix] = func(ECEF.deputy1_pos[ix])
-            self.deputy1_vel[ix] = func(ECEF.deputy1_vel[ix])
-            self.deputy2_pos[ix] = func(ECEF.deputy2_pos[ix])
-            self.deputy2_vel[ix] = func(ECEF.deputy2_vel[ix])
-            self.deputy1_pos_sep[ix] = func(ECEF.deputy1_pos_sep[ix])
-            self.deputy1_vel_sep[ix] = func(ECEF.deputy1_vel_sep[ix])
-            self.deputy2_pos_sep[ix] = func(ECEF.deputy2_pos_sep[ix])
-            self.deputy2_vel_sep[ix] = func(ECEF.deputy2_vel_sep[ix])
+            rot_mat = np.array([k_hat,b_hat,ECEF.s_hat]) #Create rotation matrix
+
+            
+            self.chief_pos[ix] = np.dot(rot_mat,ECEF.chief_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.chief_vel[ix] = np.dot(rot_mat,ECEF.chief_vel[ix])
+            self.deputy1_pos[ix] = np.dot(rot_mat,ECEF.deputy1_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.deputy1_vel[ix] = np.dot(rot_mat,ECEF.deputy1_vel[ix])
+            self.deputy2_pos[ix] = np.dot(rot_mat,ECEF.deputy2_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
+            self.deputy2_vel[ix] = np.dot(rot_mat,ECEF.deputy2_vel[ix])
+
+        self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
+        self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
+        self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
+        self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
