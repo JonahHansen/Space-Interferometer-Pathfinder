@@ -25,7 +25,7 @@ class sat_orbit:
         self.deputy1_vel = np.zeros((n_p,3))
         self.deputy2_pos = np.zeros((n_p,3))
         self.deputy2_vel = np.zeros((n_p,3))
-        
+
         #Initialise deputy separation vectors (from chief satellite)
         self.deputy1_pos_sep = np.zeros((n_p,3))
         self.deputy1_vel_sep = np.zeros((n_p,3))
@@ -73,7 +73,7 @@ class ECI_orbit(sat_orbit):
         self.inc_0 = inc_0
 
         self.delta_r_max = delta_r_max
-        
+
         #Star vector
         self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 
@@ -104,6 +104,14 @@ class ECI_orbit(sat_orbit):
         #New coord system:
         z_hat = h_0/np.linalg.norm(h_0) #In direction of angular momentum
         y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
+
+        #Create an arbitrary y direction if star vector is parallel to OAM vector
+        if (y == np.array([0.,0.,0.])).all():
+            if (z_hat == np.array([1.,0.,0.])).all():
+                y = np.array([0.,1.,0.])
+            else:
+                y = np.cross(z_hat,np.array([1.,0.,0.]))
+
         y_hat = y/np.linalg.norm(y)
         x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
@@ -178,7 +186,7 @@ class LVLH_orbit(sat_orbit):
             self.deputy2_pos[ix] = np.dot(rot_mat,ECI.deputy2_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
             self.deputy2_vel[ix] = np.dot(rot_mat,ECI.deputy2_vel[ix])
             self.s_hats[ix] = np.dot(rot_mat,ECI.s_hat)
-            
+
         self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
         self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
         self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
@@ -203,7 +211,7 @@ class Baseline_orbit(sat_orbit):
         sat_orbit.__init__(self, n_p, R_orb)
 
         for ix in range(ECI.n_p):
-            
+
             b_hat = (ECI.deputy2_pos[ix] - ECI.chief_pos[ix])/np.linalg.norm(ECI.deputy2_pos[ix] - ECI.chief_pos[ix]) #Direction along baseline
             k_hat = np.cross(ECI.s_hat,b_hat) #Other direction
 
