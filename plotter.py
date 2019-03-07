@@ -14,35 +14,42 @@ import orbits
 plt.ion()
 
 alt = 500.0e3   #In m
-R_e = const.R_earth  #In m
+R_e = const.R_earth.value  #In m
+
 #Orbital radius the sum of earth radius and altitude
 R_orb = R_e + alt
 
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(45) #49
+inc_0 = np.radians(45)
 #Longitude of the Ascending Node
-Om_0 = np.radians(-32) #-30
+Om_0 = np.radians(-32)
 
 #Stellar vector
-ra = np.radians(4) #23
-dec = np.radians(20)#43
+ra = np.radians(4)
+dec = np.radians(20)
 
-#The max distance to the other satellites in km
+#The max distance to the other satellites in m
 delta_r_max = 550e3
 
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
 
 #------------------------------------------------------------------------------------------
-ECEF_orbit = orbits.ECEF_orbit(n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec)
-LVLH_orbit = orbits.LVLH_orbit(n_p, R_orb, ECEF_orbit)
 
-ECEF_all = [ECEF_orbit.chief_pos,ECEF_orbit.deputy1_pos,ECEF_orbit.deputy2_pos]
+#Calculate orbit, in the geocentric (ECI) frame
+ECI_orbit = orbits.ECI_orbit(n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+
+#Convert orbit into the LVLH frame
+LVLH_orbit = orbits.LVLH_orbit(n_p, R_orb, ECI_orbit)
+
+#All ECI positions
+ECI_all = [ECI_orbit.chief_pos,ECI_orbit.deputy1_pos,ECI_orbit.deputy2_pos]
+#All LVLH positions, plus stellar vector
 LVLH_all = [LVLH_orbit.chief_pos,LVLH_orbit.deputy1_pos,LVLH_orbit.deputy2_pos,LVLH_orbit.s_hats]
 
-period = ECEF_orbit.period/60 #In minutes
+period = ECI_orbit.period/60 #In minutes
 
 #Make pretty plots.
 pos_ls = [] #list of positions
@@ -55,7 +62,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.
     plt.axis([-0.1*R_orb, 2.1*R_orb, -0.0*R_orb, 2.0*R_orb])
     lvlh_ls = []
     #Find non-vignetted parts (two vectors)
-    for xyz, lvlh, point, line in zip(ECEF_all, LVLH_all, points, lines):
+    for xyz, lvlh, point, line in zip(ECI_all, LVLH_all, points, lines):
         visible = (xyz[:,1] > 0) | (np.sqrt(xyz[:,0]**2 + xyz[:,2]**2) > R_e)
         visible = np.concatenate(([False],visible, [False]))
         out_of_eclipse = np.where(visible[1:] & np.logical_not(visible[:-1]))[0]
@@ -64,14 +71,15 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.
             plt.plot(xyz[oute:ine+1,0] + R_e, xyz[oute:ine+1,2] + R_e,line)
 
         #Interpolate to current time.
-        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECEF_orbit.phase, xyz[:,ii]) for ii in range(3)]
+        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECI_orbit.phase, xyz[:,ii]) for ii in range(3)]
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
 
+    #Interpolate LVLH orbit, to make LVLH plot
     for lvlh in LVLH_all:
-        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ECEF_orbit.phase, lvlh[:,ii]) for ii in range(3)]
+        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ECI_orbit.phase, lvlh[:,ii]) for ii in range(3)]
         lvlh_ls.append(sat_lvlh)
 
     plt.tight_layout()
@@ -101,7 +109,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.
     plt.plot(pos_arr[-1,1,1]*km,pos_arr[-1,1,2]*km,'bo')
     plt.plot(pos_arr[-1,2,1]*km,pos_arr[-1,2,2]*km,'bo')
     plt.title("LVLH Frame")
-    plt.xlabel("Y Direction (along orbit) (km)")
-    plt.ylabel("Z Direction (along chief orbital axis) (km)")
+    plt.xlabel("v (chief velocity axis) (km)")
+    plt.ylabel("h (chief OAM axis) (km)")
 
     plt.pause(.01)

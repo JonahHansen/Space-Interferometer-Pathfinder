@@ -1,29 +1,38 @@
+"""ORBIT Classes - Calculates orbits and converts between orbital frames"""
+
 import numpy as np
 import astropy.constants as const
 import quaternions as qt
 
+"""
+ Parent class of orbit - requires number of phases and radius of orbit
+ to initialise
+"""
 class sat_orbit:
     def __init__(self, n_p, R_orb):
 
-        self.n_p = n_p
-        self.phase = np.linspace(0, 2*np.pi, n_p)
+        self.n_p = n_p #Number of phases
+        self.phase = np.linspace(0, 2*np.pi, n_p) #Phase array
 
-        self.R_orb = R_orb
-        self.period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #In seconds.
-        self.ang_vel = 2*np.pi/self.period
+        self.R_orb = R_orb #Orbital radius
+        self.period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #Period in seconds.
+        self.ang_vel = 2*np.pi/self.period #Angular velocity of orbit
 
+        #Initialise position and velocity vectors
         self.chief_pos = np.zeros((n_p,3))
         self.chief_vel = np.zeros((n_p,3))
         self.deputy1_pos = np.zeros((n_p,3))
         self.deputy1_vel = np.zeros((n_p,3))
         self.deputy2_pos = np.zeros((n_p,3))
         self.deputy2_vel = np.zeros((n_p,3))
-
+        
+        #Initialise deputy separation vectors (from chief satellite)
         self.deputy1_pos_sep = np.zeros((n_p,3))
         self.deputy1_vel_sep = np.zeros((n_p,3))
         self.deputy2_pos_sep = np.zeros((n_p,3))
         self.deputy2_vel_sep = np.zeros((n_p,3))
 
+    #Helper functions to give the state vector of a given satellite
     def chief_state_vec(self):
         return np.array([self.chief_pos[:,0],self.chief_pos[:,1],self.chief_pos[:,2],
                          self.chief_vel[:,0],self.chief_vel[:,1],self.chief_vel[:,2]])
@@ -44,7 +53,18 @@ class sat_orbit:
         return np.array([self.deputy2_pos_sep[:,0],self.deputy2_pos_sep[:,1],self.deputy2_pos_sep[:,2],
                          self.deputy2_vel_sep[:,0],self.deputy2_vel_sep[:,1],self.deputy2_vel_sep[:,2]])
 
-class ECEF_orbit(sat_orbit):
+"""
+ECI (Earth Centred Inertial) Orbit class: Use this to first calculate the orbit from scratch.
+Origin at the centre of the Earth, cartesian, satellite starts on positive x axis
+
+Parameters:
+n_p = number of phases
+R_orb = radius of orbit
+delta_r_max = maximum separation of deputies from chief
+inc_0,Om_0 = orientation of chief orbit
+ra,dec = position of star to be observed
+"""
+class ECI_orbit(sat_orbit):
 
     def __init__(self, n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec):
         sat_orbit.__init__(self, n_p, R_orb)
@@ -53,9 +73,11 @@ class ECEF_orbit(sat_orbit):
         self.inc_0 = inc_0
 
         self.delta_r_max = delta_r_max
-
+        
+        #Star vector
         self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 
+        #Calculate position and velcity for each phase
         for i in range(self.n_p):
             self.chief_pos[i,0] = np.cos(self.phase[i]) * self.R_orb
             self.chief_pos[i,1] = np.sin(self.phase[i]) * self.R_orb
@@ -67,7 +89,7 @@ class ECEF_orbit(sat_orbit):
         yaxis = np.array([0,1,0])
         zaxis = np.array([0,0,1])
 
-        #Quaternion rotation, using Mike's "No phase difference" rotation!
+        #Quaternion rotation of chief orbit
         q_Om = qt.to_q(zaxis,Om_0)
         q_inc = qt.to_q(yaxis,inc_0)
         self.q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
@@ -121,54 +143,79 @@ class ECEF_orbit(sat_orbit):
         self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
         self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
 
+"""
+LVLH Orbit class:
+Origin at the chief spacecraft
+r = position direction
+v = velocity direction
+h = OAM direction
+
+Parameters:
+n_p = number of phases
+R_orb = radius of orbit
+ECI = ECI orbit to convert to LVLH
+"""
 class LVLH_orbit(sat_orbit):
 
-    def __init__(self, n_p, R_orb, ECEF):
+    def __init__(self, n_p, R_orb, ECI):
 
         sat_orbit.__init__(self, n_p, R_orb)
-        self.s_hats = np.zeros((n_p,3))
+        self.s_hats = np.zeros((n_p,3)) #List of star vectors in LVLH frame
 
-        for ix in range(ECEF.n_p):
+        for ix in range(ECI.n_p):
 
-            h_hat = qt.rotate(np.array([0,0,1]),ECEF.q0) #Angular momentum vector (rotated "z" axis)
-            r_hat = ECEF.chief_pos[ix]/np.linalg.norm(ECEF.chief_pos[ix]) #Position vector pointing away from the centre of the Earth
+            h_hat = qt.rotate(np.array([0,0,1]),ECI.q0) #Angular momentum vector (rotated "z" axis)
+            r_hat = ECI.chief_pos[ix]/np.linalg.norm(ECI.chief_pos[ix]) #Position vector pointing away from the centre of the Earth
             v_hat = np.cross(h_hat,r_hat) #Velocity vector pointing counter-clockwise
 
             rot_mat = np.array([r_hat,v_hat,h_hat]) #Rotation matrix from three unit vectors
 
-            self.chief_pos[ix] = np.dot(rot_mat,ECEF.chief_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.chief_vel[ix] = np.dot(rot_mat,ECEF.chief_vel[ix])
-            self.deputy1_pos[ix] = np.dot(rot_mat,ECEF.deputy1_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.deputy1_vel[ix] = np.dot(rot_mat,ECEF.deputy1_vel[ix])
-            self.deputy2_pos[ix] = np.dot(rot_mat,ECEF.deputy2_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.deputy2_vel[ix] = np.dot(rot_mat,ECEF.deputy2_vel[ix])
-            self.s_hats[ix] = np.dot(rot_mat,ECEF.s_hat)
+            #New vectors, position set relative to the chief's position
+            self.chief_pos[ix] = np.dot(rot_mat,ECI.chief_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.chief_vel[ix] = np.dot(rot_mat,ECI.chief_vel[ix])
+            self.deputy1_pos[ix] = np.dot(rot_mat,ECI.deputy1_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.deputy1_vel[ix] = np.dot(rot_mat,ECI.deputy1_vel[ix])
+            self.deputy2_pos[ix] = np.dot(rot_mat,ECI.deputy2_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.deputy2_vel[ix] = np.dot(rot_mat,ECI.deputy2_vel[ix])
+            self.s_hats[ix] = np.dot(rot_mat,ECI.s_hat)
             
         self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
         self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
         self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
         self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
 
+"""
+Baseline Orbit class:
+Origin at the chief spacecraft
+b = baseline direction towards deputy 2
+s = star direction
+k = other direction
+
+Parameters:
+n_p = number of phases
+R_orb = radius of orbit
+ECI = ECI orbit to convert to Baseline
+"""
 class Baseline_orbit(sat_orbit):
 
-    def __init__(self, n_p, R_orb, ECEF):
+    def __init__(self, n_p, R_orb, ECI):
 
         sat_orbit.__init__(self, n_p, R_orb)
 
-        for ix in range(ECEF.n_p):
+        for ix in range(ECI.n_p):
             
-            b_hat = (ECEF.deputy2_pos[ix] - ECEF.chief_pos[ix])/np.linalg.norm(ECEF.deputy2_pos[ix] - ECEF.chief_pos[ix]) #Direction along baseline
-            k_hat = np.cross(ECEF.s_hat,b_hat) #Other direction
+            b_hat = (ECI.deputy2_pos[ix] - ECI.chief_pos[ix])/np.linalg.norm(ECI.deputy2_pos[ix] - ECI.chief_pos[ix]) #Direction along baseline
+            k_hat = np.cross(ECI.s_hat,b_hat) #Other direction
 
-            rot_mat = np.array([k_hat,b_hat,ECEF.s_hat]) #Create rotation matrix
+            rot_mat = np.array([k_hat,b_hat,ECI.s_hat]) #Create rotation matrix
 
-            
-            self.chief_pos[ix] = np.dot(rot_mat,ECEF.chief_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.chief_vel[ix] = np.dot(rot_mat,ECEF.chief_vel[ix])
-            self.deputy1_pos[ix] = np.dot(rot_mat,ECEF.deputy1_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.deputy1_vel[ix] = np.dot(rot_mat,ECEF.deputy1_vel[ix])
-            self.deputy2_pos[ix] = np.dot(rot_mat,ECEF.deputy2_pos[ix])-np.dot(rot_mat,ECEF.chief_pos[ix])
-            self.deputy2_vel[ix] = np.dot(rot_mat,ECEF.deputy2_vel[ix])
+            #New vectors, position set relative to the chief's position
+            self.chief_pos[ix] = np.dot(rot_mat,ECI.chief_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.chief_vel[ix] = np.dot(rot_mat,ECI.chief_vel[ix])
+            self.deputy1_pos[ix] = np.dot(rot_mat,ECI.deputy1_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.deputy1_vel[ix] = np.dot(rot_mat,ECI.deputy1_vel[ix])
+            self.deputy2_pos[ix] = np.dot(rot_mat,ECI.deputy2_pos[ix])-np.dot(rot_mat,ECI.chief_pos[ix])
+            self.deputy2_vel[ix] = np.dot(rot_mat,ECI.deputy2_vel[ix])
 
         self.deputy1_pos_sep = (self.deputy1_pos - self.chief_pos)
         self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
