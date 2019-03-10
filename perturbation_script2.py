@@ -77,11 +77,12 @@ LVLH_sep_state2 = np.zeros((num_times,6))
 i = 0
 for t in times:
     c_state[i] = ECI.chief_state(t)
+    rot_mat = to_LVLH_mat(c_state)
     dep1_state[i] = ECI.deputy1_state(c_state[i])
     dep2_state[i] = ECI.deputy2_state(c_state[i])
-    LVLH_state0[i] = ECI.to_LVLH_state(c_state[i],c_state[i])
-    LVLH_state1[i] = ECI.to_LVLH_state(c_state[i],dep1_state[i])
-    LVLH_state2[i] = ECI.to_LVLH_state(c_state[i],dep2_state[i])
+    LVLH_state0[i] = ECI.to_LVLH_state(c_state[i],rot_mat,c_state[i])
+    LVLH_state1[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep1_state[i])
+    LVLH_state2[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep2_state[i])
     LVLH_sep_state1[i] = LVLH_state1[i] - LVLH_state0[i]
     LVLH_sep_state2[i] = LVLH_state2[i] - LVLH_state0[i]
     i += 1

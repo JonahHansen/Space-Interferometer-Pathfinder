@@ -113,8 +113,7 @@ class ECI_orbit:
         rot_mat = np.array([r_hat,v_hat,self.h_0])
         return rot_mat
 
-    def to_LVLH_state(self,chief_state,state):
-        rot_mat = self.to_LVLH_mat(chief_state)
+    def to_LVLH_state(self,chief_state,rot_mat,state):
         non_zero_pos = np.dot(rot_mat,state[0:3])
         pos = non_zero_pos - np.dot(rot_mat,chief_state[0:3])
         omega = np.array([0,0,self.ang_vel])
