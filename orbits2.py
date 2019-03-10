@@ -18,19 +18,19 @@ delta_r_max = maximum separation of deputies from chief
 inc_0,Om_0 = orientation of chief orbit
 ra,dec = position of star to be observed
 """
-class ECI_orbit(sat_orbit):
+class ECI_orbit:
 
     def __init__(self, R_orb, delta_r_max, inc_0, Om_0, ra, dec):
-        
+
         self.Om_0 = Om_0
         self.inc_0 = inc_0
 
         self.delta_r_max = delta_r_max
-        
+
         self.R_orb = R_orb #Orbital radius
         self.period = 2*np.pi*np.sqrt((R_orb)**3/const.GM_earth).value #Period in seconds.
         self.ang_vel = 2*np.pi/self.period #Angular velocity of orbit
-    
+
         #Star vector
         self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
 
@@ -80,39 +80,50 @@ class ECI_orbit(sat_orbit):
         q_phase2 = qt.to_q(z_hat,psi)
         q_plane2 = qt.to_q(axis2,omega2)
         self.q2 = qt.comb_rot(q_phase2,q_plane2)
-        
+
     def chief_state(self,t):
         phase = t*self.ang_vel
-        
-        pos = np.zeros((0,3))
-        vel = np.zeros((0,3))
-        
+
+        pos = np.zeros(3)
+        vel = np.zeros(3)
+
         pos[0] = np.cos(phase) * self.R_orb
         pos[1] = np.sin(phase) * self.R_orb
         vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
         vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
-        
+
         pos = qt.rotate(pos,self.q0)
         vel = qt.rotate(vel,self.q0)
-        return pos, vel
+        return np.append(pos,vel)
 
-    def deputy1_state(self,chief_pos,chief_vel)
-        pos = np.rotate(chief_pos,self.q1)
-        vel = np.rotate(chief_vel,self.q1)
-        return pos, vel
-        
-    def deputy2_state(self,chief_pos,chief_vel)
-        pos = np.rotate(chief_pos,self.q2)
-        vel = np.rotate(chief_vel,self.q2)
-        return pos, vel
-            
-    def to_LVLH_mat(self,chief_pos):
+    def deputy1_state(self,chief_state):
+        pos = qt.rotate(chief_state[0:3],self.q1)
+        vel = qt.rotate(chief_state[3:],self.q1)
+        return np.append(pos,vel)
+
+    def deputy2_state(self,chief_state):
+        pos = qt.rotate(chief_state[0:3],self.q2)
+        vel = qt.rotate(chief_state[3:],self.q2)
+        return np.append(pos,vel)
+
+    def to_LVLH_mat(self,chief_state):
+        chief_pos = chief_state[:3]
         r_hat = chief_pos/np.linalg.norm(chief_pos)
         v_hat = np.cross(self.h_0,r_hat)
         rot_mat = np.array([r_hat,v_hat,self.h_0])
         return rot_mat
-        
-    def to_Baseline_mat(self,chief_pos,deputy_pos):
+
+    def to_LVLH_state(self,chief_state,state):
+        rot_mat = self.to_LVLH_mat(chief_state)
+        non_zero_pos = np.dot(rot_mat,state[0:3])
+        pos = non_zero_pos - np.dot(rot_mat,chief_state[0:3])
+        omega = np.array([0,0,self.ang_vel])
+        vel = np.dot(rot_mat,state[3:]) - np.cross(omega,non_zero_pos)
+        return np.append(pos,vel)
+
+    def to_Baseline_mat(self,chief_state,deputy_state):
+        chief_pos = chief_state[:3]
+        deputy_pos = deputy_state[:3]
         b_hat = (deputy_pos-chief_pos)/np.linalg.norm(deputy_pos-chief_pos)
         k_hat = np.cross(self.s_hat,b_hat)
         rot_mat = np.array([k_hat,b_hat,self.s_hat])

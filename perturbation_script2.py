@@ -3,10 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
-from astropy import units as u
-from astropy.time import Time
 from scipy.integrate import solve_ivp
-import orbits import ECI_orbit
+from orbits2 import ECI_orbit
 
 plt.ion()
 
@@ -19,29 +17,28 @@ def dX_dt(t, state, ECI):
     dX1 = v[1]
     dX2 = v[2]
 
-    c_pos, c_vel = ECI.chief_state(t)
-    LVLH_mat = ECI.to_LVLH_mat(c_pos)
+    mat = ECI.to_LVLH_mat(ECI.chief_state(t))
 
     n = ECI.ang_vel #Angular velocity
     mu = const.GM_earth.value #Graviational parameter
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
-    
+
     print(t)
-    
+
     #HCW Equations - Until this works, will use the analytical form
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
-    #Gamma2 = n**2/LVLH_orbit.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    a = -2*np.cross(omega,v) + np.matmul(K,r)# + Gamma2
-    
+    Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
+    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2
+
     #Position vector of deputy
     #rd = np.array([LVLH_orbit.R_orb+r[0],r[1],r[2]])
     #Acceleration vector - analytical version (See Butcher 18)
     # a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - mu*np.array([-2*r[0],r[1],r[2]])/np.linalg.norm(rd)**3
-    
+
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]
-    return [dX0,dX1,dX2,dX3,dX4,dX5]
+    return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
 
 alt = 1000e3 #In m
@@ -50,46 +47,52 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(34) #49
+inc_0 = np.radians(2) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(23) #-30
+Om_0 = np.radians(0) #-30
 
 #Stellar vector
-ra = np.radians(12) #23
-dec = np.radians(-75)#43
+ra = np.radians(0) #23
+dec = np.radians(90)#43
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3*1e3
 
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
-ECI = orbits.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 num_times = 1000
 times = np.linspace(0,ECI.period,num_times)
+
+c_state = np.zeros((num_times,6))
+dep1_state = np.zeros((num_times,6))
+dep2_state = np.zeros((num_times,6))
+LVLH_state0 = np.zeros((num_times,6))
+LVLH_state1 = np.zeros((num_times,6))
+LVLH_state2 = np.zeros((num_times,6))
 LVLH_sep_state1 = np.zeros((num_times,6))
 LVLH_sep_state2 = np.zeros((num_times,6))
 
+i = 0
 for t in times:
-    i = 0
-    c_pos, c_vel = ECI.chief_state(t)
-    LVLH_mat = ECI.to_LVLH_mat(c_pos)
-    dep1_pos, dep1_vel = ECI.deputy1_pos(c_pos,c_vel)
-    dep2_pos, dep2_vel = ECI.deputy2_pos(c_pos,c_vel)
-    LVLH_sep_state1[i,0:3] = np.dot(LVLH_mat,dep1_pos) - np.dot(LVLH_mat,c_pos)
-    LVLH_sep_state2[i,0:3] = np.dot(LVLH_mat,dep2_pos) - np.dot(LVLH_mat,c_pos)
-    #LVLH_vel1[i] = np.dot(LVLH_mat,dep1_vel)
-    #LVLH_vel2[i] = np.dot(LVLH_mat,dep2_vel)
-    LVLH_sep_state1[i,3:6] = np.dot(LVLH_mat,dep1_vel)
-    LVLH_sep_state2[i,3:6] = np.dot(LVLH_mat,dep2_vel)
+    c_state[i] = ECI.chief_state(t)
+    dep1_state[i] = ECI.deputy1_state(c_state[i])
+    dep2_state[i] = ECI.deputy2_state(c_state[i])
+    LVLH_state0[i] = ECI.to_LVLH_state(c_state[i],c_state[i])
+    LVLH_state1[i] = ECI.to_LVLH_state(c_state[i],dep1_state[i])
+    LVLH_state2[i] = ECI.to_LVLH_state(c_state[i],dep2_state[i])
+    LVLH_sep_state1[i] = LVLH_state1[i] - LVLH_state0[i]
+    LVLH_sep_state2[i] = LVLH_state2[i] - LVLH_state0[i]
+    i += 1
 
 rtol = 1e-6
 atol = 1e-12
-step = 1
+step = 100
 
 #Integrate the orbits
-X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state1, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state2, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
 
 pert_LVLH_sep_state1 = np.transpose(X_d1.y)
 pert_LVLH_sep_state2 = np.transpose(X_d2.y)
@@ -121,9 +124,9 @@ def set_axes_equal(ax):
 plt.figure(1)
 ax1 = plt.axes(projection='3d')
 ax1.set_aspect('equal')
-ax1.plot3D(ECI.chief_pos[:,0],ECI.chief_pos[:,1],ECI.chief_pos[:,2],'b-')
-ax1.plot3D(ECI.deputy1_pos[:,0],ECI.deputy1_pos[:,1],ECI.deputy1_pos[:,2],'r-')
-ax1.plot3D(ECI.deputy2_pos[:,0],ECI.deputy2_pos[:,1],ECI.deputy2_pos[:,2],'g-')
+ax1.plot3D(c_state[:,0],c_state[:,1],c_state[:,2],'b-')
+ax1.plot3D(dep1_state[:,0],dep1_state[:,1],dep1_state[:,2],'r-')
+ax1.plot3D(dep2_state[:,0],dep2_state[:,1],dep2_state[:,2],'g-')
 ax1.set_xlabel('x (m)')
 ax1.set_ylabel('y (m)')
 ax1.set_zlabel('z (m)')
@@ -134,12 +137,11 @@ set_axes_equal(ax1)
 plt.figure(2)
 ax2 = plt.axes(projection='3d')
 ax2.set_aspect('equal')
-ax2.plot3D(LVLH.chief_pos[:,0],LVLH.chief_pos[:,1],LVLH.chief_pos[:,2],'b-')
-ax2.plot3D(LVLH.deputy1_pos[:,0],LVLH.deputy1_pos[:,1],LVLH.deputy1_pos[:,2],'r-')
-ax2.plot3D(LVLH.deputy2_pos[:,0],LVLH.deputy2_pos[:,1],LVLH.deputy2_pos[:,2],'g-')
-ax2.plot3D(pert_LVLH.chief_pos[:,0],pert_LVLH.chief_pos[:,1],pert_LVLH.chief_pos[:,2],'b--')
-ax2.plot3D(pert_LVLH.deputy1_pos[:,0],pert_LVLH.deputy1_pos[:,1],pert_LVLH.deputy1_pos[:,2],'r--')
-ax2.plot3D(pert_LVLH.deputy2_pos[:,0],pert_LVLH.deputy2_pos[:,1],pert_LVLH.deputy2_pos[:,2],'g--')
+ax2.plot3D(LVLH_state0[:,0],LVLH_state0[:,1],LVLH_state0[:,2],'b-')
+ax2.plot3D(LVLH_state1[:,0],LVLH_state1[:,1],LVLH_state1[:,2],'r-')
+ax2.plot3D(LVLH_state2[:,0],LVLH_state2[:,1],LVLH_state2[:,2],'g-')
+ax2.plot3D(pert_LVLH_sep_state1[:,0],pert_LVLH_sep_state1[:,1],pert_LVLH_sep_state1[:,2],'r--')
+ax2.plot3D(pert_LVLH_sep_state2[:,0],pert_LVLH_sep_state2[:,1],pert_LVLH_sep_state2[:,2],'g--')
 ax2.set_xlabel('r (m)')
 ax2.set_ylabel('v (m)')
 ax2.set_zlabel('h (m)')
