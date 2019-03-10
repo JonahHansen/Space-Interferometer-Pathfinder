@@ -53,7 +53,7 @@ period = ECI_orbit.period/60 #In minutes
 
 #Make pretty plots.
 pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,7)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)

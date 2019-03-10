@@ -1,4 +1,3 @@
-
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,10 +5,44 @@ from mpl_toolkits import mplot3d
 import astropy.constants as const
 from astropy import units as u
 from astropy.time import Time
-from perturbation_integrate import perturb_orbit, none_dX_dt
-import orbits
+from scipy.integrate import solve_ivp
+import orbits import ECI_orbit
 
 plt.ion()
+
+""" Differential equation function with NO J2 perturbation """
+def dX_dt(t, state, ECI):
+    r = state[:3] #Position
+    v = state[3:] #Velocity
+
+    dX0 = v[0]
+    dX1 = v[1]
+    dX2 = v[2]
+
+    c_pos, c_vel = ECI.chief_state(t)
+    LVLH_mat = ECI.to_LVLH_mat(c_pos)
+
+    n = ECI.ang_vel #Angular velocity
+    mu = const.GM_earth.value #Graviational parameter
+    omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
+    
+    print(t)
+    
+    #HCW Equations - Until this works, will use the analytical form
+    K = np.diag(np.array([3*n**2,0,-(n**2)]))
+    #Gamma2 = n**2/LVLH_orbit.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
+    a = -2*np.cross(omega,v) + np.matmul(K,r)# + Gamma2
+    
+    #Position vector of deputy
+    #rd = np.array([LVLH_orbit.R_orb+r[0],r[1],r[2]])
+    #Acceleration vector - analytical version (See Butcher 18)
+    # a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - mu*np.array([-2*r[0],r[1],r[2]])/np.linalg.norm(rd)**3
+    
+    dX3 = a[0]
+    dX4 = a[1]
+    dX5 = a[2]
+    return [dX0,dX1,dX2,dX3,dX4,dX5]
+
 
 alt = 1000e3 #In m
 R_e = const.R_earth.value  #In m
@@ -28,17 +61,39 @@ dec = np.radians(-75)#43
 #The max distance to the other satellites in m
 delta_r_max = 0.3*1e3
 
-n_p = 1000 #number of phases
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
-ECI = orbits.ECI_orbit(n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = orbits.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
-#Convert orbit into the LVLH frame
-LVLH = orbits.LVLH_orbit(n_p, R_orb, ECI)
+num_times = 1000
+times = np.linspace(0,ECI.period,num_times)
+LVLH_sep_state1 = np.zeros((num_times,6))
+LVLH_sep_state2 = np.zeros((num_times,6))
 
-#Peturb the orbit according to the HCW equations
-#NOTE SHOULD GIVE SAME AS LVLH ORBIT!!!! BUT DOESNT!!!! SOMETHING BROKEN!!!
-pert_LVLH = perturb_orbit(LVLH,none_dX_dt)
+for t in times:
+    i = 0
+    c_pos, c_vel = ECI.chief_state(t)
+    LVLH_mat = ECI.to_LVLH_mat(c_pos)
+    dep1_pos, dep1_vel = ECI.deputy1_pos(c_pos,c_vel)
+    dep2_pos, dep2_vel = ECI.deputy2_pos(c_pos,c_vel)
+    LVLH_sep_state1[i,0:3] = np.dot(LVLH_mat,dep1_pos) - np.dot(LVLH_mat,c_pos)
+    LVLH_sep_state2[i,0:3] = np.dot(LVLH_mat,dep2_pos) - np.dot(LVLH_mat,c_pos)
+    #LVLH_vel1[i] = np.dot(LVLH_mat,dep1_vel)
+    #LVLH_vel2[i] = np.dot(LVLH_mat,dep2_vel)
+    LVLH_sep_state1[i,3:6] = np.dot(LVLH_mat,dep1_vel)
+    LVLH_sep_state2[i,3:6] = np.dot(LVLH_mat,dep2_vel)
+
+rtol = 1e-6
+atol = 1e-12
+step = 1
+
+#Integrate the orbits
+X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state1, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_sep_state2, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+
+pert_LVLH_sep_state1 = np.transpose(X_d1.y)
+pert_LVLH_sep_state2 = np.transpose(X_d2.y)
+
 # ---------------------------------------------------------------------- #
 ### PLOTTING STUFF ###
 

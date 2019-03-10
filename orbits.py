@@ -103,8 +103,11 @@ class ECI_orbit(sat_orbit):
 
         #New coord system:
         z_hat = h_0/np.linalg.norm(h_0) #In direction of angular momentum
+        print(z_hat)
         y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
+        print(y)
         y_hat = y/np.linalg.norm(y)
+        print(y_hat)
         x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
         #Angle between angular momentum vector and star (checks are for precision errors):
@@ -142,6 +145,9 @@ class ECI_orbit(sat_orbit):
         self.deputy2_pos_sep = (self.deputy2_pos - self.chief_pos)
         self.deputy1_vel_sep = (self.deputy1_vel - self.chief_vel)
         self.deputy2_vel_sep = (self.deputy2_vel - self.chief_vel)
+        
+    def chief_position(self,t):
+        phase = t*self.angvel
 
 """
 LVLH Orbit class:

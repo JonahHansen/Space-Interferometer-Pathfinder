@@ -4,13 +4,16 @@ import astropy.constants as const
 from scipy.integrate import solve_ivp
 
 """ Differential equation function with NO J2 perturbation """
-def none_dX_dt(t, state, LVLH_orbit):
+def none_dX_dt(t, state, ECI):
     r = state[:3] #Position
     v = state[3:] #Velocity
 
     dX0 = v[0]
     dX1 = v[1]
     dX2 = v[2]
+
+    c_pos, c_vel = ECI.chief_state(t)
+    LVLH_mat = ECI.to_LVLH_mat(c_pos)
 
     n = LVLH_orbit.ang_vel #Angular velocity
     mu = const.GM_earth.value #Graviational parameter
@@ -58,7 +61,8 @@ def J2_dX_dt(t, state, LVLH_orbit):
 
 """
 
-def perturb_orbit(LVLH_orbit,perturb_func):
+def perturb_orbit(ECI_orbit,perturb_func):
+
     p_orbit = sat_orbit(LVLH_orbit.n_p,LVLH_orbit.R_orb) #New Orbit
 
     tspan = LVLH_orbit.phase/LVLH_orbit.ang_vel #Array of times
