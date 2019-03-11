@@ -9,7 +9,7 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 import astropy.units as u
 import astropy.constants as const
-import orbits
+from orbits import ECI_orbit
 
 plt.ion()
 
@@ -37,19 +37,38 @@ lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
 
 #------------------------------------------------------------------------------------------
-
 #Calculate orbit, in the geocentric (ECI) frame
-ECI_orbit = orbits.ECI_orbit(n_p, R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
-#Convert orbit into the LVLH frame
-LVLH_orbit = orbits.LVLH_orbit(n_p, R_orb, ECI_orbit)
+num_times = 1000
+times = np.linspace(0,ECI.period,num_times)
+
+c_state = np.zeros((num_times,6))
+dep1_state = np.zeros((num_times,6))
+dep2_state = np.zeros((num_times,6))
+LVLH_state0 = np.zeros((num_times,6))
+LVLH_state1 = np.zeros((num_times,6))
+LVLH_state2 = np.zeros((num_times,6))
+s_hats = np.zeros((num_times,3))
+
+i = 0
+for t in times:
+    c_state[i] = ECI.chief_state(t)
+    rot_mat = ECI.to_LVLH_mat(c_state[i])
+    dep1_state[i] = ECI.deputy1_state(c_state[i])
+    dep2_state[i] = ECI.deputy2_state(c_state[i])
+    LVLH_state0[i] = ECI.to_LVLH_state(c_state[i],rot_mat,c_state[i])
+    LVLH_state1[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep1_state[i])
+    LVLH_state2[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep2_state[i])
+    s_hats[i] = np.dot(rot_mat,ECI.s_hat)
+    i += 1
 
 #All ECI positions
-ECI_all = [ECI_orbit.chief_pos,ECI_orbit.deputy1_pos,ECI_orbit.deputy2_pos]
+ECI_all = [c_state[:,:3],dep1_state[:,:3],dep2_state[:,:3]]
 #All LVLH positions, plus stellar vector
-LVLH_all = [LVLH_orbit.chief_pos,LVLH_orbit.deputy1_pos,LVLH_orbit.deputy2_pos,LVLH_orbit.s_hats]
+LVLH_all = [LVLH_state0[:,:3],LVLH_state1[:,:3],LVLH_state2[:,:3],s_hats]
 
-period = ECI_orbit.period/60 #In minutes
+period = ECI.period/60 #In minutes
 
 #Make pretty plots.
 pos_ls = [] #list of positions
@@ -71,7 +90,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
             plt.plot(xyz[oute:ine+1,0] + R_e, xyz[oute:ine+1,2] + R_e,line)
 
         #Interpolate to current time.
-        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECI_orbit.phase, xyz[:,ii]) for ii in range(3)]
+        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECI.ang_vel*times, xyz[:,ii]) for ii in range(3)]
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
@@ -79,7 +98,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
 
     #Interpolate LVLH orbit, to make LVLH plot
     for lvlh in LVLH_all:
-        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ECI_orbit.phase, lvlh[:,ii]) for ii in range(3)]
+        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ECI.ang_vel*times, lvlh[:,ii]) for ii in range(3)]
         lvlh_ls.append(sat_lvlh)
 
     plt.tight_layout()
