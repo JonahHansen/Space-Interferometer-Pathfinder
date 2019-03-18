@@ -106,7 +106,7 @@ def dX_dt(t, state, ECI):
 
     #Convert back to LVLH frame
     J2_pet_LVLH = np.dot(mat,J2_pet)
-    #J2_pet_LVLH = 0 #Comment out to use J2
+    J2_pet_LVLH = 0 #Comment out to use J2
 
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
