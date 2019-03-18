@@ -19,11 +19,11 @@ R_orb = R_e + alt
 #Orbital inclination
 inc_0 = np.radians(90) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(50) #-30
+Om_0 = np.radians(0) #-30
 
 #Stellar vector
-ra = np.radians(30) #23
-dec = np.radians(20)#43
+ra = np.radians(0) #23
+dec = np.radians(30)#43
 
 #The max distance to the other satellites in m
 delta_r_max = 0.1*1e3
@@ -101,8 +101,15 @@ def dX_dt(t, state, ECI):
 
     #Calculate J2 acceleration from the equation in ECI frame
     J2_fac1 = 3/2*J2*mu*const.R_earth.value**2/ECI.R_orb**5
-    J2_fac2 = 5*z**2/ECI.R_orb**2
-    J2_pet = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
+    J2_fac2_dep = 5*z**2/ECI.R_orb**2
+    J2_pet_dep = J2_fac1*np.array([x*(J2_fac2_dep-1),y*(J2_fac2_dep-1),z*(J2_fac2_dep-3)])
+
+    #Calculate J2 acceleration for chief satellite
+    J2_fac2_c = 5*c_state[2]**2/ECI.R_orb**2
+    J2_pet_c = J2_fac1*np.array([c_state[0]*(J2_fac2_c-1),c_state[1]*(J2_fac2_c-1),c_state[2]*(J2_fac2_c-3)])
+
+    #Separation acceleration
+    J2_pet = J2_pet_dep - J2_pet_c
 
     #Convert back to LVLH frame
     J2_pet_LVLH = np.dot(mat,J2_pet)
