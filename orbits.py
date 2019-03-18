@@ -46,11 +46,8 @@ class ECI_orbit:
 
         #New coord system:
         z_hat = self.h_0 #In direction of angular momentum
-        print(z_hat)
         y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
-        print(y)
         y_hat = y/np.linalg.norm(y)
-        print(y_hat)
         x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
         #Angle between angular momentum vector and star (checks are for precision errors):
@@ -78,6 +75,7 @@ class ECI_orbit:
         q_plane2 = qt.to_q(axis2,omega2)
         self.q2 = qt.comb_rot(q_phase2,q_plane2)
 
+    """Calculate chief state at a given time t"""
     def chief_state(self,t):
         phase = t*self.ang_vel
 
@@ -93,16 +91,19 @@ class ECI_orbit:
         vel = qt.rotate(vel,self.q0)
         return np.append(pos,vel)
 
+    """Calculate deputy 1 state for a given chief state"""
     def deputy1_state(self,chief_state):
         pos = qt.rotate(chief_state[0:3],self.q1)
         vel = qt.rotate(chief_state[3:],self.q1)
         return np.append(pos,vel)
 
+    """Calculate deputy 2 state for a given chief state"""
     def deputy2_state(self,chief_state):
         pos = qt.rotate(chief_state[0:3],self.q2)
         vel = qt.rotate(chief_state[3:],self.q2)
         return np.append(pos,vel)
 
+    """ Create change of basis matrix - requires chief position """
     def to_LVLH_mat(self,chief_state):
         chief_pos = chief_state[:3]
         r_hat = chief_pos/np.linalg.norm(chief_pos)
@@ -110,17 +111,10 @@ class ECI_orbit:
         rot_mat = np.array([r_hat,v_hat,self.h_0])
         return rot_mat
 
+    """ Takes a given state vector in ECI coordinates and converts to LVLH """
     def to_LVLH_state(self,chief_state,rot_mat,state):
         non_zero_pos = np.dot(rot_mat,state[0:3])
         pos = non_zero_pos - np.dot(rot_mat,chief_state[0:3])
         omega = np.array([0,0,self.ang_vel])
         vel = np.dot(rot_mat,state[3:]) - np.cross(omega,non_zero_pos)
         return np.append(pos,vel)
-
-    def to_Baseline_mat(self,chief_state,deputy_state):
-        chief_pos = chief_state[:3]
-        deputy_pos = deputy_state[:3]
-        b_hat = (deputy_pos-chief_pos)/np.linalg.norm(deputy_pos-chief_pos)
-        k_hat = np.cross(self.s_hat,b_hat)
-        rot_mat = np.array([k_hat,b_hat,self.s_hat])
-        return rot_mat
