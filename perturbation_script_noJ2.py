@@ -3,11 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
-from scipy.optimize import fsolve
 from scipy.integrate import solve_ivp
 from orbits import ECI_orbit
-import quaternions as qt
-from Schweighart_J2 import J2_pet
 
 plt.ion()
 

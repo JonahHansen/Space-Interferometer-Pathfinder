@@ -1,7 +1,16 @@
 import numpy as np
 import astropy.constants as const
 from scipy.optimize import fsolve
-import quaternions as qt
+
+"""
+Use Schweighart J2 formula
+func1 = J2_pet(LVLH_sep_state1[0],ECI,ECI.q1)
+func2 = J2_pet(LVLH_sep_state2[0],ECI,ECI.q2)
+
+X_d1 = solve_ivp(func1, [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(func2, [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+"""
+
 
 """ J2 Perturbation function from Schweighart's paper """
 def J2_pet(state0,ECI,rotation):
