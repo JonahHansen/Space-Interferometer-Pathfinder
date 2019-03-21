@@ -10,6 +10,8 @@ import json
 
 #------------------------------------------------------------------------------------------
 def worker(params):
+    
+    print(params)
 
     #Calculate orbit, in the geocentric (ECI) frame
     ECI = ECI_orbit(*params)
@@ -97,12 +99,12 @@ def worker(params):
                    "Delta_v_total": delta_v_total}
     return output_dict
     
-p = Pool(processes=2)
+p = Pool(processes=25)
 
 param_ls = []
 
-n_inc = 1
-n_dec = 1
+n_inc = 360
+n_dec = 360
 
 inc_0 = np.radians(np.linspace(0,90,n_inc))
 Om_0 = np.radians(np.array([0]))

@@ -81,10 +81,12 @@ def dX_dt(t, state, ECI):
     rot_mat = ECI.to_LVLH_mat(r_c) #Matrix to convert into LVLH
 
     """ J2 Acceleration """
+
     J2_p = J2_pert(r,r_c,rot_mat,ECI.R_orb)
     #J2_p = 0 #Comment out to use J2
-    """
+
     """ Solar Radiation """
+    """
     As_c = 0.2*0.3
     As_d = 0.1*0.3
     m_c = 8
@@ -93,8 +95,9 @@ def dX_dt(t, state, ECI):
     Cr_d = 1.5
     
     solar_p = solar_radiation(r,r_c,rot_mat,As_c,Cr_c,m_c,As_d,Cr_d,m_d)
-    
+    """
     """ Drag """
+    """
     rho = 5.215e-13 #500km, 3.561e-15 for 1000km
     C_D = 2.1
     A = As_d
