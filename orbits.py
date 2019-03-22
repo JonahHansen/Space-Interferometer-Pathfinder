@@ -46,7 +46,16 @@ class ECI_orbit:
 
         #New coord system:
         z_hat = self.h_0 #In direction of angular momentum
+        
+        
         y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
+        
+        if (y == np.array([0.,0.,0.])).all():
+            if (z_hat == np.array([1.,0.,0.])).all():
+                y = np.array([0.,1.,0.])
+            else:
+                y = np.cross(z_hat,np.array([1.,0.,0.]))
+        
         y_hat = y/np.linalg.norm(y)
         x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 

@@ -83,7 +83,7 @@ def dX_dt(t, state, ECI):
     """ J2 Acceleration """
 
     J2_p = J2_pert(r,r_c,rot_mat,ECI.R_orb)
-    #J2_p = 0 #Comment out to use J2
+    J2_p = 0 #Comment out to use J2
 
     """ Solar Radiation """
     """

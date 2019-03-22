@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(23) #49
+inc_0 = np.radians(45) #49
 #Longitude of the Ascending Node
-Om_0 = np.radians(52) #-30
+Om_0 = np.radians(0) #-30
 
 #Stellar vector
-ra = np.radians(12) #23
-dec = np.radians(30)#43
+ra = np.radians(0) #23
+dec = np.radians(90)#43
 
 #The max distance to the other satellites in m
 delta_r_max = 0.1*1e3
@@ -167,8 +167,20 @@ plt.clf()
 plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
 plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
 plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
+#plt.plot(times,baseline_sep,"y-",label="Separation, baseline direction")
+#plt.plot(times,total_sep,"c-",label="Total direction")
+plt.xlabel("Times(s)")
+plt.ylabel("Separation(m)")
+plt.title('Separations against time due to perturbations')
+plt.legend()
+
+plt.figure(4)
+plt.clf()
+#plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
+#plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
+#plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
 plt.plot(times,baseline_sep,"y-",label="Separation, baseline direction")
-plt.plot(times,total_sep,"c-",label="Total direction")
+#plt.plot(times,total_sep,"c-",label="Total direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')

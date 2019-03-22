@@ -69,6 +69,12 @@ def worker(params):
         acc = np.gradient(vel, edge_order=2)
         return np.abs(acc)
     
+    max_sep_s1 = max(abs(s_hat_drd1))
+    max_sep_s2 = max(abs(s_hat_drd2))
+    max_sep_delta_b = max(abs(baseline_sep))
+    max_sep_delta_s = max(abs(s_hat_sep))
+    max_sep_total = max(abs(total_sep))
+    
     #Accelerations
     acc_s1 = acc(s_hat_drd1)
     acc_s2 = acc(s_hat_drd2)
@@ -92,13 +98,15 @@ def worker(params):
     
                        
     output_dict = {"R_orb":params[0], "Delta_r":params[1], "inc_0":params[2], "Om_0":params[3],
-                   "ra":params[4], "dec":params[5], "Max_a_s1": max_acc_s1, "Max_a_s2": max_acc_s2,
+                   "ra":params[4], "dec":params[5], "Max_sep_s1": max_sep_s1, "Max_sep_s2": max_sep_s2,
+                   "Max_sep_delta_s": max_sep_delta_s, "Max_sep_delta_b": max_sep_delta_b,
+                   "Max_sep_total": max_sep_total, "Max_a_s1": max_acc_s1, "Max_a_s2": max_acc_s2,
                    "Max_a_delta_s": max_acc_delta_s, "Max_a_delta_b": max_acc_delta_b,
                    "Max_a_total": max_acc_total, "Delta_v_s1": delta_v_s1, "Delta_v_s2": delta_v_s2,
                    "Delta_v_delta_s": delta_v_delta_s, "Delta_v_delta_b": delta_v_delta_b,
                    "Delta_v_total": delta_v_total}
     return output_dict
-    
+
 p = Pool(processes=25)
 
 param_ls = []
