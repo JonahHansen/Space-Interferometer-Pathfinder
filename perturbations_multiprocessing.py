@@ -8,10 +8,32 @@ from itertools import product
 from multiprocessing import Pool
 import json
 
+
+param_ls = []
+
+n_inc = 360
+n_dec = 360
+
+inc_0 = np.radians(np.linspace(0,90,n_inc))
+Om_0 = np.radians(np.array([0]))
+ra = np.radians(np.array([0,90]))
+dec = np.radians(np.linspace(-90,90,n_dec))
+R_orb = np.array([500e3,1000e3])+const.R_earth.value
+delta_r_max = np.array([0.3e3,0.1e3])
+
+param_ls = list(product(R_orb,delta_r_max,inc_0,Om_0,ra,dec))
+
+inputs = list(enumerate(param_ls))
+
+input_len = len(inputs)
+
 #------------------------------------------------------------------------------------------
-def worker(params):
+def worker(arg):
     
-    print(params)
+    index = arg[0]
+    params = arg[1]
+    
+    print(index/input_len*100)
 
     #Calculate orbit, in the geocentric (ECI) frame
     ECI = ECI_orbit(*params)
@@ -109,21 +131,7 @@ def worker(params):
 
 p = Pool(processes=25)
 
-param_ls = []
-
-n_inc = 360
-n_dec = 360
-
-inc_0 = np.radians(np.linspace(0,90,n_inc))
-Om_0 = np.radians(np.array([0]))
-ra = np.radians(np.array([0,90]))
-dec = np.radians(np.linspace(-90,90,n_dec))
-R_orb = np.array([500e3,1000e3])+const.R_earth.value
-delta_r_max = np.array([0.3e3,0.1e3])
-
-param_ls = list(product(R_orb,delta_r_max,inc_0,Om_0,ra,dec))
-
-result = p.map(worker,param_ls)
+result = p.map(worker,inputs)
 
 with open('bigfile.json', 'w') as f:  # writing JSON object
      json.dump(result, f)
