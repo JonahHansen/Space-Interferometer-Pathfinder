@@ -41,6 +41,12 @@ for i in range(360):
     for j in range(360):
         print(i,j)
         item = data2.iloc[i*360 + j]
-        array[i,j] = item[z]
+        array[i,j] = np.log10(item[z])
 
-plt.imshow(array)
+plt.imshow(array,origin="lower",cmap="viridis",extent=[-90,90,0,90])
+cbar = plt.colorbar()
+cbar.set_label('Maximum accceleration m/s/s', rotation=270, labelpad=15)
+plt.xlabel("Declination (deg)")
+plt.ylabel("Inclination (deg)")
+
+plt.show()
