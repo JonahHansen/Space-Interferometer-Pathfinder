@@ -2,17 +2,17 @@ import pandas as pd
 import astropy.constants as const
 import numpy as np
 import matplotlib.pyplot as plt
-data = pd.read_json("bigfile.json","records")
+data = pd.read_json("bigboy.json","records")
 
 r_orba = 500e3+const.R_earth.value
 r_orbb = 1000e3+const.R_earth.value
 
-ra = 0
+ra = np.radians(90)
 Om = 0
 R_orb = r_orba
 delta_r_max = 0.3e3
-
-data2 = data[(data["ra"] == ra) & (data["Om_0"] == Om) & (data["R_orb"] == R_orb) & (data["Delta_r"] == delta_r_max)]
+rnd = 5
+data2 = data[(data["ra"].round(rnd)==round(ra,rnd)) & (data["Om_0"].round(rnd)==round(Om,rnd)) & (data["R_orb"].round(rnd)==round(R_orb,rnd)) & (data["Delta_r"].round(rnd)==round(delta_r_max,rnd))]
 
 data3 = data2.sort_values(by=['inc_0', 'dec']).reset_index()
 
@@ -21,7 +21,7 @@ data3 = data2.sort_values(by=['inc_0', 'dec']).reset_index()
 def array_plot(z):
     inc_ls = np.radians(np.linspace(0,90,360))
     dec_ls = np.radians(np.linspace(-90,90,360))
-    rnd = 5
+
 
     array = np.zeros((360,360))
     for i in range(360):
@@ -41,7 +41,7 @@ for i in range(360):
     for j in range(360):
         print(i,j)
         item = data2.iloc[i*360 + j]
-        array[i,j] = np.log10(item[z])
+        array[i,j] = item[z]
 
 plt.imshow(array,origin="lower",cmap="viridis",extent=[-90,90,0,90])
 cbar = plt.colorbar()
