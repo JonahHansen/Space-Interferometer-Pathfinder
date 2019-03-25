@@ -46,16 +46,16 @@ class ECI_orbit:
 
         #New coord system:
         z_hat = self.h_0 #In direction of angular momentum
-        
-        
+
+
         y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
-        
+
         if (y == np.array([0.,0.,0.])).all():
             if (z_hat == np.array([1.,0.,0.])).all():
                 y = np.array([0.,1.,0.])
             else:
                 y = np.cross(z_hat,np.array([1.,0.,0.]))
-        
+
         y_hat = y/np.linalg.norm(y)
         x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
 
@@ -91,11 +91,13 @@ class ECI_orbit:
         pos = np.zeros(3)
         vel = np.zeros(3)
 
+        #Base orbit from phase
         pos[0] = np.cos(phase) * self.R_orb
         pos[1] = np.sin(phase) * self.R_orb
         vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
         vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
 
+        #Rotate in orbit
         pos = qt.rotate(pos,self.q0)
         vel = qt.rotate(vel,self.q0)
         return np.append(pos,vel)
@@ -121,9 +123,18 @@ class ECI_orbit:
         return rot_mat
 
     """ Takes a given state vector in ECI coordinates and converts to LVLH """
-    def to_LVLH_state(self,chief_state,rot_mat,state):
-        non_zero_pos = np.dot(rot_mat,state[0:3])
-        pos = non_zero_pos - np.dot(rot_mat,chief_state[0:3])
-        omega = np.array([0,0,self.ang_vel])
-        vel = np.dot(rot_mat,state[3:]) - np.cross(omega,non_zero_pos)
+    def ECI_to_LVLH_state(self,ECI_chief,rot_mat,ECI_state):
+        non_zero_pos = np.dot(rot_mat,ECI_state[0:3]) #Position in LVLH, origin at centre of Earth
+        pos = non_zero_pos - np.dot(rot_mat,ECI_chief[0:3]) #Position, origin at chief spacecraft
+        omega = np.array([0,0,self.ang_vel]) #Angular momentum vector in LVLH frame
+        vel = np.dot(rot_mat,ECI_state[3:]) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
+        return np.append(pos,vel)
+
+    """ Takes a given state vector in LVLH coordinates and converts to ECI """
+    def LVLH_to_ECI_state(self,ECI_chief,rot_mat,LVLH_state):
+        inv_rotmat = np.linalg.inv(rot_mat) #LVLH to ECI change of basis matrix
+        pos = np.dot(inv_rotmat,LVLH_state[:3]) + ECI_chief[:3] #ECI position
+        omega = np.array([0,0,self.ang_vel]) #Angular momentum vector
+        #Velocity in ECI frame, removing the rotation of the LVLH frame
+        vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
         return np.append(pos,vel)

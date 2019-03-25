@@ -54,8 +54,8 @@ def worker(arg):
     rot_mat = ECI.to_LVLH_mat(ECI_rc[0])
     ECI_rd1_0 = ECI.deputy1_state(ECI_rc[0]) #Deputy 1 position
     ECI_rd2_0 = ECI.deputy2_state(ECI_rc[0]) #Deputy 2 position
-    LVLH_drd1_0 = ECI.to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd1_0) #Initial LVLH separation state for deputy 1
-    LVLH_drd2_0 = ECI.to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd2_0) #Initial LVLH separation state for deputy 1
+    LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd1_0) #Initial LVLH separation state for deputy 1
+    LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd2_0) #Initial LVLH separation state for deputy 1
 
     rtol = 1e-6
     atol = 1e-12

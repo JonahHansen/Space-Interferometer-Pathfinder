@@ -50,8 +50,8 @@ for t in times:
     i += 1
 
 rot_mat = ECI.to_LVLH_mat(ECI_rc[0])
-LVLH_drd1_0 = ECI.to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd1[0]) #Initial LVLH separation state for deputy 1
-LVLH_drd2_0 = ECI.to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd2[0]) #Initial LVLH separation state for deputy 1
+LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd1[0]) #Initial LVLH separation state for deputy 1
+LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd2[0]) #Initial LVLH separation state for deputy 1
 
 rtol = 1e-6
 atol = 1e-12

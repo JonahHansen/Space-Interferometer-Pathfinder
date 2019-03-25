@@ -4,28 +4,30 @@ import astropy.constants as const
 #import quaternions as qt
 #from Schweighart_J2 import J2_pet
 
-
-def J2_pert(r,r_c,rot_mat,R_orb):
+""" J2 Perturbation in ECI frame """
+"""Input: positions of chief and deputy in ECI frame"""
+def J2_pert(r_d,r_c,R_orb):
 
     J2 = 0.00108263 #J2 Parameter
-    [x,y,z] = np.dot(np.linalg.inv(rot_mat),r) + r_c #Deputy position in ECI coordinates
+    [x,y,z] = r_d #Deputy position in ECI coordinates
 
     #Calculate J2 acceleration from the equation in ECI frame
     J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/R_orb**5
-    J2_fac2_dep = 5*z**2/R_orb**2
-    J2_pert_dep = J2_fac1*np.array([x*(J2_fac2_dep-1),y*(J2_fac2_dep-1),z*(J2_fac2_dep-3)])
+    J2_fac2_d = 5*z**2/R_orb**2
+    J2_p_d = J2_fac1*np.array([x*(J2_fac2_d-1),y*(J2_fac2_d-1),z*(J2_fac2_d-3)])
 
     #Calculate J2 acceleration for chief satellite
     J2_fac2_c = 5*r_c[2]**2/R_orb**2
-    J2_pert_c = J2_fac1*np.array([r_c[0]*(J2_fac2_c-1),r_c[1]*(J2_fac2_c-1),r_c[2]*(J2_fac2_c-3)])
+    J2_p_c = J2_fac1*np.array([r_c[0]*(J2_fac2_c-1),r_c[1]*(J2_fac2_c-1),r_c[2]*(J2_fac2_c-3)])
 
     #Separation acceleration
-    J2_pert = J2_pert_dep - J2_pert_c
+    J2_p = J2_p_d - J2_p_c
 
-    #Convert back to LVLH frame
-    J2_pert_LVLH = np.dot(rot_mat,J2_pert)
-    return J2_pert_LVLH
+    print("J2p" + str(np.linalg.norm(J2_p)))
+    return J2_p
 
+"""Calculates whether a satellite is in the Earth's shadow"""
+"""Input: satellite position (r) and sun position (r_s)"""
 def shadow(r,r_s):
     mag_r = np.linalg.norm(r)
     mag_r_s = np.linalg.norm(r_s)
@@ -34,10 +36,13 @@ def shadow(r,r_s):
     theta2 = np.arccos(const.R_earth.value/mag_r_s)
     return (theta1 + theta2) >= theta
 
-def solar_radiation(r,r_c,rot_mat,As_c,Cr_c,m_c,As_d,Cr_d,m_d):
+""" Calculates solar radiation perturbations in ECI frame """
+""" Inputs: deputy position (r_d), chief position (r_c) and """
+""" radiation parameters: As = area facing sun, Cr = reflection coefficient """
+""" m = mass of spacecraft """
+def solar_pert(r_d,r_c,As_d,Cr_d,m_d,As_c,Cr_c,m_c):
 
-    r_s = const.au.value*np.array([0,1,0])
-    r_d = np.dot(np.linalg.inv(rot_mat),r) + r_c
+    r_s = const.au.value*np.array([0,1,0]) #Sun vector
 
     P_sr = 4.56e-6 #Solar Radiation Pressure Constant
     shadow_c = shadow(r_c,r_s)
@@ -45,39 +50,37 @@ def solar_radiation(r,r_c,rot_mat,As_c,Cr_c,m_c,As_d,Cr_d,m_d):
 
     direction = r_s/np.linalg.norm(r_s)
 
-    a_c = -(shadow_c*1)*P_sr*Cr_c*As_c/m_c*direction
-    a_d = -(shadow_d*1)*P_sr*Cr_d*As_d/m_d*direction
+    solar_p_c = -(shadow_c*1)*P_sr*Cr_c*As_c/m_c*direction
+    solar_p_d = -(shadow_d*1)*P_sr*Cr_d*As_d/m_d*direction
 
-    #print(a_c,a_d)
+    solar_p = solar_p_d - solar_p_c
+    return solar_p
 
-    pert = np.dot(rot_mat,(a_d-a_c))
-    return pert
-
-def drag_pert(r,v,state_c,rot_mat,omega_F,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
-
-    #Calculate position and velocity of deputy in ECI frame
-    r_d = np.dot(np.linalg.inv(rot_mat),r) + state_c[:3]
-    v_d = np.dot(np.linalg.inv(rot_mat),(v + np.cross(omega_F,np.dot(rot_mat,r_d))))
+""" Calculates drag perturbations in ECI frame """
+""" Inputs: deputy state, chief stage and drag parameters: """
+""" rho = atmospheric density, C_D = drag coefficient """
+""" A = Surface area perpendicular to velocity, m = mass of spacecraft """
+def drag_pert(state_d,state_c,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
 
     #Angular velocity of the Earth
-    omega_E = np.dot(rot_mat,np.array([0,0,7.292115e-5]))
+    omega_E = np.array([0,0,7.292115e-5])
 
     #Relative velocities to the Earth
     v_rel_c = state_c[3:] - np.cross(omega_E,state_c[:3])
-    v_rel_d = v_d - np.cross(omega_E,r_d)
+    v_rel_d = state_d[3:] - np.cross(omega_E,state_d[:3])
 
     mag_v_rel_c = np.linalg.norm(v_rel_c)
     mag_v_rel_d = np.linalg.norm(v_rel_d)
 
     #Calculate perturbation accelerations
-    pert_c = -1/2*rho*mag_v_rel_c*(C_D_c*A_c/m_c)*v_rel_c
-    pert_d = -1/2*rho*mag_v_rel_d*(C_D_d*A_d/m_d)*v_rel_d
+    drag_p_c = -1/2*rho*mag_v_rel_c*(C_D_c*A_c/m_c)*v_rel_c
+    drag_p_d = -1/2*rho*mag_v_rel_d*(C_D_d*A_d/m_d)*v_rel_d
 
     #Relative acceleration back in LVLH frame
-    pert = np.dot(rot_mat,(pert_d-pert_c))
+    drag_p = drag_p_c - drag_p_d
 
-    print(pert)
-    return pert
+    print("dragp" + str(np.linalg.norm(drag_p)))
+    return drag_p
 
 
 """ Differential equation function"""
@@ -96,14 +99,16 @@ def dX_dt(t, state, ECI):
     n = ECI.ang_vel #Angular velocity
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
 
-    state_c = ECI.chief_state(t)
-    r_c =state_c[:3] #Chief position in ECI at time t
-    rot_mat = ECI.to_LVLH_mat(r_c) #Matrix to convert into LVLH
+    #Chief and deputy states in ECI frame
+    ECI_c = ECI.chief_state(t)
+    rot_mat = ECI.to_LVLH_mat(ECI_c) #Matrix to convert into LVLH
+    ECI_d = ECI.LVLH_to_ECI_state(ECI_c,rot_mat,np.append(r,v))
 
     """ J2 Acceleration """
 
-    J2_p = J2_pert(r,r_c,rot_mat,ECI.R_orb)
-    J2_p = 0 #Comment out to use J2
+    J2_p = J2_pert(ECI_d[:3],ECI_c[:3],ECI.R_orb)
+    LVLH_J2_p = np.dot(rot_mat,J2_p)
+    #LVLH_J2_p = 0 #Comment out to use J2
 
     """ Solar Radiation """
 
@@ -114,22 +119,25 @@ def dX_dt(t, state, ECI):
     Cr_c = 1.5
     Cr_d = 1.5
 
-    solar_p = solar_radiation(r,r_c,rot_mat,As_c,Cr_c,m_c,As_d,Cr_d,m_d)
-    solar_p =0
+    solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d)
+    LVLH_solar_p = np.dot(rot_mat,solar_p)
+    #solar_p =0
 
     """ Drag """
 
-    rho = 5.215e-13 #500km, 3.561e-15 for 1000km
+    rho = 5.215e-13 #500km
+    #rho = 3.561e-15 #1000km
     C_D = 2.1
 
-    drag_p = drag_pert(r,v,state_c,rot_mat,omega,rho,C_D,C_D,As_c,As_d,m_c,m_d)
+    drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d)
+    LVLH_drag_p = np.dot(rot_mat,drag_p)
+    #LVLH_drag_p = 0
 
-    #print(J2_p,solar_p,drag_p)
-
+    """ Putting it together """
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + J2_p + solar_p + drag_p
+    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
 
     #Acceleration vector - analytical version (See Butcher 18)
     #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + J2_pet_LVLH
