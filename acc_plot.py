@@ -2,7 +2,7 @@ import pandas as pd
 import astropy.constants as const
 import numpy as np
 import matplotlib.pyplot as plt
-data = pd.read_json("bigboy.json","records")
+data = pd.read_json("bigboyz.json","records")
 
 r_orba = 500e3+const.R_earth.value
 r_orbb = 1000e3+const.R_earth.value
@@ -33,7 +33,7 @@ def array_plot(z):
             array[i,j] = item[z]
     return array
 
-z = "Max_a_total"
+z = "Max_sep_total"
 
 #plt.imshow(array_plot(z))
 array = np.zeros((360,360))
@@ -45,7 +45,7 @@ for i in range(360):
 
 plt.imshow(array,origin="lower",cmap="viridis",extent=[-90,90,0,90])
 cbar = plt.colorbar()
-cbar.set_label('Maximum accceleration m/s/s', rotation=270, labelpad=15)
+cbar.set_label('Max OPD (m)', rotation=270, labelpad=15)
 plt.xlabel("Declination (deg)")
 plt.ylabel("Inclination (deg)")
 
