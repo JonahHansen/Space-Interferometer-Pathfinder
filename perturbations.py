@@ -23,7 +23,6 @@ def J2_pert(r_d,r_c,R_orb):
     #Separation acceleration
     J2_p = J2_p_d - J2_p_c
 
-    print("J2p" + str(np.linalg.norm(J2_p)))
     return J2_p
 
 """Calculates whether a satellite is in the Earth's shadow"""
@@ -79,7 +78,6 @@ def drag_pert(state_d,state_c,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
     #Relative acceleration back in LVLH frame
     drag_p = drag_p_c - drag_p_d
 
-    print("dragp" + str(np.linalg.norm(drag_p)))
     return drag_p
 
 
@@ -112,7 +110,7 @@ def dX_dt(t, state, ECI):
 
     """ Solar Radiation """
 
-    As_c = 0.2*0.3
+    As_c = 0.1*0.3
     As_d = 0.1*0.3
     m_c = 8
     m_d = 4
@@ -134,6 +132,8 @@ def dX_dt(t, state, ECI):
     #LVLH_drag_p = 0
 
     """ Putting it together """
+    print(np.linalg.norm(LVLH_J2_p),np.linalg.norm(LVLH_solar_p),np.linalg.norm(LVLH_drag_p))
+    
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])

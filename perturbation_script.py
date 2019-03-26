@@ -32,7 +32,8 @@ delta_r_max = 0.1*1e3
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 num_times = 1000
-times = np.linspace(0,ECI.period,num_times) #Create list of times
+n_periods = 1
+times = np.linspace(0,ECI.period*n_periods,num_times) #Create list of times
 
 """Initialise arrays"""
 ECI_rc = np.zeros((num_times,6)) #Chief ECI position vector
