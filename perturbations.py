@@ -119,29 +119,30 @@ def dX_dt(t, state, ECI):
 
     solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d)
     LVLH_solar_p = np.dot(rot_mat,solar_p)
-    #solar_p =0
+    LVLH_solar_p =0 #Comment out to use solar
 
     """ Drag """
 
-    rho = 5.215e-13 #500km
-    #rho = 3.561e-15 #1000km
+    rho = 7.85e-13 #500km COSPAR CIRA-2012
+    #rho = 6.59e-15 #1000km
     C_D = 2.1
 
     drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d)
     LVLH_drag_p = np.dot(rot_mat,drag_p)
-    #LVLH_drag_p = 0
+    LVLH_drag_p = 0 #Comment out to use drag
 
     """ Putting it together """
-    print(np.linalg.norm(LVLH_J2_p),np.linalg.norm(LVLH_solar_p),np.linalg.norm(LVLH_drag_p))
+    print("J2: " + str(LVLH_J2_p))
     
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
-
+    #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
+    
     #Acceleration vector - analytical version (See Butcher 18)
-    #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + J2_pet_LVLH
-
+    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
+    print("total a: " + str(a))
+    
     #Second half of the differential vector
     dX3 = a[0]
     dX4 = a[1]

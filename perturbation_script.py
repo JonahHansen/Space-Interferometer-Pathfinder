@@ -16,16 +16,16 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(45) #49
+inc_0 = np.radians(20) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #-30
+Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(0) #23
-dec = np.radians(90)#43
+ra = np.radians(90) #90
+dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
-delta_r_max = 0.1*1e3
+delta_r_max = 0.3*1e3
 
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
