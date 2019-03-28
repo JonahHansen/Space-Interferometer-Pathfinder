@@ -27,6 +27,9 @@ dec = np.radians(-40)#-40
 #The max distance to the other satellites in m
 delta_r_max = 0.3*1e3
 
+#List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
+p_list = [1]
+
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
@@ -54,13 +57,13 @@ rot_mat = ECI.to_LVLH_mat(ECI_rc[0])
 LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd1[0]) #Initial LVLH separation state for deputy 1
 LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],rot_mat,ECI_rd2[0]) #Initial LVLH separation state for deputy 1
 
-rtol = 1e-6
-atol = 1e-12
+rtol = 1e-9
+atol = 1e-18
 step = 100
 
 #Integrate the orbits
-X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 
 #Peturbed orbits
 pert_LVLH_drd1 = np.transpose(X_d1.y)
@@ -88,11 +91,11 @@ def acc(pos):
     return np.abs(acc)
 
 #Accelerations
-acc_s1 = acc(s_hat_drd1)
-acc_s2 = acc(s_hat_drd2)
-acc_delta_b = acc(baseline_sep)
-acc_delta_s = acc(s_hat_sep)
-acc_total = acc(total_sep)
+acc_s1 = np.abs(acc(s_hat_drd1))
+acc_s2 = np.abs(acc(s_hat_drd2))
+acc_delta_b = np.abs(acc(baseline_sep))
+acc_delta_s = np.abs(acc(s_hat_sep))
+acc_total = np.abs(acc(total_sep))
 
 #Maximum accelerations
 max_acc_s1 = max(acc_s1)

@@ -22,13 +22,13 @@ R_orb = R_e + alt
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(45)
+inc_0 = np.radians(20)
 #Longitude of the Ascending Node
-Om_0 = np.radians(-32)
+Om_0 = np.radians(0)
 
 #Stellar vector
-ra = np.radians(4)
-dec = np.radians(20)
+ra = np.radians(90)
+dec = np.radians(-40)
 
 #The max distance to the other satellites in m
 delta_r_max = 550e3
@@ -57,9 +57,9 @@ for t in times:
     rot_mat = ECI.to_LVLH_mat(c_state[i])
     dep1_state[i] = ECI.deputy1_state(c_state[i])
     dep2_state[i] = ECI.deputy2_state(c_state[i])
-    LVLH_state0[i] = ECI.to_LVLH_state(c_state[i],rot_mat,c_state[i])
-    LVLH_state1[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep1_state[i])
-    LVLH_state2[i] = ECI.to_LVLH_state(c_state[i],rot_mat,dep2_state[i])
+    LVLH_state0[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,c_state[i])
+    LVLH_state1[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,dep1_state[i])
+    LVLH_state2[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,dep2_state[i])
     s_hats[i] = np.dot(rot_mat,ECI.s_hat)
     i += 1
 

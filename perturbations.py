@@ -82,7 +82,7 @@ def drag_pert(state_d,state_c,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
 
 
 """ Differential equation function"""
-def dX_dt(t, state, ECI):
+def dX_dt(t, state, ECI, perturbations_ls):
     r = state[:3] #Position
     v = state[3:] #Velocity
 
@@ -90,9 +90,6 @@ def dX_dt(t, state, ECI):
     dX0 = v[0]
     dX1 = v[1]
     dX2 = v[2]
-
-    #Position in LVLH frame, with origin at centre of the Earth
-    rd = np.array([ECI.R_orb+r[0],r[1],r[2]])
 
     n = ECI.ang_vel #Angular velocity
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
@@ -102,11 +99,13 @@ def dX_dt(t, state, ECI):
     rot_mat = ECI.to_LVLH_mat(ECI_c) #Matrix to convert into LVLH
     ECI_d = ECI.LVLH_to_ECI_state(ECI_c,rot_mat,np.append(r,v))
 
+    #Position in LVLH frame, with origin at centre of the Earth
+    rd = np.array([np.linalg.norm(ECI_c[:3])+r[0],r[1],r[2]])
+
     """ J2 Acceleration """
 
     J2_p = J2_pert(ECI_d[:3],ECI_c[:3],ECI.R_orb)
     LVLH_J2_p = np.dot(rot_mat,J2_p)
-    #LVLH_J2_p = 0 #Comment out to use J2
 
     """ Solar Radiation """
 
@@ -119,7 +118,6 @@ def dX_dt(t, state, ECI):
 
     solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d)
     LVLH_solar_p = np.dot(rot_mat,solar_p)
-    LVLH_solar_p =0 #Comment out to use solar
 
     """ Drag """
 
@@ -129,19 +127,24 @@ def dX_dt(t, state, ECI):
 
     drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d)
     LVLH_drag_p = np.dot(rot_mat,drag_p)
-    LVLH_drag_p = 0 #Comment out to use drag
 
     """ Putting it together """
-    print("J2: " + str(LVLH_J2_p))
+    
+    #Set whether a perturbation is used
+    if 1 not in perturbations_ls:
+        LVLH_J2_p = 0
+    if 2 not in perturbations_ls:
+        LVLH_solar_p =0
+    if 3 not in perturbations_ls:
+        LVLH_drag_p = 0
     
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
+    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
     
-    #Acceleration vector - analytical version (See Butcher 18)
-    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
-    print("total a: " + str(a))
+    #Acceleration vector - analytical version (See Butcher 16)
+    #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
     
     #Second half of the differential vector
     dX3 = a[0]

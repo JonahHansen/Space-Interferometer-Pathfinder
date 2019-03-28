@@ -26,6 +26,7 @@ inputs = list(enumerate(param_ls))
 
 input_len = len(inputs)
 
+p_list = [1]
 #------------------------------------------------------------------------------------------
 def worker(arg):
 
@@ -62,8 +63,8 @@ def worker(arg):
     step = 100
 
     #Integrate the orbits
-    X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-    X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI), [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+    X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+    X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 
     #Peturbed orbits
     pert_LVLH_drd1 = np.transpose(X_d1.y)
