@@ -1,57 +1,153 @@
-#Perturbations
-
+""" Perturbations Module """
 import numpy as np
-from astropy import units as unit
-from poliastro.core.perturbations import atmospheric_drag, third_body, J2_perturbation, radiation_pressure
-from poliastro.bodies import Earth
+import astropy.constants as const
+#import quaternions as qt
+#from Schweighart_J2 import J2_pet
 
-def perturbations(t0,u,k,index_ls,**kwargs):
+""" J2 Perturbation in ECI frame """
+"""Input: positions of chief and deputy in ECI frame"""
+def J2_pert(r_d,r_c,R_orb):
+
+    J2 = 0.00108263 #J2 Parameter
+    [x,y,z] = r_d #Deputy position in ECI coordinates
+
+    #Calculate J2 acceleration from the equation in ECI frame
+    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/R_orb**5
+    J2_fac2_d = 5*z**2/R_orb**2
+    J2_p_d = J2_fac1*np.array([x*(J2_fac2_d-1),y*(J2_fac2_d-1),z*(J2_fac2_d-3)])
+
+    #Calculate J2 acceleration for chief satellite
+    J2_fac2_c = 5*r_c[2]**2/R_orb**2
+    J2_p_c = J2_fac1*np.array([r_c[0]*(J2_fac2_c-1),r_c[1]*(J2_fac2_c-1),r_c[2]*(J2_fac2_c-3)])
+
+    #Separation acceleration
+    J2_p = J2_p_d - J2_p_c
+
+    return J2_p
+
+"""Calculates whether a satellite is in the Earth's shadow"""
+"""Input: satellite position (r) and sun position (r_s)"""
+def shadow(r,r_s):
+    mag_r = np.linalg.norm(r)
+    mag_r_s = np.linalg.norm(r_s)
+    theta = np.arccos(np.dot(r_s,r)/(mag_r*mag_r_s))
+    theta1 = np.arccos(const.R_earth.value/mag_r)
+    theta2 = np.arccos(const.R_earth.value/mag_r_s)
+    return (theta1 + theta2) >= theta
+
+""" Calculates solar radiation perturbations in ECI frame """
+""" Inputs: deputy position (r_d), chief position (r_c) and """
+""" radiation parameters: As = area facing sun, Cr = reflection coefficient """
+""" m = mass of spacecraft """
+def solar_pert(r_d,r_c,As_d,Cr_d,m_d,As_c,Cr_c,m_c):
+
+    r_s = const.au.value*np.array([0,1,0]) #Sun vector
+
+    P_sr = 4.56e-6 #Solar Radiation Pressure Constant
+    shadow_c = shadow(r_c,r_s)
+    shadow_d = shadow(r_d,r_s)
+
+    direction = r_s/np.linalg.norm(r_s)
+
+    solar_p_c = -(shadow_c*1)*P_sr*Cr_c*As_c/m_c*direction
+    solar_p_d = -(shadow_d*1)*P_sr*Cr_d*As_d/m_d*direction
+
+    solar_p = solar_p_d - solar_p_c
+    return solar_p
+
+""" Calculates drag perturbations in ECI frame """
+""" Inputs: deputy state, chief stage and drag parameters: """
+""" rho = atmospheric density, C_D = drag coefficient """
+""" A = Surface area perpendicular to velocity, m = mass of spacecraft """
+def drag_pert(state_d,state_c,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
+
+    #Angular velocity of the Earth
+    omega_E = np.array([0,0,7.292115e-5])
+
+    #Relative velocities to the Earth
+    v_rel_c = state_c[3:] - np.cross(omega_E,state_c[:3])
+    v_rel_d = state_d[3:] - np.cross(omega_E,state_d[:3])
+
+    mag_v_rel_c = np.linalg.norm(v_rel_c)
+    mag_v_rel_d = np.linalg.norm(v_rel_d)
+
+    #Calculate perturbation accelerations
+    drag_p_c = -1/2*rho*mag_v_rel_c*(C_D_c*A_c/m_c)*v_rel_c
+    drag_p_d = -1/2*rho*mag_v_rel_d*(C_D_d*A_d/m_d)*v_rel_d
+
+    #Relative acceleration back in LVLH frame
+    drag_p = drag_p_c - drag_p_d
+
+    return drag_p
+
+
+""" Differential equation function"""
+def dX_dt(t, state, ECI, perturbations_ls):
+    r = state[:3] #Position
+    v = state[3:] #Velocity
+
+    #First half of the differential vector
+    dX0 = v[0]
+    dX1 = v[1]
+    dX2 = v[2]
+
+    n = ECI.ang_vel #Angular velocity
+    omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
+
+    #Chief and deputy states in ECI frame
+    ECI_c = ECI.chief_state(t)
+    rot_mat = ECI.to_LVLH_mat(ECI_c) #Matrix to convert into LVLH
+    ECI_d = ECI.LVLH_to_ECI_state(ECI_c,rot_mat,np.append(r,v))
+
+    #Position in LVLH frame, with origin at centre of the Earth
+    rd = np.array([np.linalg.norm(ECI_c[:3])+r[0],r[1],r[2]])
+
+    """ J2 Acceleration """
+
+    J2_p = J2_pert(ECI_d[:3],ECI_c[:3],ECI.R_orb)
+    LVLH_J2_p = np.dot(rot_mat,J2_p)
+
+    """ Solar Radiation """
+
+    As_c = 0.1*0.3
+    As_d = 0.1*0.3
+    m_c = 8
+    m_d = 4
+    Cr_c = 1.5
+    Cr_d = 1.5
+
+    solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d)
+    LVLH_solar_p = np.dot(rot_mat,solar_p)
+
+    """ Drag """
+
+    rho = 7.85e-13 #500km COSPAR CIRA-2012
+    #rho = 6.59e-15 #1000km
+    C_D = 2.1
+
+    drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d)
+    LVLH_drag_p = np.dot(rot_mat,drag_p)
+
+    """ Putting it together """
     
-    final_accel = 0
-    R_E=Earth.R.to(unit.km).value
+    #Set whether a perturbation is used
+    if 1 not in perturbations_ls:
+        LVLH_J2_p = 0
+    if 2 not in perturbations_ls:
+        LVLH_solar_p =0
+    if 3 not in perturbations_ls:
+        LVLH_drag_p = 0
     
-    ### J2 = 1 ###
-    if 1 in index_ls:
-        
-        J2_acc = J2_perturbation(t0,u,k,Earth.J2.value,R_E)
-        final_accel += J2_acc
-        
-        
-    ### Drag = 2 ###
-    if 2 in index_ls:
+    #HCW Equations
+    K = np.diag(np.array([3*n**2,0,-(n**2)]))
+    Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
+    a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
     
-        #C_D (float) – dimensionless drag coefficient ()
-        #A (float) – frontal area of the spacecraft (km^2)
-        #m (float) – mass of the spacecraft (kg)
-        #H0 (float) – atmospheric scale height (km)
-        #rho0 (float) – the exponent density pre-factor (kg / m^3)
-        
-        drag = atmospheric_drag(t0,u,k,R_E,kwargs["C_D"],kwargs["A1"],kwargs["m"],kwargs["H0"],kwargs["rho0"])
-        final_accel += drag
-        
-        
-    ### Third Body = 3 ###
-    if 3 in index_ls:
-        
-        #k (float) – gravitational constant of third body (km^3/s^2)
-        #third_body (a callable object returning the position of 3rd body) – third body that causes the perturbation
-        
-        t_body = third_body(t0,u,k,kwargs["k_third"],kwargs["third_body"])
-        final_accel += t_body
-        
-        
-    ### Rad_pressure = 4 ###
-    if 4 in index_ls:
-        
-        #C_R (float) – dimensionless radiation pressure coefficient, 1 < C_R < 2 ()
-        #A (float) – effective spacecraft area (km^2)
-        #m (float) – mass of the spacecraft (kg)
-        #Wdivc_s (float) – total star emitted power divided by the speed of light (W * s / km)
-        #star (a callable object returning the position of star in attractor frame) – star position
-        
-        rad_pressure = (t0,u,k,R_E,kwargs["C_R"],kwargs["A2"],kwargs["m"],kwargs["Wdivc_s"],kwargs["star"])
-        final_accel += rad_pressure
+    #Acceleration vector - analytical version (See Butcher 16)
+    #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
     
-    
-    return final_accel
-    
+    #Second half of the differential vector
+    dX3 = a[0]
+    dX4 = a[1]
+    dX5 = a[2]
+    return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
