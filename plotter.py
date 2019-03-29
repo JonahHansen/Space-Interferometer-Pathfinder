@@ -44,7 +44,7 @@ ra = np.radians(4) #23
 dec = np.radians(45)#43
 
 #The distance to the other satellites in km
-b = 350e3
+b = 350e1
 
 period = 96.0 #In minutes.
 lines = ['r:', 'g:', 'g:']
@@ -160,8 +160,8 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,30)): #np.pi, 31*np
     plt.ylim(-2*b*km,2*b*km)
 
     c,d1,d2,s = lvlh.orbits_to_LVLH(xyz_ls[0],xyz_ls[1],xyz_ls[2],s_hat,q_0)
-    #s_factor = b/np.sqrt(s[0]**2+s[1]**2+s[2]**2)
-    #plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b/40,color='k')
+    #s_factor = km*b/np.sqrt(s[0]**2+s[1]**2+s[2]**2)
+    #plt.arrow(0,0,s_factor*s[1],s_factor*s[2],width=b/40*km,color='k')
     pos_ls.append([c,d1,d2])
     pos_arr = np.array(pos_ls)
     
