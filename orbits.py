@@ -36,9 +36,13 @@ class ECI_orbit:
         yaxis = np.array([0,1,0])
         zaxis = np.array([0,0,1])
 
+        #U-V plane vectors
+        self.u_hat = np.cross(self.s_hat,zaxis)
+        self.v_hat = np.cross(self.s_hat,self.u_hat)
+
         #Quaternion rotation of chief orbit
         q_Om = qt.to_q(zaxis,Om_0)
-        q_inc = qt.to_q(yaxis,inc_0)
+        q_inc = qt.to_q(yaxis,-inc_0)
         self.q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
 
         #Angular momentum vector of chief satellite
@@ -138,3 +142,81 @@ class ECI_orbit:
         #Velocity in ECI frame, removing the rotation of the LVLH frame
         vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
         return np.append(pos,vel)
+
+    """ Finds the vector pointing away from the sun """
+    def find_anti_sun_vector(self,t):
+        oblq = np.radians(23.4) #Obliquity of the ecliptic
+        Earth_sun_ang_vel = 2*np.pi/(365.25*24*60*60) #Angular velocity of the Earth around the Sun
+        phase = t*Earth_sun_ang_vel
+        pos = np.array([np.cos(phase)*np.cos(oblq),np.sin(phase),np.cos(phase)*np.sin(oblq)])
+        return pos
+
+    """ Find u and v vectors """
+    def uv(self,ECI_dep1,ECI_dep2):
+        sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
+        u = np.dot(sep,self.u_hat)*self.u_hat
+        v = np.dot(sep,self.v_hat)*self.v_hat
+        return np.array([u,v])
+
+    """ Orbital elements from state vector """
+    def orbit_elems(self,state):
+        h = np.cross(state[:3],state[3:])
+        n = np.cross(np.array([0,0,1]),h)
+        i = np.arccos(h[2]/np.linalg.norm(h))
+        omega = np.arccos(n[0]/np.linalg.norm(n))
+        if n[1] < 0:
+            omega = 360 - omega
+        return i,omega
+
+    def asdasd(self,ECI2):
+        combq1 = qt.comb_rot(qt.conjugate(self.q1),ECI2.q1)
+        v_q1,theta_q1 = qt.from_q(combq1)
+        combq2 = qt.comb_rot(qt.conjugate(self.q2),ECI2.q2)
+        v_q2,theta_q2 = qt.from_q(combq2)
+
+
+        times = np.linspace(0,ECI2.period,10000)
+        pos = np.zeros(3)
+        eps = 0.0001
+        for t in times:
+            phase = t*self.ang_vel
+            pos[0] = np.cos(phase)
+            pos[1] = np.sin(phase)
+            pos_11 = qt.rotate(pos,self.q1)
+            pos_12 = qt.rotate(pos,ECI2.q1)
+            pos_21 = qt.rotate(pos,self.q2)
+            pos_22 = qt.rotate(pos,ECI2.q2)
+
+            if np.linalg.norm(pos_11 - v_q1) < eps:
+                t_11 = t
+            if np.linalg.norm(pos_12 - v_q1) < eps:
+                t_12 = t
+            if np.linalg.norm(pos_21 - v_q2) < eps:
+                t_21 = t
+            if np.linalg.norm(pos_22 - v_q2) < eps:
+                t_22 = t
+
+            print(np.linalg.norm(pos_11 - v_q1))
+        mu = const.GM_earth.value
+
+        def vis_viva(r,a):
+            return np.sqrt(mu*(2/r - 1/a))
+
+        del_t1 = t_12 - t_11
+        T1 = del_t1 + self.period
+        a1 = (mu*(T1/(2*np.pi))**2)**(1/3)
+        del_v1 = vis_viva(self.R_orb,a1) - vis_viva(self.R_orb,self.R_orb)
+
+        del_t2 = t_22 - t_21
+        T2 = del_t2 + self.period
+        a2 = (mu*(T2/(2*np.pi))**2)**(1/3)
+        del_v2 = vis_viva(self.R_orb,a2) - vis_viva(self.R_orb,self.R_orb)
+
+        vel_11 = deputy1_state(chief_state(t_11))[:3]
+        vel_12 = deputy1_state(chief_state(t_12))[:3]
+        vel_21 = deputy1_state(chief_state(t_21))[:3]
+        vel_22 = deputy1_state(chief_state(t_22))[:3]
+
+        del_v1 += np.linalg.norm(vel_12-vel_11)
+        del_v2 += np.linalg.norm(vel_22-vel_21)
+        return delv_1, delv_2
