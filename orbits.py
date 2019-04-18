@@ -3,6 +3,8 @@
 import numpy as np
 import astropy.constants as const
 import quaternions as qt
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
 
 """
 ECI (Earth Centred Inertial) Orbit class: Use this to first calculate the orbit from scratch.
@@ -169,54 +171,54 @@ class ECI_orbit:
         return i,omega
 
     def asdasd(self,ECI2):
-        combq1 = qt.comb_rot(qt.conjugate(self.q1),ECI2.q1)
-        v_q1,theta_q1 = qt.from_q(combq1)
-        combq2 = qt.comb_rot(qt.conjugate(self.q2),ECI2.q2)
-        v_q2,theta_q2 = qt.from_q(combq2)
-
-
-        times = np.linspace(0,ECI2.period,10000)
+        n_times = 200
+        times = np.linspace(0,ECI2.period,n_times)
         pos = np.zeros(3)
-        eps = 0.0001
-        for t in times:
-            phase = t*self.ang_vel
-            pos[0] = np.cos(phase)
-            pos[1] = np.sin(phase)
-            pos_11 = qt.rotate(pos,self.q1)
-            pos_12 = qt.rotate(pos,ECI2.q1)
-            pos_21 = qt.rotate(pos,self.q2)
-            pos_22 = qt.rotate(pos,ECI2.q2)
+        eps = 0.001
+        pos_1_ls = []
+        pos_2_ls = []
+        for t1 in times:
+            c1 = self.chief_state(t1)
+            d11 = self.deputy1_state(c1)[:3]
+            d12 = self.deputy2_state(c1)[:3]
+            for t2 in times:
+                c2 = ECI2.chief_state(t2)
+                d21 = ECI2.deputy1_state(c2)[:3]
+                d22 = ECI2.deputy2_state(c2)[:3]
 
-            if np.linalg.norm(pos_11 - v_q1) < eps:
-                t_11 = t
-            if np.linalg.norm(pos_12 - v_q1) < eps:
-                t_12 = t
-            if np.linalg.norm(pos_21 - v_q2) < eps:
-                t_21 = t
-            if np.linalg.norm(pos_22 - v_q2) < eps:
-                t_22 = t
+                pos_1_ls.append(np.linalg.norm(d11 - d21))
+                pos_2_ls.append(np.linalg.norm(d12 - d22))
 
-            print(np.linalg.norm(pos_11 - v_q1))
+        ind_1 = np.array(pos_1_ls).argmin()
+        ind_2 = np.array(pos_2_ls).argmin()
+
+        t_11 = times[divmod(ind_1,n_times)[0]]
+        t_12 = times[divmod(ind_2,n_times)[0]]
+        t_21 = times[divmod(ind_1,n_times)[1]]
+        t_22 = times[divmod(ind_2,n_times)[1]]
+
+        print(ind_1,ind_2,t_11,t_12,t_21,t_22)
+
         mu = const.GM_earth.value
 
         def vis_viva(r,a):
             return np.sqrt(mu*(2/r - 1/a))
 
-        del_t1 = t_12 - t_11
+        del_t1 = t_21 - t_11
         T1 = del_t1 + self.period
         a1 = (mu*(T1/(2*np.pi))**2)**(1/3)
         del_v1 = vis_viva(self.R_orb,a1) - vis_viva(self.R_orb,self.R_orb)
 
-        del_t2 = t_22 - t_21
+        del_t2 = t_22 - t_12
         T2 = del_t2 + self.period
         a2 = (mu*(T2/(2*np.pi))**2)**(1/3)
         del_v2 = vis_viva(self.R_orb,a2) - vis_viva(self.R_orb,self.R_orb)
 
-        vel_11 = deputy1_state(chief_state(t_11))[:3]
-        vel_12 = deputy1_state(chief_state(t_12))[:3]
-        vel_21 = deputy1_state(chief_state(t_21))[:3]
-        vel_22 = deputy1_state(chief_state(t_22))[:3]
+        vel_11 = self.deputy1_state(self.chief_state(t_11))[:3]
+        vel_12 = self.deputy1_state(self.chief_state(t_12))[:3]
+        vel_21 = ECI2.deputy1_state(ECI2.chief_state(t_21))[:3]
+        vel_22 = ECI2.deputy1_state(ECI2.chief_state(t_22))[:3]
 
-        del_v1 += np.linalg.norm(vel_12-vel_11)
-        del_v2 += np.linalg.norm(vel_22-vel_21)
+        del_v1 += np.linalg.norm(vel_21-vel_11)
+        del_v2 += np.linalg.norm(vel_22-vel_12)
         return delv_1, delv_2
