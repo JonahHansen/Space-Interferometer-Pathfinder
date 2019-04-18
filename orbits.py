@@ -221,4 +221,4 @@ class ECI_orbit:
 
         del_v1 += np.linalg.norm(vel_21-vel_11)
         del_v2 += np.linalg.norm(vel_22-vel_12)
-        return delv_1, delv_2
+        return del_v1, del_v2
