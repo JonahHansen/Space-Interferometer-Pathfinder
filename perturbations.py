@@ -129,7 +129,7 @@ def dX_dt(t, state, ECI, perturbations_ls):
     LVLH_drag_p = np.dot(rot_mat,drag_p)
 
     """ Putting it together """
-    
+
     #Set whether a perturbation is used
     if 1 not in perturbations_ls:
         LVLH_J2_p = 0
@@ -137,20 +137,20 @@ def dX_dt(t, state, ECI, perturbations_ls):
         LVLH_solar_p =0
     if 3 not in perturbations_ls:
         LVLH_drag_p = 0
-    
+
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    Gamma2 = 0
+    #Gamma2 = 0
     a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
-    
-    print("J2 = %s"% LVLH_J2_p)
-    print("total a = %s" % a)
-    
-    
+
+    #print("J2 = %s"% LVLH_J2_p)
+    #print("total a = %s" % a)
+
+
     #Acceleration vector - analytical version (See Butcher 16)
     #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
-    
+
     #Second half of the differential vector
     dX3 = a[0]
     dX4 = a[1]
