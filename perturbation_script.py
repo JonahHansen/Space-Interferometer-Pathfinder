@@ -29,10 +29,10 @@ ra = np.radians(90) #90
 dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
-delta_r_max = 0.3*1e3
+delta_r_max = 0.3e3
 
 #List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1,2,3] #Currently just using J2
+p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
@@ -83,8 +83,6 @@ b_hat_drd1 = np.zeros(num_times) #Deputy1 position in star direction
 b_hat_drd2 = np.zeros(num_times) #Deputy2 position in star direction
 s_hat_sep = np.zeros(num_times) #Separation along the baseline
 total_sep = np.zeros(num_times) #Total separation
-
-
 
 for ix in range(num_times):
     baseline_sep[ix] = np.linalg.norm(pert_LVLH_drd1[ix,:3]) - np.linalg.norm(pert_LVLH_drd2[ix,:3])

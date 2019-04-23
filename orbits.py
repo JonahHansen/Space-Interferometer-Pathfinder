@@ -145,14 +145,6 @@ class ECI_orbit:
         vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
         return np.append(pos,vel)
 
-    """ Finds the vector pointing away from the sun """
-    def find_anti_sun_vector(self,t):
-        oblq = np.radians(23.4) #Obliquity of the ecliptic
-        Earth_sun_ang_vel = 2*np.pi/(365.25*24*60*60) #Angular velocity of the Earth around the Sun
-        phase = t*Earth_sun_ang_vel
-        pos = np.array([np.cos(phase)*np.cos(oblq),np.sin(phase),np.cos(phase)*np.sin(oblq)])
-        return pos
-
     """ Find u and v vectors """
     def uv(self,ECI_dep1,ECI_dep2):
         sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
@@ -173,31 +165,34 @@ class ECI_orbit:
     def asdasd(self,ECI2):
         n_times = 200
         times = np.linspace(0,ECI2.period,n_times)
-        pos = np.zeros(3)
-        eps = 0.001
-        pos_1_ls = []
-        pos_2_ls = []
-        for t1 in times:
-            c1 = self.chief_state(t1)
-            d11 = self.deputy1_state(c1)[:3]
-            d12 = self.deputy2_state(c1)[:3]
-            for t2 in times:
-                c2 = ECI2.chief_state(t2)
-                d21 = ECI2.deputy1_state(c2)[:3]
-                d22 = ECI2.deputy2_state(c2)[:3]
+        point = np.cross(self.h_0,ECI2.h_0)
+        pos_11_ls = []
+        pos_12_ls = []
+        pos_21_ls = []
+        pos_22_ls = []
+        for t in times:
+            c = self.chief_state(t)
+            d11 = self.deputy1_state(c)[:3]
+            d12 = self.deputy2_state(c)[:3]
+            d21 = ECI2.deputy1_state(c)[:3]
+            d22 = ECI2.deputy2_state(c)[:3]
 
-                pos_1_ls.append(np.linalg.norm(d11 - d21))
-                pos_2_ls.append(np.linalg.norm(d12 - d22))
+            pos_11_ls.append(np.linalg.norm(d11 - point))
+            pos_12_ls.append(np.linalg.norm(d12 - point))
+            pos_21_ls.append(np.linalg.norm(d21 - point))
+            pos_22_ls.append(np.linalg.norm(d22 - point))
 
-        ind_1 = np.array(pos_1_ls).argmin()
-        ind_2 = np.array(pos_2_ls).argmin()
+        ind_11 = np.array(pos_11_ls).argmin()
+        ind_12 = np.array(pos_12_ls).argmin()
+        ind_21 = np.array(pos_21_ls).argmin()
+        ind_22 = np.array(pos_22_ls).argmin()
 
-        t_11 = times[divmod(ind_1,n_times)[0]]
-        t_12 = times[divmod(ind_2,n_times)[0]]
-        t_21 = times[divmod(ind_1,n_times)[1]]
-        t_22 = times[divmod(ind_2,n_times)[1]]
+        t_11 = times[ind_11]
+        t_12 = times[ind_12]
+        t_21 = times[ind_21]
+        t_22 = times[ind_22]
 
-        print(ind_1,ind_2,t_11,t_12,t_21,t_22)
+        print(ind_11,ind_12,ind_21,ind_22,t_11,t_12,t_21,t_22)
 
         mu = const.GM_earth.value
 
