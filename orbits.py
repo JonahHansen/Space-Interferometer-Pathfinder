@@ -154,10 +154,10 @@ class ECI_orbit:
 
     """ Orbital elements from state vector """
     def orbit_elems(self,state):
-        h = np.cross(state[:3],state[3:])
+        h = np.cross(state[:3],state[3:]) #Angular momentum vector
         n = np.cross(np.array([0,0,1]),h)
-        i = np.arccos(h[2]/np.linalg.norm(h))
-        omega = np.arccos(n[0]/np.linalg.norm(n))
+        i = np.arccos(h[2]/np.linalg.norm(h)) #Inclination
+        omega = np.arccos(n[0]/np.linalg.norm(n)) #Longitude of the ascending node
         if n[1] < 0:
             omega = 360 - omega
         return i,omega

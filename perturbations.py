@@ -141,7 +141,7 @@ def dX_dt(t, state, ECI, perturbations_ls):
     #HCW Equations
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    #Gamma2 = 0
+    Gamma2 = 0
     a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
 
     #print("J2 = %s"% LVLH_J2_p)

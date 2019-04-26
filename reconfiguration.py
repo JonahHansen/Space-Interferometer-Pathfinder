@@ -4,9 +4,12 @@ import numpy as np
 import astropy.constants as const
 import quaternions as qt
 
+""" Calculate Delta V requirement to reconfigure an orbit from ECI1 to ECI2 """
 def del_v_reconfigure(ECI1,ECI2,n_times):
     times = np.linspace(0,ECI2.period,n_times)
-    h0 = ECI1.h_0
+    h0 = ECI1.h_0 #Angular momentum vector
+    
+    #Crossing point vectors on a unit sphere
     point1 = np.cross(qt.rotate(h0,ECI1.q1),qt.rotate(h0,ECI2.q1))
     point2 = np.cross(qt.rotate(h0,ECI1.q2),qt.rotate(h0,ECI2.q2))
     point1 /= (np.linalg.norm(point1)/ECI1.R_orb)
@@ -17,6 +20,7 @@ def del_v_reconfigure(ECI1,ECI2,n_times):
     pos_21_ls = []
     pos_22_ls = []
 
+    #Find the times at which each orbit for the two deputies is closest
     for t in times:
         c = ECI1.chief_state(t)
         d11 = ECI1.deputy1_state(c)[:3]
@@ -38,9 +42,11 @@ def del_v_reconfigure(ECI1,ECI2,n_times):
 
     mu = const.GM_earth.value
 
+    #Vis viva equation
     def vis_viva(r,a):
         return np.sqrt(mu*(2/r - 1/a))
 
+    #Calculate delta v from phase difference
     del_t1 = t_21 - t_11
     T1 = del_t1 + ECI1.period
     a1 = (mu*(T1/(2*np.pi))**2)**(1/3)
@@ -53,6 +59,7 @@ def del_v_reconfigure(ECI1,ECI2,n_times):
 
     print(del_v1,del_v2)
 
+    #Caclulate delta_v from inclination change
     vel_11 = ECI1.deputy1_state(ECI1.chief_state(t_11))[3:]
     vel_12 = ECI1.deputy1_state(ECI1.chief_state(t_12))[3:]
     vel_21 = ECI2.deputy1_state(ECI2.chief_state(t_21))[3:]
