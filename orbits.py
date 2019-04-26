@@ -31,7 +31,7 @@ class ECI_orbit:
         self.ang_vel = 2*np.pi/self.period #Angular velocity of orbit
 
         #Star vector
-        self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
+        self.s_hat = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)])
 
         #Initial axis unit vectors
         xaxis = np.array([1,0,0])
@@ -148,8 +148,8 @@ class ECI_orbit:
     """ Find u and v vectors """
     def uv(self,ECI_dep1,ECI_dep2):
         sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
-        u = np.dot(sep,self.u_hat)*self.u_hat
-        v = np.dot(sep,self.v_hat)*self.v_hat
+        u = np.dot(sep,self.u_hat)
+        v = np.dot(sep,self.v_hat)
         return np.array([u,v])
 
     """ Orbital elements from state vector """
