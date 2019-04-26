@@ -1,15 +1,9 @@
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits import mplot3d
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import astropy.constants as const
-from scipy.integrate import solve_ivp
 from orbits import ECI_orbit
-from perturbations import dX_dt
-from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap, BoundaryNorm
-import matplotlib.ticker as mtick
+from observability import check_obs
 #import quaternions as qt
 
 plt.ion()
@@ -28,7 +22,7 @@ R_orb = R_e + alt
 Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(12) #90
+ra = np.radians(100) #90
 dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
@@ -37,9 +31,9 @@ delta_r_max = 0.3e3
 #List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
 p_list = [1] #Currently just using J2
 
-solar_angle = np.radians(40)
+solar_angle = np.radians(60)
 
-def i_from_precession(rho)
+def i_from_precession(rho):
     cosi = 2*rho*R_orb**3.5/(3*J2*R_e**2*np.sqrt(mu))
     return np.arccos(cosi)
     
@@ -58,15 +52,15 @@ ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 Om = Om_0
 
-n_orbits = 365.25*24*60*60/ECI.period
-n_phases = 100
+n_orbits = int(365.25*24*60*60/ECI.period)
+n_phases = int(ECI.period/60)
 n_times = n_orbits*n_phases
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
 """Initialise arrays"""
-ECI_rc = np.zeros(n_times,6)) #Chief ECI position vector
-ECI_rd1 = np.zeros(n_times,6)) #Deputy 1 ECI position vector
-ECI_rd2 = np.zeros(n_times,6)) #Deputy 2 ECI position vector
+ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
+ECI_rd1 = np.zeros((n_times,6)) #Deputy 1 ECI position vector
+ECI_rd2 = np.zeros((n_times,6)) #Deputy 2 ECI position vector
 obs = np.zeros(n_times)
 u_v = np.zeros((n_times,2))
 
@@ -82,7 +76,7 @@ for orbit in range(n_orbits):
         if obs[i]:
             u_v[i] = ECI.uv(ECI_rd1[i],ECI_rd2[i])
         i += 1
-    
+    print(i*100/n_times)
     Om += del_Om
     ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om, ra, dec)
     
@@ -91,5 +85,5 @@ plt.xlabel("u(m)")
 plt.ylabel("v(m)")
 plt.title("uv plane over a year")
 
-percent = sum(obs)/len(obs)
+percent = sum(obs)/len(obs)*100
 print("Percentage viewable over a year: %.3f"%percent)
