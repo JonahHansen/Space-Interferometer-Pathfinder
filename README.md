@@ -11,6 +11,9 @@ Jonah Honours Project on Orbital Dynamics
 * perturbations_multiprocessing - calculates acceleration due to perturbations for many orbits with multiprocessing
 * Schweighart_J2 - module that uses the J2 perturbation function given by Schweighart 2002. Doesn't currently work
 * Acc_plot - Plots the data from perturbations_multiprocessing
+* Reconfiguration - Calculates the delta-v requirement to reconfigure an orbit
+* Observability - Functions to determine whether the star is viewable or not
+* Obs_script - Script to test observability functions
 
 ### Junk:
 * plotter1 - Mike's original code
