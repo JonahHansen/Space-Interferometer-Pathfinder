@@ -1,8 +1,6 @@
 """ Perturbations Module """
 import numpy as np
 import astropy.constants as const
-#import quaternions as qt
-#from Schweighart_J2 import J2_pet
 
 """ J2 Perturbation in ECI frame """
 """Input: positions of chief and deputy in ECI frame"""
@@ -81,12 +79,15 @@ def drag_pert(state_d,state_c,rho,C_D_c,C_D_d,A_c,A_d,m_c,m_d):
     return drag_p
 
 
-""" Differential equation function"""
+""" Master Differential equation function for the integrator - Integrates HCW equations """
+""" Takes in a time and a state vector, as well as the reference orbit """
+""" and list of required perturbations. """
+""" Returns the derivative """
 def dX_dt(t, state, ECI, perturbations_ls):
     r = state[:3] #Position
     v = state[3:] #Velocity
 
-    #First half of the differential vector
+    #First half of the differential vector (derivative of position, velocity)
     dX0 = v[0]
     dX1 = v[1]
     dX2 = v[2]
@@ -94,64 +95,64 @@ def dX_dt(t, state, ECI, perturbations_ls):
     n = ECI.ang_vel #Angular velocity
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
 
-    #Chief and deputy states in ECI frame
+    #Calculate Chief and deputy states in ECI frame at the time t
     ECI_c = ECI.chief_state(t)
     rot_mat = ECI.to_LVLH_mat(ECI_c) #Matrix to convert into LVLH
     ECI_d = ECI.LVLH_to_ECI_state(ECI_c,rot_mat,np.append(r,v))
 
-    #Position in LVLH frame, with origin at centre of the Earth
-    rd = np.array([np.linalg.norm(ECI_c[:3])+r[0],r[1],r[2]])
-
     """ J2 Acceleration """
 
-    J2_p = J2_pert(ECI_d[:3],ECI_c[:3],ECI.R_orb)
-    LVLH_J2_p = np.dot(rot_mat,J2_p)
+    if 1 in perturbations_ls:
+        J2_p = J2_pert(ECI_d[:3],ECI_c[:3],ECI.R_orb) #Calculate J2 in ECI frame
+        LVLH_J2_p = np.dot(rot_mat,J2_p) #Convert to LVLH frame
+    else:
+        LVLH_J2_p = 0
 
     """ Solar Radiation """
 
-    As_c = 0.1*0.3
-    As_d = 0.1*0.3
-    m_c = 8
-    m_d = 4
-    Cr_c = 1.5
-    Cr_d = 1.5
+    if 2 in perturbations_ls:
+        As_c = 0.1*0.3
+        As_d = 0.1*0.3
+        m_c = 8
+        m_d = 4
+        Cr_c = 1.5
+        Cr_d = 1.5
 
-    solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d)
-    LVLH_solar_p = np.dot(rot_mat,solar_p)
+        solar_p = solar_pert(ECI_d[:3],ECI_c[:3],As_c,Cr_c,m_c,As_d,Cr_d,m_d) #In ECI frame
+        LVLH_solar_p = np.dot(rot_mat,solar_p) #To LVLH frame
+    else:
+        LVLH_solar_p =0
 
     """ Drag """
 
-    rho = 7.85e-13 #500km COSPAR CIRA-2012
-    #rho = 6.59e-15 #1000km
-    C_D = 2.1
+    if 3 in perturbations_ls:
+        rho = 7.85e-13 #500km COSPAR CIRA-2012
+        #rho = 6.59e-15 #1000km
+        C_D = 2.1
+        As_c = 0.1*0.3
+        As_d = 0.1*0.3
+        m_c = 8
+        m_d = 4
 
-    drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d)
-    LVLH_drag_p = np.dot(rot_mat,drag_p)
+        drag_p = drag_pert(ECI_d,ECI_c,rho,C_D,C_D,As_c,As_d,m_c,m_d) #In ECI frame
+        LVLH_drag_p = np.dot(rot_mat,drag_p) #To LVLH frame
+    else:
+        LVLH_drag_p = 0
 
     """ Putting it together """
 
-    #Set whether a perturbation is used
-    if 1 not in perturbations_ls:
-        LVLH_J2_p = 0
-    if 2 not in perturbations_ls:
-        LVLH_solar_p =0
-    if 3 not in perturbations_ls:
-        LVLH_drag_p = 0
-
-    #HCW Equations
+    #HCW Equations (second order correction, see Butcher 16)
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ECI.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
-    Gamma2 = 0
+    #Gamma2 = 0
+
+    #Acceleration is the HCW Equations, plus the required perturbations
     a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
 
-    #print("J2 = %s"% LVLH_J2_p)
-    #print("total a = %s" % a)
+    #Print kinetic energy while integrating
+    print(-np.linalg.norm(v)**2/2)
 
-
-    #Acceleration vector - analytical version (See Butcher 16)
-    #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + LVLH_J2_p
-
-    #Second half of the differential vector
+    #Second half of the differential vector (derivative of velocity, acceleration)
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]

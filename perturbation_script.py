@@ -2,15 +2,11 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits import mplot3d
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import astropy.constants as const
 from scipy.integrate import solve_ivp
 from orbits import ECI_orbit
 from perturbations import dX_dt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap, BoundaryNorm
-import matplotlib.ticker as mtick
-#import quaternions as qt
 
 plt.ion()
 
@@ -35,22 +31,28 @@ delta_r_max = 0.3e3
 p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
-#Calculate orbit, in the geocentric (ECI) frame
+#Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
-num_times = 1000
-n_periods = 1
-times = np.linspace(0,ECI.period*n_periods,num_times) #Create list of times
+#Number of orbits
+n_orbits = 1
+#Number of phases in each orbit
+n_phases = 1000
+#Total evaluation points
+n_times = n_orbits*n_phases
+times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
-"""Initialise arrays"""
-ECI_rc = np.zeros((num_times,6)) #Chief ECI position vector
-ECI_rd1 = np.zeros((num_times,6)) #Deputy 1 ECI position vector
-ECI_rd2 = np.zeros((num_times,6)) #Deputy 2 ECI position vector
-LVLH_drd1 = np.zeros((num_times,6)) #Deputy 1 LVLH position vector
-LVLH_drd2 = np.zeros((num_times,6)) #Deputy 2 LVLH position vector
-s_hats = np.zeros((num_times,3)) #Star vectors
+"""Initialise state arrays"""
+ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
+ECI_rd1 = np.zeros((n_times,6)) #Deputy 1 ECI position vector
+ECI_rd2 = np.zeros((n_times,6)) #Deputy 2 ECI position vector
+LVLH_drd1 = np.zeros((n_times,6)) #Deputy 1 LVLH position vector
+LVLH_drd2 = np.zeros((n_times,6)) #Deputy 2 LVLH position vector
+s_hats = np.zeros((n_times,3)) #Star vectors
 
 i = 0
+#Calculate the positions of the chief and deputies in the absence of
+#perturbations in both the ECI and LVLH frames
 for t in times:
     ECI_rc[i] = ECI.chief_state(t)
     rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
@@ -61,13 +63,21 @@ for t in times:
     s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
     i += 1
 
+#Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18
-step = 100
+step = 10
 
-#Integrate the orbits
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
 X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d1.success:
+    raise Exception("Integration failed!!!!")
+
 X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X_d2.success:
+    raise Exception("Integration failed!!!!")
 
 #Peturbed orbits
 pert_LVLH_drd1 = np.transpose(X_d1.y)
@@ -76,68 +86,38 @@ pert_LVLH_drd2 = np.transpose(X_d2.y)
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
 
-baseline_sep = np.zeros(num_times) #Separation along the baseline
-s_hat_drd1 = np.zeros(num_times) #Deputy1 position in star direction
-s_hat_drd2 = np.zeros(num_times) #Deputy2 position in star direction
-b_hat_drd1 = np.zeros(num_times) #Deputy1 position in star direction
-b_hat_drd2 = np.zeros(num_times) #Deputy2 position in star direction
-s_hat_sep = np.zeros(num_times) #Separation along the baseline
-total_sep = np.zeros(num_times) #Total separation
+baseline_sep = np.zeros(n_times) #Separation along the baseline
+s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
+s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
+b_hat_drd1 = np.zeros(n_times) #Deputy1 position in baseline direction
+b_hat_drd2 = np.zeros(n_times) #Deputy2 position in baseline direction
+s_hat_sep = np.zeros(n_times) #Separation along the baseline
+total_sep = np.zeros(n_times) #Total separation
 
-for ix in range(num_times):
+for ix in range(n_times):
+    #Baseline separations is simply the difference between the positions of the two deputies
     baseline_sep[ix] = np.linalg.norm(pert_LVLH_drd1[ix,:3]) - np.linalg.norm(pert_LVLH_drd2[ix,:3])
+    #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])
     s_hat_drd2[ix] = np.dot(pert_LVLH_drd2[ix,:3],s_hats[ix])
+    #Baseline unit vector
     b_hat = pert_LVLH_drd1[ix,:3]/np.linalg.norm(pert_LVLH_drd1[ix,:3])
+    #Component of perturbed orbit in baseline direction
     b_hat_drd1[ix] = np.dot(pert_LVLH_drd1[ix,:3],b_hat)
     b_hat_drd2[ix] = np.dot(pert_LVLH_drd2[ix,:3],b_hat)
+    #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
+    #Sum of the separation along the star direction and the baseline direction
     total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
-"""
-total_pert1 = pert_LVLH_drd1 - LVLH_drd1
-total_pert2 = pert_LVLH_drd2 - LVLH_drd2
-s_hat_drd1_vec = np.zeros((num_times,3))
-
-for ix in range(num_times):
-    s_hat_drd1_vec[ix] = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])*s_hats[ix] - np.dot(LVLH_drd1[ix,:3],s_hats[ix])*s_hats[ix]
-"""
-#Numerical differentiation
+#Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
     vel = np.gradient(pos, times, edge_order=2)
     acc = np.gradient(vel, times, edge_order=2)
-    return np.abs(acc)
-"""
-def total_acc_counteract_orbit(LVLH,LVLH_pert,t):
-    diff = LVLH - LVLH_pert
-    r = acc(diff[:,0],t)
-    v = acc(diff[:,1],t)
-    h = acc(diff[:,2],t)
-    total_acc = np.transpose(np.array([r,v,h]))
-    
-    r2 = np.gradient(diff[:,3],t, edge_order=2)
-    v2 = np.gradient(diff[:,4],t, edge_order=2)
-    h2 = np.gradient(diff[:,5],t, edge_order=2)
-    total_acc2 = np.transpose(np.array([r2,v2,h2]))
-    
-    ew = np.zeros(num_times)
-    for j in range(num_times):
-        ew[j] = np.linalg.norm(diff[j,:3])
-    
-    p = acc(ew,t)
-    return p, diff, total_acc, total_acc2
-    
-Acc_tot = np.transpose(np.array([acc(total_pert1[:,0],times),acc(total_pert1[:,1],times),acc(total_pert1[:,2],times)]))
-Acc_s =  np.transpose(np.array([acc(s_hat_drd1_vec[:,0],times),acc(s_hat_drd1_vec[:,1],times),acc(s_hat_drd1_vec[:,2],times)]))
+    return acc
 
-Acc_ntot = np.zeros(num_times)
-Acc_ns = np.zeros(num_times)
-for ix in range(num_times):
-    Acc_ntot[ix] = np.linalg.norm(Acc_tot[ix])
-    Acc_ns[ix] = np.linalg.norm(Acc_s[ix])
-"""
-
-#Accelerations
+#Accelerations - numerically integrate the position/time arrays found above
+#Returns the absolute value of the acceleration in a given direction
 acc_s1 = np.abs(acc(s_hat_drd1,times))
 acc_s2 = np.abs(acc(s_hat_drd2,times))
 acc_delta_b = np.abs(acc(baseline_sep,times))
@@ -151,7 +131,7 @@ max_acc_delta_b = max(acc_delta_b)
 max_acc_delta_s = max(acc_delta_s)
 max_acc_total = max(acc_total)
 
-#Delta v
+#Delta v (Integral of the absolute value of the acceleration)
 delta_v_s1 = np.trapz(acc_s1)
 delta_v_s2 = np.trapz(acc_s2)
 delta_v_delta_b = np.trapz(acc_delta_b)
@@ -159,6 +139,13 @@ delta_v_delta_s = np.trapz(acc_delta_s)
 delta_v_total = np.trapz(acc_total)
 
 #Result array
+#result[0] is the max a between deputy 1 and chief in the star direction
+#result[1] is the max a between deputy 2 and chief in the star direction
+#result[2] is the max a between the two deputies in the star direction (ie the difference between 0 and 1)
+#result[3] is the max a in the baseline direction
+#result[4] is the max total a (sum of 2 and 3; the total acceleration that needs to be corrected for)
+#result[5-9] are the same, but for delta v
+
 result = np.array([max_acc_s1,max_acc_s2,max_acc_delta_s,
                    max_acc_delta_b,max_acc_total,delta_v_s1,delta_v_s2,
                    delta_v_delta_s,delta_v_delta_b,delta_v_total])
@@ -213,23 +200,20 @@ ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
 
+#Plot separation along the star direction
 plt.figure(3)
 plt.clf()
 plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
 plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
 plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
-#plt.plot(times,baseline_sep,"y-",label="Separation, baseline direction")
-#plt.plot(times,total_sep,"c-",label="Total direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
 plt.legend()
 
+#Plot separation along the baseline direction
 plt.figure(4)
 plt.clf()
-#plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
-#plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
-#plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
 plt.plot(times,baseline_sep,"y-",label="Separation, baseline direction")
 #plt.plot(times,total_sep,"c-",label="Total direction")
 plt.xlabel("Times(s)")
@@ -265,39 +249,3 @@ plt.title("Position of deputies due to \n perturbations in Baseline frame")
 cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
-
-"""
-plt.figure(6)
-plt.clf()
-points1 = np.array([total_pert1[:,0],total_pert1[:,1], total_pert1[:,2]]).T.reshape(-1, 1, 3)
-points2 = np.array([total_pert2[:,0],total_pert2[:,1], total_pert2[:,2]]).T.reshape(-1, 1, 3)
-segments1 = np.concatenate([points1[:-1], points1[1:]], axis=1)
-segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
-
-lc1 = Line3DCollection(segments1, cmap='YlOrRd',norm=plt.Normalize(times.min(), times.max()))
-lc1.set_array(times)
-lc1.set_linewidth(2)
-
-lc2 = Line3DCollection(segments2, cmap='YlGnBu',norm=plt.Normalize(times.min(), times.max()))
-lc2.set_array(times)
-lc2.set_linewidth(2)
-
-ax = plt.gca(projection='3d')
-
-plt.title('3D-Figure')
-space_f = 1.2
-ax.add_collection3d(lc1)
-ax.add_collection3d(lc2)
-ax.set_xlim(np.min(space_f*np.minimum(total_pert1[:,0],total_pert2[:,0])), np.max(space_f*np.maximum(total_pert1[:,0],total_pert2[:,0])))
-ax.set_ylim(np.min(space_f*np.minimum(total_pert1[:,1],total_pert2[:,1])), np.max(space_f*np.maximum(total_pert1[:,1],total_pert2[:,1])))
-ax.set_zlim(np.min(space_f*np.minimum(total_pert1[:,2],total_pert2[:,2])), np.max(space_f*np.maximum(total_pert1[:,2],total_pert2[:,2])))
-
-ax.set_xlabel("r direction (m)")
-ax.set_ylabel("v direction (m)")
-ax.set_zlabel("h direction (m)")
-plt.title("Position of deputies due to \n perturbations in LVLH frame")
-
-cbar = plt.colorbar(lc1)
-plt.colorbar(lc2)
-cbar.set_label('Time (s)', rotation=270, labelpad = 15)
-"""

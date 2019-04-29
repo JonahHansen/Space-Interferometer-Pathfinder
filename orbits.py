@@ -120,7 +120,7 @@ class ECI_orbit:
         vel = qt.rotate(chief_state[3:],self.q2)
         return np.append(pos,vel)
 
-    """ Create change of basis matrix - requires chief position """
+    """ Create change of basis matrix - requires chief state"""
     def to_LVLH_mat(self,chief_state):
         chief_pos = chief_state[:3]
         r_hat = chief_pos/np.linalg.norm(chief_pos)
@@ -129,6 +129,7 @@ class ECI_orbit:
         return rot_mat
 
     """ Takes a given state vector in ECI coordinates and converts to LVLH """
+    """ Requires chief state and the change of basis matrix """
     def ECI_to_LVLH_state(self,ECI_chief,rot_mat,ECI_state):
         non_zero_pos = np.dot(rot_mat,ECI_state[0:3]) #Position in LVLH, origin at centre of Earth
         pos = non_zero_pos - np.dot(rot_mat,ECI_chief[0:3]) #Position, origin at chief spacecraft
@@ -137,6 +138,7 @@ class ECI_orbit:
         return np.append(pos,vel)
 
     """ Takes a given state vector in LVLH coordinates and converts to ECI """
+    """ Requires chief state and the change of basis matrix """
     def LVLH_to_ECI_state(self,ECI_chief,rot_mat,LVLH_state):
         inv_rotmat = np.linalg.inv(rot_mat) #LVLH to ECI change of basis matrix
         pos = np.dot(inv_rotmat,LVLH_state[:3]) + ECI_chief[:3] #ECI position
@@ -145,7 +147,7 @@ class ECI_orbit:
         vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
         return np.append(pos,vel)
 
-    """ Find u and v vectors """
+    """ Find u and v vectors given the deputy state vectors"""
     def uv(self,ECI_dep1,ECI_dep2):
         sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
         u = np.dot(sep,self.u_hat)
