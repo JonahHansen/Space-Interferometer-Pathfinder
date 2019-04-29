@@ -50,24 +50,21 @@ LVLH_drd1 = np.zeros((n_times,6)) #Deputy 1 LVLH position vector
 LVLH_drd2 = np.zeros((n_times,6)) #Deputy 2 LVLH position vector
 s_hats = np.zeros((n_times,3)) #Star vectors
 
-i = 0
 #Calculate the positions of the chief and deputies in the absence of
 #perturbations in both the ECI and LVLH frames
-for t in times:
-    ECI_rc[i] = ECI.chief_state(t)
+for i in range(n_times):
+    ECI_rc[i] = ECI.chief_state(times[i])
     rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
     ECI_rd1[i] = ECI.deputy1_state(ECI_rc[i]) #Deputy 1 position
     ECI_rd2[i] = ECI.deputy2_state(ECI_rc[i]) #Deputy 2 position
     LVLH_drd1[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd1[i])
     LVLH_drd2[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd2[i])
     s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
-    i += 1
 
 #Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18
 step = 10
-
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
 X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
