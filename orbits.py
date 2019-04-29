@@ -31,7 +31,7 @@ class ECI_orbit:
         self.ang_vel = 2*np.pi/self.period #Angular velocity of orbit
 
         #Star vector
-        self.s_hat = [np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]
+        self.s_hat = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)])
 
         #Initial axis unit vectors
         xaxis = np.array([1,0,0])
@@ -145,80 +145,19 @@ class ECI_orbit:
         vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
         return np.append(pos,vel)
 
-    """ Finds the vector pointing away from the sun """
-    def find_anti_sun_vector(self,t):
-        oblq = np.radians(23.4) #Obliquity of the ecliptic
-        Earth_sun_ang_vel = 2*np.pi/(365.25*24*60*60) #Angular velocity of the Earth around the Sun
-        phase = t*Earth_sun_ang_vel
-        pos = np.array([np.cos(phase)*np.cos(oblq),np.sin(phase),np.cos(phase)*np.sin(oblq)])
-        return pos
-
     """ Find u and v vectors """
     def uv(self,ECI_dep1,ECI_dep2):
         sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
-        u = np.dot(sep,self.u_hat)*self.u_hat
-        v = np.dot(sep,self.v_hat)*self.v_hat
+        u = np.dot(sep,self.u_hat)
+        v = np.dot(sep,self.v_hat)
         return np.array([u,v])
 
     """ Orbital elements from state vector """
     def orbit_elems(self,state):
-        h = np.cross(state[:3],state[3:])
+        h = np.cross(state[:3],state[3:]) #Angular momentum vector
         n = np.cross(np.array([0,0,1]),h)
-        i = np.arccos(h[2]/np.linalg.norm(h))
-        omega = np.arccos(n[0]/np.linalg.norm(n))
+        i = np.arccos(h[2]/np.linalg.norm(h)) #Inclination
+        omega = np.arccos(n[0]/np.linalg.norm(n)) #Longitude of the ascending node
         if n[1] < 0:
             omega = 360 - omega
         return i,omega
-
-    def asdasd(self,ECI2):
-        n_times = 200
-        times = np.linspace(0,ECI2.period,n_times)
-        pos = np.zeros(3)
-        eps = 0.001
-        pos_1_ls = []
-        pos_2_ls = []
-        for t1 in times:
-            c1 = self.chief_state(t1)
-            d11 = self.deputy1_state(c1)[:3]
-            d12 = self.deputy2_state(c1)[:3]
-            for t2 in times:
-                c2 = ECI2.chief_state(t2)
-                d21 = ECI2.deputy1_state(c2)[:3]
-                d22 = ECI2.deputy2_state(c2)[:3]
-
-                pos_1_ls.append(np.linalg.norm(d11 - d21))
-                pos_2_ls.append(np.linalg.norm(d12 - d22))
-
-        ind_1 = np.array(pos_1_ls).argmin()
-        ind_2 = np.array(pos_2_ls).argmin()
-
-        t_11 = times[divmod(ind_1,n_times)[0]]
-        t_12 = times[divmod(ind_2,n_times)[0]]
-        t_21 = times[divmod(ind_1,n_times)[1]]
-        t_22 = times[divmod(ind_2,n_times)[1]]
-
-        print(ind_1,ind_2,t_11,t_12,t_21,t_22)
-
-        mu = const.GM_earth.value
-
-        def vis_viva(r,a):
-            return np.sqrt(mu*(2/r - 1/a))
-
-        del_t1 = t_21 - t_11
-        T1 = del_t1 + self.period
-        a1 = (mu*(T1/(2*np.pi))**2)**(1/3)
-        del_v1 = vis_viva(self.R_orb,a1) - vis_viva(self.R_orb,self.R_orb)
-
-        del_t2 = t_22 - t_12
-        T2 = del_t2 + self.period
-        a2 = (mu*(T2/(2*np.pi))**2)**(1/3)
-        del_v2 = vis_viva(self.R_orb,a2) - vis_viva(self.R_orb,self.R_orb)
-
-        vel_11 = self.deputy1_state(self.chief_state(t_11))[:3]
-        vel_12 = self.deputy1_state(self.chief_state(t_12))[:3]
-        vel_21 = ECI2.deputy1_state(ECI2.chief_state(t_21))[:3]
-        vel_22 = ECI2.deputy1_state(ECI2.chief_state(t_22))[:3]
-
-        del_v1 += np.linalg.norm(vel_21-vel_11)
-        del_v2 += np.linalg.norm(vel_22-vel_12)
-        return del_v1, del_v2

@@ -29,10 +29,10 @@ ra = np.radians(90) #90
 dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
-delta_r_max = 0.3*1e3
+delta_r_max = 0.3e3
 
 #List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1,2,3] #Currently just using J2
+p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
@@ -84,8 +84,6 @@ b_hat_drd2 = np.zeros(num_times) #Deputy2 position in star direction
 s_hat_sep = np.zeros(num_times) #Separation along the baseline
 total_sep = np.zeros(num_times) #Total separation
 
-
-
 for ix in range(num_times):
     baseline_sep[ix] = np.linalg.norm(pert_LVLH_drd1[ix,:3]) - np.linalg.norm(pert_LVLH_drd2[ix,:3])
     s_hat_drd1[ix] = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])
@@ -95,20 +93,21 @@ for ix in range(num_times):
     b_hat_drd2[ix] = np.dot(pert_LVLH_drd2[ix,:3],b_hat)
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
     total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
-    
+
+"""
 total_pert1 = pert_LVLH_drd1 - LVLH_drd1
 total_pert2 = pert_LVLH_drd2 - LVLH_drd2
 s_hat_drd1_vec = np.zeros((num_times,3))
 
 for ix in range(num_times):
     s_hat_drd1_vec[ix] = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])*s_hats[ix] - np.dot(LVLH_drd1[ix,:3],s_hats[ix])*s_hats[ix]
-
+"""
 #Numerical differentiation
 def acc(pos,times):
     vel = np.gradient(pos, times, edge_order=2)
     acc = np.gradient(vel, times, edge_order=2)
     return np.abs(acc)
-
+"""
 def total_acc_counteract_orbit(LVLH,LVLH_pert,t):
     diff = LVLH - LVLH_pert
     r = acc(diff[:,0],t)
@@ -136,7 +135,7 @@ Acc_ns = np.zeros(num_times)
 for ix in range(num_times):
     Acc_ntot[ix] = np.linalg.norm(Acc_tot[ix])
     Acc_ns[ix] = np.linalg.norm(Acc_s[ix])
-
+"""
 
 #Accelerations
 acc_s1 = np.abs(acc(s_hat_drd1,times))
@@ -238,6 +237,7 @@ plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
 plt.legend()
 
+#Plot separation in the baseline frame
 plt.figure(5)
 plt.clf()
 
@@ -245,12 +245,8 @@ points1 = np.array([b_hat_drd1, s_hat_drd1]).T.reshape(-1, 1, 2)
 points2 = np.array([b_hat_drd2, s_hat_drd2]).T.reshape(-1, 1, 2)
 segments1 = np.concatenate([points1[:-1], points1[1:]], axis=1)
 segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
-
-
 norm = plt.Normalize(times.min(), times.max())
 ax = plt.gca()
-
-
 lc1 = LineCollection(segments1, cmap='YlOrRd', norm=norm)
 lc1.set_array(times)
 lc1.set_linewidth(2)
@@ -270,7 +266,7 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
 
-
+"""
 plt.figure(6)
 plt.clf()
 points1 = np.array([total_pert1[:,0],total_pert1[:,1], total_pert1[:,2]]).T.reshape(-1, 1, 3)
@@ -304,3 +300,4 @@ plt.title("Position of deputies due to \n perturbations in LVLH frame")
 cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+"""
