@@ -28,7 +28,7 @@ def point_in_polygon_circle(p,r,n_points):
     return path.contains_point(p)
 
 """ Check if Earth is blocking field of view """
-def check_earth(dep1,dep2,s):
+def check_earth(dep1,dep2,R_orb,s):
     r_E = const.R_earth.value
     def check_deputy(dep_pos):
         #Project position onto a plane perpendicular to star vector
@@ -51,13 +51,15 @@ def check_earth(dep1,dep2,s):
             #Rotate axes to align with plane
             proj_rot = np.dot(rotmat,proj)
             proj_2d = proj_rot[:2]
+            
+            new_rad = np.sqrt(R_orb**2 - r_E**2)*np.tan(np.arccos(r_E/R_orb)/3) + r_E
             #Check if position lies within Earth
-            return not point_in_polygon_circle(proj_2d,r_E,1000)
+            return not point_in_polygon_circle(proj_2d,new_rad,1000)
     
     check_dep1 = check_deputy(dep1[:3])
     check_dep2 = check_deputy(dep2[:3])
     return (check_dep1 and check_dep2)
 
 """ Combine both checks """
-def check_obs(t,dep1,dep2,s,angle):
-    return check_sun(s,t,angle) and check_earth(dep1,dep2,s)
+def check_obs(t,dep1,dep2,R_orb,s,angle):
+    return check_sun(s,t,angle) and check_earth(dep1,dep2,R_orb,s)
