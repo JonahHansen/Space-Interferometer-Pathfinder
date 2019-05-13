@@ -1,5 +1,5 @@
-# OrbitDynamics
-Jonah Honours Project on Orbital Dynamics
+# Astrophysical Space-Interferometer Pathfinder (ASP)
+Jonah Honours Project on Space Interferometry and Orbital Dynamics
 
 ### Main files (Scripts):
 
