@@ -2,8 +2,8 @@ from __future__ import print_function
 import numpy as np
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-from orbits import ECI_orbit
-from perturbations import dX_dt
+from modules.orbits import ECI_orbit
+from modules.perturbations import dX_dt
 from itertools import product
 from multiprocessing import Pool
 import json

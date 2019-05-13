@@ -5,8 +5,8 @@ from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
 from modules.orbits import ECI_orbit
-from modules.perturbations import dX_dt
 from matplotlib.collections import LineCollection
+from modules.Schweighart_J2 import J2_pet
 
 plt.ion()
 
@@ -62,28 +62,28 @@ for i in range(n_times):
     #print(LVLH_drd1[i,0] + LVLH_drd1[i,4]/ECI.ang_vel)
     s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
 
+
+J2_func1 = J2_pet(LVLH_drd1[0],ECI,ECI.q1)
+J2_func2 = J2_pet(LVLH_drd2[0],ECI,ECI.q2)
+
 #Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18
 step = 10
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
     raise Exception("Integration failed!!!!")
 
-X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 
 #Peturbed orbits
 pert_LVLH_drd1 = np.transpose(X_d1.y)
 pert_LVLH_drd2 = np.transpose(X_d2.y)
-
-
-#pert_LVLH_drd1 = LVLH_drd1
-#pert_LVLH_drd2 = LVLH_drd2
 
 
 #--------------------------------------------------------------------------------------------- #

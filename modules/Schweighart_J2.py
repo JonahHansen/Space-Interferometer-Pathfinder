@@ -1,6 +1,7 @@
 import numpy as np
 import astropy.constants as const
 from scipy.optimize import fsolve
+import modules.quaternions as qt
 
 """
 Use Schweighart J2 formula
@@ -50,14 +51,21 @@ def J2_pet(state0,ECI,rotation):
     def J2_pet_func(t,state):
         [x,y,z] = state[:3] #Position
         [dx,dy,dz] = state[3:] #Velocity
-        print(t)
         dX0 = dx
         dX1 = dy
         dX2 = dz
+        
+        Gamma2 = n**2/r_ref*np.array([-3*x**2 + 1.5*y**2 + 1.5*z**2, 3*x*y, 3*x*z])
+        Gamma3 = (n/r_ref)**2*np.array([4*x**3-6*x*(y**2+z**2),-6*x**2*y+1.5*y**3+1.5*y*z**2,-6*x**2*z+1.5*z**3+1.5*z*y**2])
+        #Gamma2 = np.array([0,0,0])
+        #Gamma3 = np.array([0,0,0])
 
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x
-        dX4 = -2*n*c*dx
-        dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
+        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + Gamma2[0] + Gamma3[0]
+        dX4 = -2*n*c*dx + Gamma2[1] + Gamma3[1]
+        dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi) + Gamma2[2] + Gamma3[2]
+        print(x + dx/n)
+        
+        
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
     return J2_pet_func
