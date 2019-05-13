@@ -2,9 +2,8 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.constants as const
-from orbits import ECI_orbit
-from observability import check_obs
-#import quaternions as qt
+from modules.orbits import ECI_orbit
+from modules.observability import check_obs
 
 plt.ion()
 

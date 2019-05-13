@@ -9,7 +9,7 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 import astropy.units as u
 import astropy.constants as const
-from orbits import ECI_orbit
+from modules.orbits import ECI_orbit
 
 plt.ion()
 
@@ -22,16 +22,16 @@ R_orb = R_e + alt
 n_p = 1000 #Number of phases
 
 #Orbital inclination
-inc_0 = np.radians(20)
+inc_0 = np.radians(0)
 #Longitude of the Ascending Node
 Om_0 = np.radians(0)
 
 #Stellar vector
-ra = np.radians(90)
-dec = np.radians(-40)
+ra = np.radians(0)
+dec = np.radians(45)
 
 #The max distance to the other satellites in m
-delta_r_max = 550e3
+delta_r_max = 1050e3
 
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
@@ -72,7 +72,7 @@ period = ECI.period/60 #In minutes
 
 #Make pretty plots.
 pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,11.*np.pi,500)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
@@ -82,7 +82,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
     lvlh_ls = []
     #Find non-vignetted parts (two vectors)
     for xyz, lvlh, point, line in zip(ECI_all, LVLH_all, points, lines):
-        visible = (xyz[:,1] > 0) | (np.sqrt(xyz[:,0]**2 + xyz[:,2]**2) > R_e)
+        visible = (-xyz[:,1] > 0) | (np.sqrt(xyz[:,0]**2 + xyz[:,2]**2) > R_e)
         visible = np.concatenate(([False],visible, [False]))
         out_of_eclipse = np.where(visible[1:] & np.logical_not(visible[:-1]))[0]
         in_to_eclipse = np.where(np.logical_not(visible[1:]) & visible[:-1])[0]
@@ -93,7 +93,7 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
         sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECI.ang_vel*times, xyz[:,ii]) for ii in range(3)]
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
-        if (sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
+        if (-sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
             plt.plot(sat_xyz[0] + R_e, sat_xyz[2] + R_e,point)
 
     #Interpolate LVLH orbit, to make LVLH plot
@@ -112,7 +112,6 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
 
     #Star vector
     s = lvlh_ls[3]
-    plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
 
     #List of positions
     pos_ls.append([lvlh_ls[0],lvlh_ls[1],lvlh_ls[2]])
@@ -130,5 +129,9 @@ for im_ix, sat_phase in enumerate(np.linspace(np.pi,3.*np.pi,15)): #np.pi, 31*np
     plt.title("LVLH Frame")
     plt.xlabel("v (chief velocity axis) (km)")
     plt.ylabel("h (chief OAM axis) (km)")
+    
+    plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
+    
+    plt.savefig("pngs2/orb{:03d}.png".format(im_ix))
 
     plt.pause(.01)

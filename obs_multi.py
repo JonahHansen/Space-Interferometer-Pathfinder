@@ -2,8 +2,8 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.constants as const
-from orbits import ECI_orbit
-from observability import check_obs
+from modules.orbits import ECI_orbit
+from modules.observability import check_obs
 from multiprocessing import Pool
 import json
 
@@ -97,7 +97,7 @@ def worker(radec):
                 if j < obs_num:
                     for k in range(j):
                         obs[i-1-k] = 0
-                j = 0 
+                j = 0
             i += 1
         #print(i*100/n_times)
         

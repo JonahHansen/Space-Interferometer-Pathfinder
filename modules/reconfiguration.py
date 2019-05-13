@@ -2,7 +2,7 @@
 
 import numpy as np
 import astropy.constants as const
-import quaternions as qt
+import modules.quaternions as qt
 
 """ Calculate Delta V requirement to reconfigure an orbit from ECI1 to ECI2 """
 def del_v_reconfigure(ECI1,ECI2):
