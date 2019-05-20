@@ -42,6 +42,10 @@ class ECI_orbit:
         self.u_hat = np.cross(self.s_hat,zaxis)
         self.v_hat = np.cross(self.s_hat,self.u_hat)
 
+        #Precession
+        J2 = 0.00108263
+        self.w_p = -3/2*const.R_earth.value**2/R_orb**2*J2*self.ang_vel*np.cos(inc_0)
+
         #Quaternion rotation of chief orbit
         q_Om = qt.to_q(zaxis,Om_0)
         q_inc = qt.to_q(yaxis,-inc_0)
@@ -163,3 +167,26 @@ class ECI_orbit:
         if n[1] < 0:
             omega = 360 - omega
         return i,omega
+
+    """Calculate chief state at a given time t, with precession"""
+    def chief_state_precess(self,t):
+        phase = t*self.ang_vel
+
+        del_Om = self.w_p*t
+        q_Om = qt.to_q(np.array([0,0,1]),self.Om_0+del_Om)
+        q_inc = qt.to_q(np.array([0,1,0]),-self.inc_0)
+        q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
+
+        pos = np.zeros(3)
+        vel = np.zeros(3)
+
+        #Base orbit from phase
+        pos[0] = np.cos(phase) * self.R_orb
+        pos[1] = np.sin(phase) * self.R_orb
+        vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
+        vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
+
+        #Rotate in orbit
+        pos = qt.rotate(pos,q0)
+        vel = qt.rotate(vel,q0)
+        return np.append(pos,vel)

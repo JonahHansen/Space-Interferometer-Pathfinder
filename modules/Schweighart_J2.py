@@ -21,7 +21,6 @@ def J2_pet(state0,ECI,rotation):
 
     h_dep = qt.rotate(ECI.h_0,rotation)
     i_dep = np.arccos(h_dep[2]/np.linalg.norm(h_dep))
-    print(i_dep)
 
     J2 = 0.00108263
     R_e = const.R_earth.value
@@ -35,12 +34,20 @@ def J2_pet(state0,ECI,rotation):
     k = n*c+3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_ref)**2
     i_sat1 = dz_0/(k*r_ref)+i_dep
     omega_0 = z_0/(r_ref*np.sin(i_ref))
-    gamma_0 = np.pi/2 - np.arctan((1/np.tan(i_dep)*np.sin(i_sat1)-np.cos(i_sat1)*np.cos(omega_0))/np.sin(omega_0))
+    if (omega_0 and i_dep) != 0:
+        gamma_0 = np.pi/2 - np.arctan((1/np.tan(i_dep)*np.sin(i_sat1)-np.cos(i_sat1)*np.cos(omega_0))/np.sin(omega_0))
+    else:
+        gamma_0 = 0
     phi_0 = np.arccos(np.cos(i_sat1)*np.cos(i_dep)+np.sin(i_sat1)*np.sin(i_dep)*np.cos(omega_0))
     d_omega_sat1 = -3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_sat1)
     d_omega_dep = -3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_dep)
-    q = n*c - (np.cos(gamma_0)*np.sin(gamma_0)*1/np.tan(omega_0)-np.sin(gamma_0)**2*np.cos(i_sat1))*(d_omega_sat1 - d_omega_dep)-d_omega_sat1*np.cos(i_sat1)
+
+    temp = np.cos(gamma_0)*np.sin(gamma_0)*1/np.tan(omega_0)
+    temp = temp if temp == temp else 0
+
+    q = n*c - (temp-np.sin(gamma_0)**2*np.cos(i_sat1))*(d_omega_sat1 - d_omega_dep)-d_omega_sat1*np.cos(i_sat1)
     l = -r_ref*np.sin(i_sat1)*np.sin(i_dep)*np.sin(omega_0)/np.sin(phi_0)*(d_omega_sat1-d_omega_dep)
+    l = l if l == l else 0
 
     def equations(p):
         m,phi = p
@@ -54,7 +61,7 @@ def J2_pet(state0,ECI,rotation):
         dX0 = dx
         dX1 = dy
         dX2 = dz
-        
+
         Gamma2 = n**2/r_ref*np.array([-3*x**2 + 1.5*y**2 + 1.5*z**2, 3*x*y, 3*x*z])
         Gamma3 = (n/r_ref)**2*np.array([4*x**3-6*x*(y**2+z**2),-6*x**2*y+1.5*y**3+1.5*y*z**2,-6*x**2*z+1.5*z**3+1.5*z*y**2])
         #Gamma2 = np.array([0,0,0])
@@ -63,9 +70,9 @@ def J2_pet(state0,ECI,rotation):
         dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + Gamma2[0] + Gamma3[0]
         dX4 = -2*n*c*dx + Gamma2[1] + Gamma3[1]
         dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi) + Gamma2[2] + Gamma3[2]
-        print(x + dx/n)
-        
-        
+        #print(x + dx/n)
+
+
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
     return J2_pet_func

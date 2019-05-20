@@ -44,10 +44,6 @@ times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
 """Initialise state arrays"""
 ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
-ECI_rd1 = np.zeros((n_times,6)) #Deputy 1 ECI position vector
-ECI_rd2 = np.zeros((n_times,6)) #Deputy 2 ECI position vector
-LVLH_drd1 = np.zeros((n_times,6)) #Deputy 1 LVLH position vector
-LVLH_drd2 = np.zeros((n_times,6)) #Deputy 2 LVLH position vector
 s_hats = np.zeros((n_times,3)) #Star vectors
 
 #Calculate the positions of the chief and deputies in the absence of
@@ -55,25 +51,23 @@ s_hats = np.zeros((n_times,3)) #Star vectors
 for i in range(n_times):
     ECI_rc[i] = ECI.chief_state(times[i])
     rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
-    ECI_rd1[i] = ECI.deputy1_state(ECI_rc[i]) #Deputy 1 position
-    ECI_rd2[i] = ECI.deputy2_state(ECI_rc[i]) #Deputy 2 position
-    LVLH_drd1[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd1[i])
-    LVLH_drd2[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd2[i])
     #print(LVLH_drd1[i,0] + LVLH_drd1[i,4]/ECI.ang_vel)
     s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
 
+LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
+LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
 #Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18
 step = 10
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
     raise Exception("Integration failed!!!!")
 
-X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ECI,p_list), [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 
@@ -182,8 +176,6 @@ plt.clf()
 ax1 = plt.axes(projection='3d')
 ax1.set_aspect('equal')
 ax1.plot3D(ECI_rc[:,0],ECI_rc[:,1],ECI_rc[:,2],'b-')
-ax1.plot3D(ECI_rd1[:,0],ECI_rd1[:,1],ECI_rd1[:,2],'r-')
-ax1.plot3D(ECI_rd2[:,0],ECI_rd2[:,1],ECI_rd2[:,2],'g-')
 ax1.set_xlabel('x (m)')
 ax1.set_ylabel('y (m)')
 ax1.set_zlabel('z (m)')
