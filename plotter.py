@@ -43,12 +43,12 @@ ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 num_times = 1000
 times = np.linspace(0,ECI.period,num_times)
 
-c_state = np.zeros((num_times,6))
-dep1_state = np.zeros((num_times,6))
-dep2_state = np.zeros((num_times,6))
-LVLH_state0 = np.zeros((num_times,6))
-LVLH_state1 = np.zeros((num_times,6))
-LVLH_state2 = np.zeros((num_times,6))
+c_pos = np.zeros((num_times,3))
+dep1_pos = np.zeros((num_times,3))
+dep2_pos = np.zeros((num_times,3))
+LVLH_pos0 = np.zeros((num_times,3))
+LVLH_pos1 = np.zeros((num_times,3))
+LVLH_pos2 = np.zeros((num_times,3))
 s_hats = np.zeros((num_times,3))
 
 i = 0
@@ -74,7 +74,7 @@ period = ECI.period/60 #In minutes
 
 #Make pretty plots.
 pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,11.*np.pi,500)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
@@ -134,6 +134,5 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,11.*np.pi,500)): #np.pi, 
     
     plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
     
-    plt.savefig("pngs2/orb{:03d}.png".format(im_ix))
-
+    #plt.savefig("pngs2/orb{:03d}.png".format(im_ix))
     plt.pause(.01)

@@ -4,9 +4,9 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-from modules.orbit2 import ECI_orbit, Chief, init_deputy
+from modules.orbits import ECI_orbit, Chief, init_deputy
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_2 import J2_pet
+from modules.Schweighart_J2 import J2_pet
 
 plt.ion()
 

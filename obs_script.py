@@ -62,7 +62,7 @@ Om = Om_0
 #Number of orbits
 n_orbits = int(365.25*24*60*60/ECI.period)
 #Number of phases in each orbit
-n_phases = int(ECI.period/60/2)
+n_phases = int(ECI.period/60/4)
 #Total evaluation points
 n_times = n_orbits*n_phases
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
@@ -82,7 +82,7 @@ for orbit in range(n_orbits):
         t = times[orbit*n_phases + phase]
         ECI_rc = Chief(ECI,t)
         ECI_rd1 = init_deputy(ECI,ECI_rc,1) #Deputy 1 position
-        ECI_rd1 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
+        ECI_rd2 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
         obs[i] = check_obs(t,ECI_rd1,ECI_rd2,ECI.R_orb,ECI.s_hat,solar_angle) #Check if observable
         if obs[i]:
             j += 1
