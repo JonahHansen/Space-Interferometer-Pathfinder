@@ -56,8 +56,8 @@ def check_earth(dep1,dep2,R_orb,s):
             #Check if position lies within Earth
             return not point_in_polygon_circle(proj_2d,new_rad,1000)
     
-    check_dep1 = check_deputy(dep1.pos)
-    check_dep2 = check_deputy(dep2.pos)
+    check_dep1 = check_deputy(dep1[:3])
+    check_dep2 = check_deputy(dep2[:3])
     return (check_dep1 and check_dep2)
 
 """ Combine both checks """

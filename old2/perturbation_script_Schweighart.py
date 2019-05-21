@@ -4,9 +4,9 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-from modules.orbit2 import ECI_orbit, Chief, init_deputy
+from modules.orbits import ECI_orbit
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_2 import J2_pet
+from modules.Schweighart_J2 import J2_pet
 
 plt.ion()
 
@@ -35,7 +35,7 @@ p_list = [1] #Currently just using J2
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 50
+n_orbits = 5
 #Number of phases in each orbit
 n_phases = 100
 #Total evaluation points
@@ -43,22 +43,21 @@ n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
 """Initialise state arrays"""
-ECI_rc = np.zeros((n_times,6)) #Chief state
+ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
 s_hats = np.zeros((n_times,3)) #Star vectors
 
 #Calculate the positions of the chief and deputies in the absence of
 #perturbations in both the ECI and LVLH frames
 for i in range(n_times):
-    chief = Chief(ECI,times[i],True)
-    ECI_rc[i] = chief.state
-    s_hats[i] = np.dot(chief.mat,ECI.s_hat) #Star vectors
+    ECI_rc[i] = ECI.chief_state_precess(times[i])
+    rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
+    s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
 
-chief_0 = Chief(ECI,0)
-LVLH_drd1_0 = init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
-LVLH_drd2_0 = init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
+LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
+LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy2_state(ECI_rc[0]))
 
-J2_func1 = J2_pet(LVLH_drd1_0,ECI)
-J2_func2 = J2_pet(LVLH_drd2_0,ECI)
+J2_func1 = J2_pet(LVLH_drd1_0,ECI,ECI.q1)
+J2_func2 = J2_pet(LVLH_drd2_0,ECI,ECI.q2)
 
 #Tolerance and steps required for the integrator
 rtol = 1e-9
@@ -66,12 +65,12 @@ atol = 1e-18
 step = 10
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
     raise Exception("Integration failed!!!!")
 
-X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 

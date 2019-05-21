@@ -3,7 +3,6 @@
 import numpy as np
 import astropy.constants as const
 import modules.quaternions as qt
-from modules.orbits import Chief, init_deputy
 
 """ Calculate Delta V requirement to reconfigure an orbit from ECI1 to ECI2 """
 def del_v_reconfigure(ECI1,ECI2):
@@ -45,10 +44,10 @@ def del_v_reconfigure(ECI1,ECI2):
     del_v2 = np.abs(vis_viva(ECI1.R_orb,a2) - vis_viva(ECI1.R_orb,ECI1.R_orb))
 
     #Caclulate delta_v from inclination change
-    vel_11 = init_deputy(ECI1,Chief(ECI1,t_11),1).vel
-    vel_12 = init_deputy(ECI1,Chief(ECI1,t_12),2).vel
-    vel_21 = init_deputy(ECI2,Chief(ECI2,t_21),1).vel
-    vel_22 = init_deputy(ECI2,Chief(ECI2,t_21),2).vel
+    vel_11 = ECI1.deputy1_state(ECI1.chief_state(t_11))[3:]
+    vel_12 = ECI1.deputy2_state(ECI1.chief_state(t_12))[3:]
+    vel_21 = ECI2.deputy1_state(ECI2.chief_state(t_21))[3:]
+    vel_22 = ECI2.deputy2_state(ECI2.chief_state(t_22))[3:]
 
     del_v1 += np.linalg.norm(vel_21-vel_11)
     del_v2 += np.linalg.norm(vel_22-vel_12)

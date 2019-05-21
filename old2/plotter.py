@@ -53,22 +53,20 @@ s_hats = np.zeros((num_times,3))
 
 i = 0
 for t in times:
-    chief = Chief(ECI,t)
-    c_pos[i] = chief.pos
-    dep1 = init_deputy(ECI,chief,1)
-    dep2 = init_deputy(ECI,chief,2)
-    dep1_pos[i] = dep1.pos
-    dep2_pos[i] = dep2.pos
-    LVLH_pos0[i] = np.array([0,0,0])
-    LVLH_pos1[i] = dep1.to_LVLH(chief).pos
-    LVLH_pos2[i] = dep2.to_LVLH(chief).pos
-    s_hats[i] = np.dot(chief.mat,ECI.s_hat)
+    c_state[i] = ECI.chief_state(t)
+    rot_mat = ECI.to_LVLH_mat(c_state[i])
+    dep1_state[i] = ECI.deputy1_state(c_state[i])
+    dep2_state[i] = ECI.deputy2_state(c_state[i])
+    LVLH_state0[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,c_state[i])
+    LVLH_state1[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,dep1_state[i])
+    LVLH_state2[i] = ECI.ECI_to_LVLH_state(c_state[i],rot_mat,dep2_state[i])
+    s_hats[i] = np.dot(rot_mat,ECI.s_hat)
     i += 1
 
 #All ECI positions
-ECI_all = [c_pos,dep1_pos,dep2_pos]
+ECI_all = [c_state[:,:3],dep1_state[:,:3],dep2_state[:,:3]]
 #All LVLH positions, plus stellar vector
-LVLH_all = [LVLH_pos0,LVLH_pos1,LVLH_pos2,s_hats]
+LVLH_all = [LVLH_state0[:,:3],LVLH_state1[:,:3],LVLH_state2[:,:3],s_hats]
 
 period = ECI.period/60 #In minutes
 

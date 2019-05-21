@@ -14,20 +14,20 @@ X_d2 = solve_ivp(func2, [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol
 
 
 """ J2 Perturbation function from Schweighart's paper """
-def J2_pet(sat,ECI):
+def J2_pet(state0,ECI,rotation):
 
     r_ref = ECI.R_orb
     i_ref = ECI.inc_0
 
-    h_dep = qt.rotate(ECI.h_0,sat.q)
+    h_dep = qt.rotate(ECI.h_0,rotation)
     i_dep = np.arccos(h_dep[2]/np.linalg.norm(h_dep))
 
     J2 = 0.00108263
     R_e = const.R_earth.value
     mu = const.GM_earth.value
 
-    [x_0,y_0,z_0] = sat.pos
-    dz_0 = sat.vel[2]
+    [x_0,y_0,z_0] = state0[:3]
+    dz_0 = state0[5]
     s = 3*J2*R_e**2/(8*r_ref**2)*(1+3*np.cos(2*i_ref))
     c = np.sqrt(1+s)
     n = ECI.ang_vel

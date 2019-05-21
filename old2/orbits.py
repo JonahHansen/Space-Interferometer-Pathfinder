@@ -94,92 +94,99 @@ class ECI_orbit:
         q_plane2 = qt.to_q(axis2,omega2)
         self.q2 = qt.comb_rot(q_phase2,q_plane2)
 
+    """Calculate chief state at a given time t"""
+    def chief_state(self,t):
+        phase = t*self.ang_vel
+
+        pos = np.zeros(3)
+        vel = np.zeros(3)
+
+        #Base orbit from phase
+        pos[0] = np.cos(phase) * self.R_orb
+        pos[1] = np.sin(phase) * self.R_orb
+        vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
+        vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
+
+        #Rotate in orbit
+        pos = qt.rotate(pos,self.q0)
+        vel = qt.rotate(vel,self.q0)
+        return np.append(pos,vel)
+
+    """Calculate deputy 1 state for a given chief state"""
+    def deputy1_state(self,chief_state):
+        pos = qt.rotate(chief_state[0:3],self.q1)
+        vel = qt.rotate(chief_state[3:],self.q1)
+        return np.append(pos,vel)
+
+    """Calculate deputy 2 state for a given chief state"""
+    def deputy2_state(self,chief_state):
+        pos = qt.rotate(chief_state[0:3],self.q2)
+        vel = qt.rotate(chief_state[3:],self.q2)
+        return np.append(pos,vel)
+
+    """ Create change of basis matrix - requires chief state"""
+    def to_LVLH_mat(self,chief_state):
+        chief_pos = chief_state[:3]
+        r_hat = chief_pos/np.linalg.norm(chief_pos)
+        v_hat = np.cross(self.h_0,r_hat)
+        rot_mat = np.array([r_hat,v_hat,self.h_0])
+        return rot_mat
+
+    """ Takes a given state vector in ECI coordinates and converts to LVLH """
+    """ Requires chief state and the change of basis matrix """
+    def ECI_to_LVLH_state(self,ECI_chief,rot_mat,ECI_state):
+        non_zero_pos = np.dot(rot_mat,ECI_state[0:3]) #Position in LVLH, origin at centre of Earth
+        pos = non_zero_pos - np.dot(rot_mat,ECI_chief[0:3]) #Position, origin at chief spacecraft
+        omega = np.array([0,0,self.ang_vel]) #Angular momentum vector in LVLH frame
+        vel = np.dot(rot_mat,ECI_state[3:]) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
+        return np.append(pos,vel)
+
+    """ Takes a given state vector in LVLH coordinates and converts to ECI """
+    """ Requires chief state and the change of basis matrix """
+    def LVLH_to_ECI_state(self,ECI_chief,rot_mat,LVLH_state):
+        inv_rotmat = np.linalg.inv(rot_mat) #LVLH to ECI change of basis matrix
+        pos = np.dot(inv_rotmat,LVLH_state[:3]) + ECI_chief[:3] #ECI position
+        omega = np.array([0,0,self.ang_vel]) #Angular momentum vector
+        #Velocity in ECI frame, removing the rotation of the LVLH frame
+        vel = np.dot(inv_rotmat,(LVLH_state[3:] + np.cross(omega,np.dot(rot_mat,pos))))
+        return np.append(pos,vel)
+
     """ Find u and v vectors given the deputy state vectors"""
     def uv(self,ECI_dep1,ECI_dep2):
-        sep = ECI_dep2.pos - ECI_dep1.pos #Baseline vector
+        sep = ECI_dep2[:3] - ECI_dep1[:3] #Baseline vector
         u = np.dot(sep,self.u_hat)
         v = np.dot(sep,self.v_hat)
         return np.array([u,v])
 
-class Satellite:
-    def __init__(self,pos,vel):
-        self.pos = pos
-        self.vel = vel
-        self.state = np.concatenate((self.pos,self.vel))
-
     """ Orbital elements from state vector """
-    def orbit_elems(self):
-        h = np.cross(self.pos,self.vel) #Angular momentum vector
+    def orbit_elems(self,state):
+        h = np.cross(state[:3],state[3:]) #Angular momentum vector
         n = np.cross(np.array([0,0,1]),h)
         i = np.arccos(h[2]/np.linalg.norm(h)) #Inclination
         omega = np.arccos(n[0]/np.linalg.norm(n)) #Longitude of the ascending node
         if n[1] < 0:
             omega = 360 - omega
         return i,omega
-    
 
-class Chief(Satellite):
-    def __init__(self,ECI,t,precession=False):
-        Satellite.__init__(self,np.zeros(3),np.zeros(3))
-        
-        self.ang_vel = ECI.ang_vel
-        self.R_orb = ECI.R_orb
-        
+    """Calculate chief state at a given time t, with precession"""
+    def chief_state_precess(self,t):
         phase = t*self.ang_vel
 
-        if precession:
-            del_Om = ECI.w_p*t
-            q_Om = qt.to_q(np.array([0,0,1]),ECI.Om_0+del_Om)
-            q_inc = qt.to_q(np.array([0,1,0]),-ECI.inc_0)
-            self.q = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
-        else:
-            self.q = ECI.q0
+        del_Om = self.w_p*t
+        q_Om = qt.to_q(np.array([0,0,1]),self.Om_0+del_Om)
+        q_inc = qt.to_q(np.array([0,1,0]),-self.inc_0)
+        q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
+
+        pos = np.zeros(3)
+        vel = np.zeros(3)
 
         #Base orbit from phase
-        self.pos[0] = np.cos(phase) * self.R_orb
-        self.pos[1] = np.sin(phase) * self.R_orb
-        self.vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
-        self.vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
+        pos[0] = np.cos(phase) * self.R_orb
+        pos[1] = np.sin(phase) * self.R_orb
+        vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
+        vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
 
         #Rotate in orbit
-        self.pos = qt.rotate(self.pos,self.q)
-        self.vel = qt.rotate(self.vel,self.q)
-        self.state = np.concatenate((self.pos,self.vel))
-        
-        r_hat = self.pos/np.linalg.norm(self.pos)
-        v_hat = self.vel/np.linalg.norm(self.vel)
-        h_hat = np.cross(r_hat,v_hat)
-        self.mat = np.array([r_hat,v_hat,h_hat])
-
-
-class Deputy(Satellite):
-    def __init__(self,pos,vel,q):
-        Satellite.__init__(self,pos,vel)
-        self.q = q
-        
-    def to_LVLH(self,chief):
-        non_zero_pos = np.dot(chief.mat,self.pos) #Position in LVLH, origin at centre of Earth
-        pos = non_zero_pos - np.dot(chief.mat,chief.pos) #Position, origin at chief spacecraft
-        omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector in LVLH frame
-        vel = np.dot(chief.mat,self.vel) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
-        return Deputy(pos,vel,self.q)
-
-    """ Takes a given state vector in LVLH coordinates and converts to ECI """
-    """ Requires chief state and the change of basis matrix """
-    def to_ECI(self,chief):
-        inv_rotmat = np.linalg.inv(chief.mat) #LVLH to ECI change of basis matrix
-        pos = np.dot(inv_rotmat,self.pos) + chief.pos #ECI position
-        omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector
-        #Velocity in ECI frame, removing the rotation of the LVLH frame
-        vel = np.dot(inv_rotmat,(self.vel + np.cross(omega,np.dot(chief.mat,pos))))
-        return Deputy(pos,vel,self.q)
-        
-def init_deputy(ECI,chief,n):
-    if n == 1:
-        q = ECI.q1
-    elif n == 2:
-        q = ECI.q2
-    else:
-        raise Exception("Bad Deputy number")
-        
-    return Deputy(qt.rotate(chief.pos,q),qt.rotate(chief.vel,q),q)
+        pos = qt.rotate(pos,q0)
+        vel = qt.rotate(vel,q0)
+        return np.append(pos,vel)
