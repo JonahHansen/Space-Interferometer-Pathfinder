@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(80) #20
+inc_0 = np.radians(20) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(0) #90
-dec = np.radians(-10)#-40
+ra = np.radians(90) #90
+dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -35,7 +35,7 @@ p_list = [1] #Currently just using J2
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 50
+n_orbits = 0.5
 #Number of phases in each orbit
 n_phases = 100
 #Total evaluation points

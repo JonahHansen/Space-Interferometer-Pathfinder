@@ -4,8 +4,8 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-from modules.orbits import ECI_orbit
-from modules.perturbations import dX_dt
+from orbits import ECI_orbit
+from perturbations import dX_dt
 from matplotlib.collections import LineCollection
 
 plt.ion()
@@ -35,7 +35,7 @@ p_list = [1] #Currently just using J2
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 3
+n_orbits = 5
 #Number of phases in each orbit
 n_phases = 1000
 #Total evaluation points
@@ -55,7 +55,7 @@ for i in range(n_times):
     s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
 
 LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
-LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
+LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy2_state(ECI_rc[0]))
 #Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18

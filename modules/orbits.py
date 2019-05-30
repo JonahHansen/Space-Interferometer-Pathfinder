@@ -58,16 +58,16 @@ class ECI_orbit:
         z_hat = self.h_0 #In direction of angular momentum
 
 
-        y = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
+        x = self.s_hat-z_hat*(np.dot(self.s_hat,z_hat)) #Projection of the star vector on the orbital plane
 
-        if (y == np.array([0.,0.,0.])).all():
+        if (x == np.array([0.,0.,0.])).all():
             if (z_hat == np.array([1.,0.,0.])).all():
-                y = np.array([0.,1.,0.])
+                x = np.array([0.,1.,0.])
             else:
-                y = np.cross(z_hat,np.array([1.,0.,0.]))
+                x = np.cross(z_hat,np.array([1.,0.,0.]))
 
-        y_hat = y/np.linalg.norm(y)
-        x_hat = np.cross(z_hat,y_hat) #Remaining orthogonal vector
+        x_hat = x/np.linalg.norm(x)
+        y_hat = np.cross(z_hat,x_hat) #Remaining orthogonal vector
 
         #Angle between angular momentum vector and star (checks are for precision errors):
         dot = np.dot(z_hat,self.s_hat)
@@ -79,19 +79,18 @@ class ECI_orbit:
         theta = np.arccos(dot)
 
         psi = self.delta_r_max*np.cos(theta)/self.R_orb #Angle between chief and deputy WRT Earth
+        omega = -np.arctan(self.delta_r_max/self.R_orb*np.sin(theta)) #Amount of rotation
 
         #Define deputy orbital planes in terms of a rotation of the chief satellite
-        axis1 = -np.cos(psi)*y_hat + np.sin(psi)*x_hat #Axis of rotation
-        omega1 = np.arctan(self.delta_r_max/self.R_orb*np.sin(theta)) #Amount of rotation
-        q_phase1 = qt.to_q(z_hat,-psi) #Rotate in phase
-        q_plane1 = qt.to_q(axis1,omega1) #Rotate around axis
+        axis1 = -np.cos(psi)*x_hat - np.sin(psi)*y_hat #Axis of rotation
+        q_phase1 = qt.to_q(z_hat,psi) #Rotate in phase
+        q_plane1 = qt.to_q(axis1,omega) #Rotate around axis
         self.q1 = qt.comb_rot(q_phase1,q_plane1) #Combine
 
         #Same as above but for the second deputy
-        axis2 = -np.cos(-psi)*y_hat + np.sin(-psi)*x_hat
-        omega2 = np.arctan(-self.delta_r_max/self.R_orb*np.sin(theta))
-        q_phase2 = qt.to_q(z_hat,psi)
-        q_plane2 = qt.to_q(axis2,omega2)
+        axis2 = -np.cos(psi)*x_hat + np.sin(psi)*y_hat
+        q_phase2 = qt.to_q(z_hat,-psi)
+        q_plane2 = qt.to_q(axis2,-omega)
         self.q2 = qt.comb_rot(q_phase2,q_plane2)
 
     """ Find u and v vectors given the deputy state vectors"""
@@ -102,9 +101,10 @@ class ECI_orbit:
         return np.array([u,v])
 
 class Satellite:
-    def __init__(self,pos,vel):
+    def __init__(self,pos,vel,q):
         self.pos = pos
         self.vel = vel
+        self.q = q
         self.state = np.concatenate((self.pos,self.vel))
 
     """ Orbital elements from state vector """
@@ -120,7 +120,7 @@ class Satellite:
 
 class Chief(Satellite):
     def __init__(self,ECI,t,precession=False):
-        Satellite.__init__(self,np.zeros(3),np.zeros(3))
+        Satellite.__init__(self,np.zeros(3),np.zeros(3),ECI.q0)
         
         self.ang_vel = ECI.ang_vel
         self.R_orb = ECI.R_orb
@@ -132,8 +132,6 @@ class Chief(Satellite):
             q_Om = qt.to_q(np.array([0,0,1]),ECI.Om_0+del_Om)
             q_inc = qt.to_q(np.array([0,1,0]),-ECI.inc_0)
             self.q = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
-        else:
-            self.q = ECI.q0
 
         #Base orbit from phase
         self.pos[0] = np.cos(phase) * self.R_orb
@@ -154,8 +152,7 @@ class Chief(Satellite):
 
 class Deputy(Satellite):
     def __init__(self,pos,vel,q):
-        Satellite.__init__(self,pos,vel)
-        self.q = q
+        Satellite.__init__(self,pos,vel,q)
         
     def to_LVLH(self,chief):
         non_zero_pos = np.dot(chief.mat,self.pos) #Position in LVLH, origin at centre of Earth
