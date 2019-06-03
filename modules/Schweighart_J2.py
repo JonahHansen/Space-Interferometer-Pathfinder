@@ -33,7 +33,12 @@ def J2_pet(sat,ECI):
     n = ECI.ang_vel
     k = n*c+3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_ref)**2
     i_sat1 = dz_0/(k*r_ref)+i_dep
-    omega_0 = z_0/(r_ref*np.sin(i_ref))
+
+    if i_ref == 0:
+        omega_0 = 0
+    else:
+        omega_0 = z_0/(r_ref*np.sin(i_ref))
+
     if (omega_0 and i_dep) != 0:
         gamma_0 = np.pi/2 - np.arctan((1/np.tan(i_dep)*np.sin(i_sat1)-np.cos(i_sat1)*np.cos(omega_0))/np.sin(omega_0))
     else:

@@ -16,7 +16,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(20) #20
+inc_0 = np.radians(0) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
@@ -28,14 +28,14 @@ dec = np.radians(-40)#-40
 delta_r_max = 0.3e3
 
 #List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1] #Currently just using J2
+p_list = [2] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 5
+n_orbits = 1
 #Number of phases in each orbit
 n_phases = 1000
 #Total evaluation points
@@ -197,13 +197,13 @@ set_axes_equal(ax2)
 
 #Plot separation along the star direction
 plt.figure(3)
-#plt.clf()
-#plt.plot(times,s_hat_drd1,"b-",label="SCHWEIGHART Deputy 1, s direction")
-#plt.plot(times,s_hat_drd2,"g-",label="SCHWEIGHART Deputy 2, s direction")
-#plt.plot(times,s_hat_sep,"r-",label="SCHWEIGHART Separation, s direction")
-plt.plot(times,s_hat_drd1,"c-",label="JONAH Deputy 1, s direction")
-plt.plot(times,s_hat_drd2,"m-",label="JONAH Deputy 2, s direction")
-plt.plot(times,s_hat_sep,"y-",label="JONAH Separation, s direction")
+plt.clf()
+plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
+plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
+plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
+#plt.plot(times,s_hat_drd1,"c-",label="JONAH Deputy 1, s direction")
+#plt.plot(times,s_hat_drd2,"m-",label="JONAH Deputy 2, s direction")
+#plt.plot(times,s_hat_sep,"y-",label="JONAH Separation, s direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
@@ -219,9 +219,11 @@ plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
 plt.legend()
 
+
+
 #Plot separation in the baseline frame
 plt.figure(5)
-#plt.clf()
+plt.clf()
 
 points1 = np.array([b_hat_drd1, s_hat_drd1]).T.reshape(-1, 1, 2)
 points2 = np.array([b_hat_drd2, s_hat_drd2]).T.reshape(-1, 1, 2)
@@ -229,7 +231,7 @@ segments1 = np.concatenate([points1[:-1], points1[1:]], axis=1)
 segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
 norm = plt.Normalize(times.min(), times.max())
 ax = plt.gca()
-lc1 = LineCollection(segments1, cmap='YlGnBu', norm=norm)
+lc1 = LineCollection(segments1, cmap='YlOrRd', norm=norm)
 lc1.set_array(times)
 lc1.set_linewidth(2)
 ax.add_collection(lc1)
@@ -247,4 +249,5 @@ plt.title("Position of deputies due to \n perturbations in Baseline frame")
 cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
-cbar.set_label('Time (JONAH) (s)', rotation=270, labelpad = 15)
+#cbar.set_label('Time (JONAH) (s)', rotation=270, labelpad = 15)
+cbar.set_label('Time (s)', rotation=270, labelpad = 15)

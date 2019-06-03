@@ -35,9 +35,9 @@ p_list = [1] #Currently just using J2
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 0.5
+n_orbits = 1
 #Number of phases in each orbit
-n_phases = 100
+n_phases = 1000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
