@@ -33,10 +33,10 @@ def check_earth(dep1,dep2,R_orb,s):
     def check_deputy(dep_pos):
         #Project position onto a plane perpendicular to star vector
         #centred at the centre of the Earth
-        proj = dep_pos + s*np.abs(np.dot(dep_pos,s))
+        #proj = dep_pos + s*np.abs(np.dot(dep_pos,s))
         
         #Check if position is in front of Earth
-        if np.dot(proj,s) != 0:
+        if np.dot(dep_pos,s) > 0:
             return True
             
         else:
@@ -49,7 +49,7 @@ def check_earth(dep1,dep2,R_orb,s):
         
             rotmat = np.array([uhat,vhat,s])
             #Rotate axes to align with plane
-            proj_rot = np.dot(rotmat,proj)
+            proj_rot = np.dot(rotmat,dep_pos)
             proj_2d = proj_rot[:2]
             
             new_rad = np.sqrt(R_orb**2 - r_E**2)*np.tan(np.arccos(r_E/R_orb)/3) + r_E
