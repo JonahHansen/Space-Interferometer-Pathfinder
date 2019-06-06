@@ -15,11 +15,11 @@ def del_v_reconfigure(ECI1,ECI2):
     point1 /= (np.linalg.norm(point1)/ECI1.R_orb)
     point2 /= (np.linalg.norm(point2)/ECI1.R_orb)
 
+    #Given a deputy position, calculate the time it was at that point
     def deputy_pos_to_time(ECI,pos,q):
-        chief_pos = qt.rotate(pos,qt.conjugate(q))
-        flat_chief = qt.rotate(chief_pos,qt.conjugate(ECI.q0))
-        print(flat_chief[2])
-        angle = np.arctan2(flat_chief[1],flat_chief[0])
+        chief_pos = qt.rotate(pos,qt.conjugate(q)) #Position of the chief
+        flat_chief = qt.rotate(chief_pos,qt.conjugate(ECI.q0)) #Position of the chief on the xy plane orbit
+        angle = np.arctan2(flat_chief[1],flat_chief[0]) #Phase angle of chief position
         return angle/ECI.ang_vel
 
     t_a1 = deputy_pos_to_time(ECI1,point1,ECI1.q1)

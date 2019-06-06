@@ -3,8 +3,6 @@
 import numpy as np
 import astropy.constants as const
 import modules.quaternions as qt
-from mpl_toolkits import mplot3d
-import matplotlib.pyplot as plt
 
 """
 ECI (Earth Centred Inertial) Orbit class: Use this to first calculate the orbit from scratch.
@@ -102,10 +100,10 @@ class ECI_orbit:
 
 class Satellite:
     def __init__(self,pos,vel,q):
-        self.pos = pos
-        self.vel = vel
-        self.q = q
-        self.state = np.concatenate((self.pos,self.vel))
+        self.pos = pos #position
+        self.vel = vel #velocity
+        self.q = q #orbit rotation quaternion
+        self.state = np.concatenate((self.pos,self.vel)) #state vector
 
     """ Orbital elements from state vector """
     def orbit_elems(self):
@@ -116,22 +114,23 @@ class Satellite:
         if n[1] < 0:
             omega = 360 - omega
         return i,omega
-    
+
 
 class Chief(Satellite):
     def __init__(self,ECI,t,precession=False):
         Satellite.__init__(self,np.zeros(3),np.zeros(3),ECI.q0)
-        
+
         self.ang_vel = ECI.ang_vel
         self.R_orb = ECI.R_orb
-        
+
         phase = t*self.ang_vel
 
+        #Take into account precession
         if precession:
-            del_Om = ECI.w_p*t
-            q_Om = qt.to_q(np.array([0,0,1]),ECI.Om_0+del_Om)
-            q_inc = qt.to_q(np.array([0,1,0]),-ECI.inc_0)
-            self.q = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
+            del_Om = ECI.w_p*t #Amount of precession
+            q_Om = qt.to_q(np.array([0,0,1]),ECI.Om_0+del_Om) #New Nodal rotation
+            q_inc = qt.to_q(np.array([0,1,0]),-ECI.inc_0) #Inclination rotation
+            self.q = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om) #New chief quaternion
 
         #Base orbit from phase
         self.pos[0] = np.cos(phase) * self.R_orb
@@ -143,17 +142,17 @@ class Chief(Satellite):
         self.pos = qt.rotate(self.pos,self.q)
         self.vel = qt.rotate(self.vel,self.q)
         self.state = np.concatenate((self.pos,self.vel))
-        
-        r_hat = self.pos/np.linalg.norm(self.pos)
-        v_hat = self.vel/np.linalg.norm(self.vel)
-        h_hat = np.cross(r_hat,v_hat)
-        self.mat = np.array([r_hat,v_hat,h_hat])
+
+        rho_hat = self.pos/np.linalg.norm(self.pos) #Position unit vector (rho)
+        xi_hat = self.vel/np.linalg.norm(self.vel) #Velocity unit vector (xi)
+        eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
+        self.mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
 
 
 class Deputy(Satellite):
     def __init__(self,pos,vel,q):
         Satellite.__init__(self,pos,vel,q)
-        
+
     def to_LVLH(self,chief):
         non_zero_pos = np.dot(chief.mat,self.pos) #Position in LVLH, origin at centre of Earth
         pos = non_zero_pos - np.dot(chief.mat,chief.pos) #Position, origin at chief spacecraft
@@ -170,13 +169,14 @@ class Deputy(Satellite):
         #Velocity in ECI frame, removing the rotation of the LVLH frame
         vel = np.dot(inv_rotmat,(self.vel + np.cross(omega,np.dot(chief.mat,pos))))
         return Deputy(pos,vel,self.q)
-        
+
 def init_deputy(ECI,chief,n):
+    #Init satellite with the correct quaternion
     if n == 1:
         q = ECI.q1
     elif n == 2:
         q = ECI.q2
     else:
         raise Exception("Bad Deputy number")
-        
+
     return Deputy(qt.rotate(chief.pos,q),qt.rotate(chief.vel,q),q)

@@ -3,19 +3,11 @@ import astropy.constants as const
 from scipy.optimize import fsolve
 import modules.quaternions as qt
 
-"""
-Use Schweighart J2 formula
-func1 = J2_pet(LVLH_sep_state1[0],ECI,ECI.q1)
-func2 = J2_pet(LVLH_sep_state2[0],ECI,ECI.q2)
-
-X_d1 = solve_ivp(func1, [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
-X_d2 = solve_ivp(func2, [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
-"""
-
 
 """ J2 Perturbation function from Schweighart's paper """
 def J2_pet(sat,ECI):
 
+    #DEFINE VARIABLES AS IN PAPER
     r_ref = ECI.R_orb
     i_ref = ECI.inc_0
 
@@ -58,8 +50,10 @@ def J2_pet(sat,ECI):
         m,phi = p
         return(m*np.sin(phi)-z_0,l*np.sin(phi)+q*m*np.cos(phi)-dz_0)
 
+    #Solve simultaneous equations
     m,phi = fsolve(equations,(1,1))
 
+    #Equations of motion
     def J2_pet_func(t,state):
         [x,y,z] = state[:3] #Position
         [dx,dy,dz] = state[3:] #Velocity
@@ -75,8 +69,7 @@ def J2_pet(sat,ECI):
         dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + Gamma2[0] + Gamma3[0]
         dX4 = -2*n*c*dx + Gamma2[1] + Gamma3[1]
         dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi) + Gamma2[2] + Gamma3[2]
-        #print(x + dx/n)
-
+        #print(x + dx/n) #Energy
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 

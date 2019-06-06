@@ -1,9 +1,11 @@
+#NEEDS A LOT OF WORK!!!!
+
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp, odeint
 from modules.orbits import ECI_orbit, Chief, init_deputy
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2 import J2_pet
@@ -36,7 +38,7 @@ p_list = [1] #Currently just using J2
 ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 0.5
+n_orbits = 1
 #Number of phases in each orbit
 n_phases = 10000
 #Total evaluation points
@@ -65,95 +67,107 @@ rtol = 1e-9
 atol = 1e-18
 step = 10
 
-#Take a list of times and split it into chunks of "t"s
-def chunktime(l, t):
+def chunks(l, t):
     # For item i in a range that is a length of l,
     n = round(t*n_times/(ECI.period*n_orbits))
     for i in range(0, len(l), n):
         # Create an index range for l of n items:
         yield l[i:i+n]
 
-delv_ls = [] #List of delta vs
-pert_LVLH_drd1 = np.zeros((0,6)) #Empty perturbed arrays
+t_burn = 60
+delv_ls = []
+pert_LVLH_drd1 = np.zeros((0,6))
 pert_LVLH_drd2 = np.zeros((0,6))
-
-t_burn = 60 #How long between corrections in seconds
-
-#Burn coefficients
 kappa1 = 1
 kappa2 = 0.1
 kappa3 = 0
 
 params = [kappa1,kappa2,kappa3,t_burn]
 
-times_lsls = list(chunks(times,t_burn)) #List of times
+times_lsls = list(chunks(times[:len(times)//2],t_burn))
 
-state1 = LVLH_drd1_0.state #Initial state
-state2 = LVLH_drd2_0.state #Initial state
+state1 = LVLH_drd1_0.state
+state2 = LVLH_drd2_0.state
 
 last_time = 0
 
-#Function to determine delta v.
-def integrate_delv_burn(params,t,state1,state2,delv_ls):
-    kappa1,kappa2,kappa3,t_burn = params
+def fix_delv_burn(burn_time,kappa,t,state1,state2,delv_ls):
+    chief = Chief(ECI,t,True)
+    LVLH_drd1 = init_deputy(ECI,chief,1).to_LVLH(chief)
+    LVLH_drd2 = init_deputy(ECI,chief,2).to_LVLH(chief)
 
-    s_hat = np.dot(Chief(ECI,t,True).mat,ECI.s_hat) #Star vector at time t
-
-    #Position and velocities of deputies
     pos1 = state1[:3]
     pos2 = state2[:3]
     vel1 = state1[3:]
     vel2 = state2[3:]
 
-    #Component of position in star direction
-    del_s1 = np.dot(pos1,s_hat)*s_hat
-    del_s2 = np.dot(pos2,s_hat)*s_hat
+    delpv_1 = 1/burn_time*(LVLH_drd1.pos-pos1)
+    delpv_2 = 1/burn_time*(LVLH_drd2.pos-pos2)
+    delvv_1 = kappa*burn_time/300*(LVLH_drd1.vel-vel1)
+    delvv_2 = kappa*burn_time/300*(LVLH_drd2.vel-vel2)
 
-    #Component of velocity in star direction
-    #del_sv1 = np.dot(vel1,s_hat)*s_hat
-    #del_sv2 = np.dot(vel2,s_hat)*s_hat
+    delv_1 = delpv_1 + delvv_1
+    delv_2 = delpv_2 + delvv_2
 
-    #Calculate burn to get to a star position of 0 at the next time step
-    delv_s1 = kappa1/t_burn*(0-del_s1)
-    delv_s2 = kappa1/t_burn*(0-del_s2)
+    vel1 += delv_1
+    vel2 += delv_2
 
-    #Remove star position
-    new_pos1 = pos1 - del_s1
-    new_pos2 = pos2 - del_s2
-
-    #Remove star velocity
-    #new_vel1 = vel1 - del_sv1
-    #new_vel2 = vel2 - del_sv2
-
-    #Calculate position vector to the midpoint of the two deputies
-    del_b = new_pos2 - new_pos1 #Separation vector
-    del_b_half = 0.5*del_b #Midpoint
-    m0 = new_pos1 + del_b_half #Midpoint from centre
-
-    #Calculate velocity vector to the midpoint of the two deputies
-    #del_bv = new_vel1 - new_vel2
-    #del_bv_half = 0.5*del_bv
-    #mv0 = (new_vel1 + del_bv_half)
-
-    #Calculate chief burn to the midpoint of the baseline
-    delv_bc = kappa2/t_burn*(m0)
-    #Negative burn for the deputies
-    delv_bd = kappa2/t_burn*(-m0)
-
-    #delv_bvc = kappa3*mv0
-    #delv_bvd = kappa3*-mv0
-
-    vel1 += delv_bd + delv_s1# + delv_bvd #New velocity
-    vel2 += delv_bd + delv_s2# + delv_bvd #New velocity
-
-    #New states
     state1 = np.concatenate((pos1,vel1))
     state2 = np.concatenate((pos2,vel2))
 
-    #Delta vs for each satellite
+    delv_ls.append([delv_1,delv_2])
+
+    return state1,state2,delv_ls
+
+def integrate_delv_burn(params,t,state1,state2,delv_ls):
+    kappa1,kappa2,kappa3,t_burn = params
+
+    s_hat = np.dot(Chief(ECI,t,True).mat,ECI.s_hat)
+
+    pos1 = state1[:3]
+    pos2 = state2[:3]
+    vel1 = state1[3:]
+    vel2 = state2[3:]
+
+    del_s1 = np.dot(pos1,s_hat)*s_hat
+    del_s2 = np.dot(pos2,s_hat)*s_hat
+
+    del_sv1 = np.dot(vel1,s_hat)*s_hat
+    del_sv2 = np.dot(vel2,s_hat)*s_hat
+
+    delv_s1 = kappa1/t_burn*(0-del_s1)
+    delv_s2 = kappa1/t_burn*(0-del_s2)
+
+    new_pos1 = pos1 - del_s1
+    new_pos2 = pos2 - del_s2
+
+    new_vel1 = vel1 - del_sv1
+    new_vel2 = vel2 - del_sv2
+
+    del_b = new_pos2 - new_pos1
+    del_b_half = 0.5*del_b
+    m0 = new_pos1 + del_b_half
+
+    del_bv = new_vel1 - new_vel2
+    del_bv_half = 0.5*del_bv
+    mv0 = (new_vel1 + del_bv_half)
+
+    delv_bc = kappa2/t_burn*(m0)
+    delv_bd = kappa2/t_burn*(-m0)
+
+    delv_bvc = kappa3*mv0
+    delv_bvd = kappa3*-mv0
+
+    vel1 += delv_bd + delv_s1 + delv_bvd
+    vel2 += delv_bd + delv_s2 + delv_bvd
+
+    state1 = np.concatenate((pos1,vel1))
+    state2 = np.concatenate((pos2,vel2))
+
     delv_ls.append([delv_bc,delv_s1,delv_s2])
 
     return state1,state2,delv_ls
+
 
 for time in times_lsls:
     print(last_time)
@@ -167,13 +181,10 @@ for time in times_lsls:
     if not X_d2.success:
         raise Exception("Integration failed!!!!")
 
-    #Add states to the array
     pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
     pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
-    last_time = time[-1] #Last time of this round, to use in the next round
-
-    #Perform the burn
+    last_time = time[-1]
     state1,state2,delv_ls = integrate_delv_burn(params,last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
 
 total_sep = np.zeros(n_times) #Total separation
@@ -189,17 +200,117 @@ for ix in range(n_times//2):
     #Sum of the separation along the star direction and the baseline direction
     total_sep[ix] = baseline_sep + s_hat_sep
 
-max_sep = np.max(np.abs(total_sep)) #Maximum total separation
+max_sep = np.max(np.abs(total_sep))
 
-#Norm the delta v
-normed_delvs = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
-
-delv_sums = np.sum(p,axis=0) #Sum of the delta v for each satellite
-delv_sum = np.sum(delv_sums) #Total delta v sum
+p = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
+delv_max = np.sum(p,axis=0)
 
 print("max_sep = %.5f, delv = %s"%(max_sep,delv_max))
 
-cost_func = 0.1*delv_max + 0.2*max_sep # Cost function
+cost_func = 0.01*delv_max + 0.1*max_sep
+
+times_remain = times[len(times)//2:]
+t5 = round(n_times/ECI.period/n_orbits*300)
+
+burn_time = 100
+kappa = 1
+times_charge1 = times_remain[:2*t5]
+times_burn1 = times_remain[2*t5:3*t5] #30min
+times_burn1_ls = list(chunks(times_burn1,burn_time))
+times_charge2 = times_remain[3*t5:7*t5]
+
+
+delv_ls = []
+
+###CHARGE 1 #####
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X_d1 = solve_ivp(J2_func1, [times_charge1[0],times_charge1[-1]], state1, t_eval = times_charge1, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d1.success:
+    raise Exception("Integration failed!!!!")
+
+X_d2 = solve_ivp(J2_func2, [times_charge1[0],times_charge1[-1]], state2, t_eval = times_charge1, rtol = rtol, atol = atol, max_step=step)
+if not X_d2.success:
+    raise Exception("Integration failed!!!!")
+
+pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+last_time = time[-1]
+state1 = pert_LVLH_drd1[-1]
+state2 = pert_LVLH_drd2[-1]
+
+for time in times_burn1_ls:
+    print(last_time)
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(J2_func1, [last_time,time[-1]], state1, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration failed!!!!")
+
+    X_d2 = solve_ivp(J2_func2, [last_time,time[-1]], state2, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    if not X_d2.success:
+        raise Exception("Integration failed!!!!")
+
+    pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+    pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+    last_time = time[-1]
+    state1,state2,delv_ls = fix_delv_burn(burn_time,kappa,last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
+
+###CHARGE 2 #####
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X_d1 = solve_ivp(J2_func1, [times_charge2[0],times_charge2[-1]], state1, t_eval = times_charge2, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d1.success:
+    raise Exception("Integration failed!!!!")
+
+X_d2 = solve_ivp(J2_func2, [times_charge2[0],times_charge2[-1]], state2, t_eval = times_charge2, rtol = rtol, atol = atol, max_step=step)
+if not X_d2.success:
+    raise Exception("Integration failed!!!!")
+
+pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+last_time = time[-1]
+state1 = pert_LVLH_drd1[-1]
+state2 = pert_LVLH_drd2[-1]
+
+burn_time = 200
+kappa = 0.5
+times_burn2 = times_remain[7*t5:]
+times_burn2_ls = list(chunks(times_burn2,burn_time))
+
+for time in times_burn2_ls:
+    print(last_time)
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(J2_func1, [last_time,time[-1]], state1, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration failed!!!!")
+
+    X_d2 = solve_ivp(J2_func2, [last_time,time[-1]], state2, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    if not X_d2.success:
+        raise Exception("Integration failed!!!!")
+
+    pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+    pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+    last_time = time[-1]
+    state1,state2,delv_ls = fix_delv_burn(burn_time,kappa,last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
+
+chief = Chief(ECI,times[-1],True)
+LVLH_drd1 = init_deputy(ECI,chief,1).to_LVLH(chief)
+LVLH_drd2 = init_deputy(ECI,chief,2).to_LVLH(chief)
+
+print(LVLH_drd1.state - state1)
+print(LVLH_drd2.state - state2)
+
+p = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
+delv_max = np.sum(p,axis=0)
+print(delv_max)
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations

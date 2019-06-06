@@ -69,7 +69,7 @@ obs_num = int(n_phases/(ECI.period/60/time_for_observing))
 i = 0
 j = 0
 for t in times:
-    ECI_rc = Chief(ECI,t,True)
+    ECI_rc = Chief(ECI,t,True) #Include precession
     ECI_rd1 = init_deputy(ECI,ECI_rc,1) #Deputy 1 position
     ECI_rd2 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
     obs[i] = check_obs(t,ECI_rd1,ECI_rd2,ECI.R_orb,ECI.s_hat,solar_angle) #Check if observable

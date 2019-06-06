@@ -57,6 +57,7 @@ chief_0 = Chief(ECI,0)
 LVLH_drd1_0 = init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
 LVLH_drd2_0 = init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
 
+#Equations of motion
 J2_func1 = J2_pet(LVLH_drd1_0,ECI)
 J2_func2 = J2_pet(LVLH_drd2_0,ECI)
 
