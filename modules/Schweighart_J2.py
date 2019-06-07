@@ -54,7 +54,7 @@ def J2_pet(sat,ECI):
     m,phi = fsolve(equations,(1,1))
 
     #Equations of motion
-    def J2_pet_func(t,state):
+    def J2_pet_func(t,state,pert_ls=[]):
         [x,y,z] = state[:3] #Position
         [dx,dy,dz] = state[3:] #Velocity
         dX0 = dx
@@ -66,9 +66,15 @@ def J2_pet(sat,ECI):
         #Gamma2 = np.array([0,0,0])
         #Gamma3 = np.array([0,0,0])
 
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + Gamma2[0] + Gamma3[0]
-        dX4 = -2*n*c*dx + Gamma2[1] + Gamma3[1]
-        dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi) + Gamma2[2] + Gamma3[2]
+        dX3p = 2*n*(c-1)*dy + 5*(c**2-1)*n**2*x
+        dX4p = 2*n*(1-c)*dx
+        dX5p = (2*n**2-q**2)*z + 2*l*q*np.cos(q*t+phi)
+
+        pert_ls += [dX3p,dX4p,dX5p]
+
+        dX3 = dX3p + 2*n*dy + 3*n**2*x + Gamma2[0] + Gamma3[0]
+        dX4 = dX4p - 2*n*dx + Gamma2[1] + Gamma3[1]
+        dX5 = dX5p - 2*n**2*z + Gamma2[2] + Gamma3[2]
         #print(x + dx/n) #Energy
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])

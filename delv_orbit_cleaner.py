@@ -80,13 +80,13 @@ pert_LVLH_drd2 = np.zeros((0,6))
 t_burn = 60 #How long between corrections in seconds
 
 #Burn coefficients
-kappa1 = 1
-kappa2 = 0.1
+kappa1 = 0.5
+kappa2 = 0.5
 kappa3 = 0
 
 params = [kappa1,kappa2,kappa3,t_burn]
 
-times_lsls = list(chunks(times,t_burn)) #List of times
+times_lsls = list(chunktime(times,t_burn)) #List of times
 
 state1 = LVLH_drd1_0.state #Initial state
 state2 = LVLH_drd2_0.state #Initial state
@@ -104,6 +104,14 @@ def integrate_delv_burn(params,t,state1,state2,delv_ls):
     pos2 = state2[:3]
     vel1 = state1[3:]
     vel2 = state2[3:]
+
+    pert1 = []
+    J2_func1(t,state1,pert1)
+    pert2 = []
+    J2_func1(t,state1,pert2)
+
+    pert_s1 = -kappa3*np.dot(pert1,s_hat)*t_burn
+    pert_s2 = -kappa3*np.dot(pert2,s_hat)*t_burn
 
     #Component of position in star direction
     del_s1 = np.dot(pos1,s_hat)*s_hat
@@ -143,8 +151,8 @@ def integrate_delv_burn(params,t,state1,state2,delv_ls):
     #delv_bvc = kappa3*mv0
     #delv_bvd = kappa3*-mv0
 
-    vel1 += delv_bd + delv_s1# + delv_bvd #New velocity
-    vel2 += delv_bd + delv_s2# + delv_bvd #New velocity
+    vel1 += delv_bd + pert_s1 + delv_s1# + delv_bvd #New velocity
+    vel2 += delv_bd + pert_s2 + delv_s2# + delv_bvd #New velocity
 
     #New states
     state1 = np.concatenate((pos1,vel1))
@@ -194,12 +202,12 @@ max_sep = np.max(np.abs(total_sep)) #Maximum total separation
 #Norm the delta v
 normed_delvs = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
 
-delv_sums = np.sum(p,axis=0) #Sum of the delta v for each satellite
+delv_sums = np.sum(normed_delvs,axis=0) #Sum of the delta v for each satellite
 delv_sum = np.sum(delv_sums) #Total delta v sum
 
-print("max_sep = %.5f, delv = %s"%(max_sep,delv_max))
+print("max_sep = %.5f, delv = %s"%(max_sep,delv_sums))
 
-cost_func = 0.1*delv_max + 0.2*max_sep # Cost function
+cost_func = 0.1*delv_sum + 0.2*max_sep # Cost function
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
