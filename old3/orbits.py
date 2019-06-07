@@ -130,7 +130,7 @@ class Chief(Satellite):
         #Take into account precession
         if precession:
             del_Om = ECI.w_p*t #Amount of precession
-            q_del_Om = qt.to_q(z_hat,del_Om)
+            q_del_Om = qt.to_q(zaxis,del_Om)
             self.q = qt.comb_rot(self.q,q_del_Om) #New chief quaternion
 
         #Angular momentum vector of chief satellite
@@ -175,7 +175,7 @@ class Deputy(Satellite):
         vel = np.dot(inv_rotmat,(self.vel + np.cross(omega,np.dot(chief.mat,pos))))
         return Deputy(pos,vel,self.q)
 
-def init_deputy(ECI,chief,n,precession=False):
+def init_deputy(ECI,chief,n,precession):
 
     if precession:
         #New coord system:
@@ -201,8 +201,8 @@ def init_deputy(ECI,chief,n,precession=False):
 
         theta = np.arccos(dot)
 
-        psi = ECI.delta_r_max*np.cos(theta)/ECI.R_orb #Angle between chief and deputy WRT Earth
-        omega = -np.arctan(ECI.delta_r_max/ECI.R_orb*np.sin(theta)) #Amount of rotation
+        psi = self.delta_r_max*np.cos(theta)/self.R_orb #Angle between chief and deputy WRT Earth
+        omega = -np.arctan(self.delta_r_max/self.R_orb*np.sin(theta)) #Amount of rotation
 
         if n == 1:
             #Define deputy orbital planes in terms of a rotation of the chief satellite
