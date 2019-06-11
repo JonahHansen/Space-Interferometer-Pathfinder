@@ -51,7 +51,7 @@ s_hats = np.zeros((n_times,3)) #Star vectors
 for i in range(n_times):
     chief = Chief(ECI,times[i],True)
     ECI_rc[i] = chief.state
-    s_hats[i] = np.dot(chief.mat,ECI.s_hat) #Star vectors
+    s_hats[i] = np.dot(chief.LVLHmat,ECI.s_hat) #Star vectors
 
 chief_0 = Chief(ECI,0)
 LVLH_drd1_0 = init_deputy(ECI,chief_0,1).to_LVLH(chief_0)

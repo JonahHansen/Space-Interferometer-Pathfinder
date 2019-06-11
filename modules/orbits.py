@@ -150,30 +150,67 @@ class Chief(Satellite):
         rho_hat = self.pos/np.linalg.norm(self.pos) #Position unit vector (rho)
         xi_hat = self.vel/np.linalg.norm(self.vel) #Velocity unit vector (xi)
         eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
-        self.mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
+        self.LVLHmat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
+
+        b_hat = np.cross(rho_hat,ECI.s_hat) #Baseline unit vector
+        o_hat = np.cross(ECI.s_hat,b_hat) #Other unit vector
+        self.basemat = np.array([rho_hat,xi_hat,eta_hat]) #Baseline rotation matrix
 
 
-class Deputy(Satellite):
+class ECI_Deputy(Satellite):
     def __init__(self,pos,vel,q):
         Satellite.__init__(self,pos,vel,q)
 
 
     def to_LVLH(self,chief):
-        non_zero_pos = np.dot(chief.mat,self.pos) #Position in LVLH, origin at centre of Earth
-        pos = non_zero_pos - np.dot(chief.mat,chief.pos) #Position, origin at chief spacecraft
+        non_zero_pos = np.dot(chief.LVLHmat,self.pos) #Position in LVLH, origin at centre of Earth
+        pos = non_zero_pos - np.dot(chief.LVLHmat,chief.pos) #Position, origin at chief spacecraft
         omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector in LVLH frame
-        vel = np.dot(chief.mat,self.vel) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
-        return Deputy(pos,vel,self.q)
+        vel = np.dot(chief.LVLHmat,self.vel) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
+        return LVLH_Deputy(pos,vel,self.q)
+        
+    def to_Baseline(self,chief):
+        non_zero_pos = np.dot(chief.basemat,self.pos) #Position in Baseline frame, origin at centre of Earth
+        pos = non_zero_pos - np.dot(chief.basemat,chief.pos) #Position, origin at chief spacecraft
+        omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector in Baseline frame
+        vel = np.dot(chief.basemat,self.vel) - np.cross(omega,non_zero_pos) #Velocity, including rotating frame
+        return Baseline_Deputy(pos,vel,self.q)
 
+
+    
+class LVLH_Deputy(Satellite):
+    def __init__(self,pos,vel,q):
+        Satellite.__init__(self,pos,vel,q)
+    
     """ Takes a given state vector in LVLH coordinates and converts to ECI """
     """ Requires chief state and the change of basis matrix """
     def to_ECI(self,chief):
-        inv_rotmat = np.linalg.inv(chief.mat) #LVLH to ECI change of basis matrix
+        inv_rotmat = np.linalg.inv(chief.LVLHmat) #LVLH to ECI change of basis matrix
         pos = np.dot(inv_rotmat,self.pos) + chief.pos #ECI position
         omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector
         #Velocity in ECI frame, removing the rotation of the LVLH frame
         vel = np.dot(inv_rotmat,(self.vel + np.cross(omega,np.dot(chief.mat,pos))))
-        return Deputy(pos,vel,self.q)
+        return ECI_Deputy(pos,vel,self.q)
+        
+    def to_Baseline(self,chief):
+        return self.to_ECI(chief).to_Baseline(chief)
+
+    
+class Baseline_Deputy(Satellite):
+    def __init__(self,pos,vel,q):
+        Satellite.__init__(self,pos,vel,q)
+        
+    def to_ECI(self,chief):
+        inv_rotmat = np.linalg.inv(chief.basemat) #Baseline to ECI change of basis matrix
+        pos = np.dot(inv_rotmat,self.pos) + chief.pos #ECI position
+        omega = np.array([0,0,chief.ang_vel]) #Angular momentum vector
+        #Velocity in ECI frame, removing the rotation of the Baseline frame
+        vel = np.dot(inv_rotmat,(self.vel + np.cross(omega,np.dot(chief.basemat,pos))))
+        return ECI_Deputy(pos,vel,self.q)
+
+    def to_LVLH(self,chief):
+        return self.to_ECI(chief).to_Baseline(chief)
+
 
 def init_deputy(ECI,chief,n,precession=False):
 
@@ -227,4 +264,4 @@ def init_deputy(ECI,chief,n,precession=False):
         else:
             raise Exception("Bad Deputy number")
 
-    return Deputy(qt.rotate(chief.pos,q),qt.rotate(chief.vel,q),q)
+    return ECI_Deputy(qt.rotate(chief.pos,q),qt.rotate(chief.vel,q),q)

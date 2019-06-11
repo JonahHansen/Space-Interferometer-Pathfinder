@@ -28,7 +28,7 @@ def point_in_polygon_circle(p,r,n_points):
     return path.contains_point(p)
 
 """ Check if Earth is blocking field of view """
-def check_earth(dep1,dep2,R_orb,s):
+def check_earth(dep1,dep2,R_orb,s,mat):
     r_E = const.R_earth.value
     def check_deputy(dep_pos):
         #Project position onto a plane perpendicular to star vector
@@ -61,5 +61,5 @@ def check_earth(dep1,dep2,R_orb,s):
     return (check_dep1 and check_dep2)
 
 """ Combine both checks """
-def check_obs(t,dep1,dep2,R_orb,s,angle):
-    return check_sun(s,t,angle) and check_earth(dep1,dep2,R_orb,s)
+def check_obs(t,dep1,dep2,R_orb,s,angle,mat):
+    return check_sun(s,t,angle) and check_earth(dep1,dep2,R_orb,s,mat)
