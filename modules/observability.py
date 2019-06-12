@@ -28,7 +28,7 @@ def point_in_polygon_circle(p,r,n_points):
     return path.contains_point(p)
 
 """ Check if Earth is blocking field of view """
-def check_earth(dep1,dep2,R_orb,s,mat):
+def check_earth(dep1,dep2,R_orb,s,UVmat):
     r_E = const.R_earth.value
     def check_deputy(dep_pos):
         #Project position onto a plane perpendicular to star vector
@@ -40,16 +40,8 @@ def check_earth(dep1,dep2,R_orb,s,mat):
             return True
 
         else:
-            #Define parallel plane vectors
-            if (s == np.array([0,0,1])).all():
-                uhat = np.array([0,1,0])
-            else:
-                uhat = np.cross(s,np.array([0,0,1]))
-            vhat = np.cross(s,uhat)
-
-            rotmat = np.array([uhat,vhat,s])
-            #Rotate axes to align with plane
-            proj_rot = np.dot(rotmat,dep_pos)
+            #Rotate axes to UV frame
+            proj_rot = np.dot(UVmat,dep_pos)
             proj_2d = proj_rot[:2]
 
             new_rad = np.sqrt(R_orb**2 - r_E**2)*np.tan(np.arccos(r_E/R_orb)/3) + r_E
@@ -61,5 +53,5 @@ def check_earth(dep1,dep2,R_orb,s,mat):
     return (check_dep1 and check_dep2)
 
 """ Combine both checks """
-def check_obs(t,dep1,dep2,R_orb,s,angle,mat):
-    return check_sun(s,t,angle) and check_earth(dep1,dep2,R_orb,s,mat)
+def check_obs(t,dep1,dep2,antisun_angle,ECI):
+    return check_sun(ECI.s_hat,t,antisun_angle) and check_earth(dep1,dep2,ECI.R_orb,ECI.s_hat,ECI.UVmat)

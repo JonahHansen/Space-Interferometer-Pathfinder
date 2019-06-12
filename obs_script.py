@@ -35,7 +35,7 @@ delta_r_max = 0.3e3
 p_list = [1] #Currently just using J2
 
 #Angle within anti-sun axis
-solar_angle = np.radians(40)
+antisun_angle = np.radians(40)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -72,7 +72,7 @@ for t in times:
     ECI_rc = Chief(ECI,t,True) #Include precession
     ECI_rd1 = init_deputy(ECI,ECI_rc,1) #Deputy 1 position
     ECI_rd2 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
-    obs[i] = check_obs(t,ECI_rd1,ECI_rd2,ECI.R_orb,ECI.s_hat,solar_angle) #Check if observable
+    obs[i] = check_obs(t,ECI_rd1,ECI_rd2,antisun_angle,ECI) #Check if observable
     if obs[i]:
         j += 1
         u_v[i] = ECI.uv(ECI_rd1,ECI_rd2) #Find uv point if observable
@@ -91,7 +91,7 @@ plt.clf()
 plt.scatter(uv[:,0],uv[:,1],s=1)
 plt.xlabel("u(m)")
 plt.ylabel("v(m)")
-plt.title("UV plane over a year, anti-sun angle = %s degrees"%round(np.degrees(solar_angle)))
+plt.title("UV plane over a year, anti-sun angle = %s degrees"%round(np.degrees(antisun_angle)))
 
 percent = sum(obs)/len(obs)*100
 print("Percentage viewable over a year: %.3f"%percent)

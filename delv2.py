@@ -4,9 +4,10 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-import modules.orbits as orbits
+import modules.orbits as orb
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2 import J2_pet
+#from scipy.optimize import minimize
 
 plt.ion()
 
@@ -16,9 +17,9 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(20) #20
+inc_0 = np.radians(97) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(3) #0
 
 #Stellar vector
 ra = np.radians(90) #90
@@ -32,12 +33,12 @@ p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
-ECI = orbits.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = orb.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1
+n_orbits = 0.5
 #Number of phases in each orbit
-n_phases = 1000
+n_phases = 50000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
@@ -49,15 +50,13 @@ s_hats = np.zeros((n_times,3)) #Star vectors
 #Calculate the positions of the chief and deputies in the absence of
 #perturbations in both the ECI and LVLH frames
 for i in range(n_times):
-    chief = orbits.init_chief(ECI,times[i],True)
+    chief = orb.init_chief(ECI,times[i],True)
     ECI_rc[i] = chief.state
     s_hats[i] = np.dot(chief.LVLHmat,ECI.s_hat) #Star vectors
+chief_0 = orb.init_chief(ECI,0)
+LVLH_drd1_0 = orb.init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
+LVLH_drd2_0 = orb.init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
 
-chief_0 = orbits.init_chief(ECI,0)
-LVLH_drd1_0 = orbits.init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
-LVLH_drd2_0 = orbits.init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
-
-#Equations of motion
 J2_func1 = J2_pet(LVLH_drd1_0,ECI)
 J2_func2 = J2_pet(LVLH_drd2_0,ECI)
 
@@ -66,21 +65,6 @@ rtol = 1e-9
 atol = 1e-18
 step = 10
 
-#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-#Check if successful integration
-if not X_d1.success:
-    raise Exception("Integration failed!!!!")
-
-X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-if not X_d2.success:
-    raise Exception("Integration failed!!!!")
-
-#Peturbed orbits
-pert_LVLH_drd1 = np.transpose(X_d1.y)
-pert_LVLH_drd2 = np.transpose(X_d2.y)
-
-"""
 def ECI_chief_pert(t,state):
     [x,y,z,dx,dy,dz] = state
     
@@ -102,7 +86,111 @@ X_c = solve_ivp(ECI_chief_pert, [times[0],times[-1]], chief_0.state, t_eval = ti
 if not X_c.success:
     raise Exception("Integration failed!!!!")
 pert_chief = np.transpose(X_c.y)
-"""
+
+#Take a list of times and split it into chunks of "t"s
+def chunktime(l, t):
+    # For item i in a range that is a length of l,
+    n = round(t*n_times/(ECI.period*n_orbits))
+    for i in range(0, len(l), n):
+        # Create an index range for l of n items:
+        yield l[i:i+n]
+
+delv_ls = [] #List of delta vs
+pert_LVLH_drd1 = np.zeros((0,6)) #Empty perturbed arrays
+pert_LVLH_drd2 = np.zeros((0,6))
+
+t_burn = 0.2 #How long between corrections in seconds
+
+
+times_lsls = list(chunktime(times,t_burn)) #List of times
+
+state1 = LVLH_drd1_0.state #Initial state
+state2 = LVLH_drd2_0.state #Initial state
+
+last_time = 0
+
+#Function to determine delta v.
+def integrate_delv_burn(t,pt,state1,state2,prev1,prev2,delv_ls):
+    
+    index = np.where(times==t)[0][0]
+    pindex = np.where(times==pt)[0][0]
+    
+    c = orb.Chief(ECI,pert_chief[index,:3],pert_chief[index,3:],ECI.q0)
+    b1 = orb.LVLH_Deputy(state1[:3],state1[3:],LVLH_drd1_0.q).to_Baseline(c)
+    b2 = orb.LVLH_Deputy(state2[:3],state2[3:],LVLH_drd2_0.q).to_Baseline(c)
+    
+    pc = orb.Chief(ECI,pert_chief[pindex,:3],pert_chief[pindex,3:],ECI.q0)
+    pb1 = orb.LVLH_Deputy(prev1[:3],prev1[3:],LVLH_drd1_0.q).to_Baseline(pc)
+    pb2 = orb.LVLH_Deputy(prev2[:3],prev2[3:],LVLH_drd2_0.q).to_Baseline(pc)
+    
+    delv1 = b1.vel - pb1.vel
+    delv2 = b2.vel - pb2.vel
+    
+    delta_b = (delv1[0] - delv2[0])/2
+    delv1[0] = delta_b
+    delv2[0] = delta_b
+    
+    print(delv1,delv2)
+
+    delv1_LVLH = orb.Baseline_Deputy(np.zeros(3),delv1,LVLH_drd1_0.q).to_LVLH(c)
+    delv2_LVLH = orb.Baseline_Deputy(np.zeros(3),delv2,LVLH_drd2_0.q).to_LVLH(c)
+
+    print(delv1_LVLH,delv2_LVLH)
+
+    state1[3:] -= delv1_LVLH.vel
+    state2[3:] -= delv2_LVLH.vel
+
+    #Delta vs for each satellite
+    delv_ls.append(list(delv1)+list(delv2))
+
+    return state1,state2,delv_ls
+
+
+for time in times_lsls:
+    print(last_time)
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(J2_func1, [last_time,time[-1]], state1, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration failed!!!!")
+
+    X_d2 = solve_ivp(J2_func2, [last_time,time[-1]], state2, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    if not X_d2.success:
+        raise Exception("Integration failed!!!!")
+    
+    #Add states to the array
+    pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+    pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+    #Perform the burn
+    state1,state2,delv_ls = integrate_delv_burn(time[-1],last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],state1,state2,delv_ls)
+    
+    last_time = time[-1] #Last time of this round, to use in the next round
+
+total_sep = np.zeros(n_times) #Total separation
+
+for ix in range(n_times//2):
+    #Baseline separations is simply the difference between the positions of the two deputies
+    baseline_sep = np.linalg.norm(pert_LVLH_drd1[ix,:3]) - np.linalg.norm(pert_LVLH_drd2[ix,:3])
+    #Component of perturbed orbit in star direction
+    s_hat_drd1 = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])
+    s_hat_drd2 = np.dot(pert_LVLH_drd2[ix,:3],s_hats[ix])
+    #Separation of the two deputies in the star direction
+    s_hat_sep = s_hat_drd1 - s_hat_drd2
+    #Sum of the separation along the star direction and the baseline direction
+    total_sep[ix] = baseline_sep + s_hat_sep
+
+max_sep = np.max(np.abs(total_sep)) #Maximum total separation
+
+#Norm the delta v
+normed_delvs = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
+
+delv_sums = np.sum(normed_delvs,axis=0) #Sum of the delta v for each satellite
+delv_sum = np.sum(delv_sums) #Total delta v sum
+
+print("max_sep = %.5f, delv = %s"%(max_sep,delv_sums))
+
+cost_func = 0.1*delv_sum + 0.2*max_sep # Cost function
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
