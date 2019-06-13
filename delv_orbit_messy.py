@@ -91,7 +91,7 @@ state2 = LVLH_drd2_0.state
 
 last_time = 0
 
-def fix_delv_burn(burn_time,kappa,t,state1,state2,delv_ls):
+def fix_delv_burn(time_period,kappa,kappa4,t,state1,state2,delv_ls):
     chief = Chief(ECI,t,True)
     LVLH_drd1 = init_deputy(ECI,chief,1).to_LVLH(chief)
     LVLH_drd2 = init_deputy(ECI,chief,2).to_LVLH(chief)
@@ -101,10 +101,10 @@ def fix_delv_burn(burn_time,kappa,t,state1,state2,delv_ls):
     vel1 = state1[3:]
     vel2 = state2[3:]
 
-    delpv_1 = 1/burn_time*(LVLH_drd1.pos-pos1)
-    delpv_2 = 1/burn_time*(LVLH_drd2.pos-pos2)
-    delvv_1 = kappa*burn_time/300*(LVLH_drd1.vel-vel1)
-    delvv_2 = kappa*burn_time/300*(LVLH_drd2.vel-vel2)
+    delpv_1 = kappa4/time_period*(LVLH_drd1.pos-pos1)
+    delpv_2 = kappa4/time_period*(LVLH_drd2.pos-pos2)
+    delvv_1 = kappa/time_period*(LVLH_drd1.vel-vel1)
+    delvv_2 = kappa/time_period*(LVLH_drd2.vel-vel2)
 
     delv_1 = delpv_1 + delvv_1
     delv_2 = delpv_2 + delvv_2
@@ -212,8 +212,9 @@ cost_func = 0.01*delv_max + 0.1*max_sep
 times_remain = times[len(times)//2:]
 t5 = round(n_times/ECI.period/n_orbits*300)
 
-burn_time = 100
+burn_time = 1
 kappa = 1
+kappa4 = 1
 times_charge1 = times_remain[:2*t5]
 times_burn1 = times_remain[2*t5:3*t5] #30min
 times_burn1_ls = list(chunks(times_burn1,burn_time))
@@ -237,7 +238,7 @@ if not X_d2.success:
 pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
 pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
-last_time = time[-1]
+last_time = times_burn1[0]
 state1 = pert_LVLH_drd1[-1]
 state2 = pert_LVLH_drd2[-1]
 
@@ -257,7 +258,23 @@ for time in times_burn1_ls:
     pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
     last_time = time[-1]
-    state1,state2,delv_ls = fix_delv_burn(burn_time,kappa,last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
+    if last_time + burn_time > times_burn1[-1]:
+        alpha_time = times_burn1[-1]
+    else:
+        alpha_time = last_time + burn_time
+
+    state1,state2,delv_ls = fix_delv_burn(times_burn1[-1]-last_time+0.5,kappa,kappa4,alpha_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
+
+chief = Chief(ECI,last_time,True)
+LVLH_drd1 = init_deputy(ECI,chief,1).to_LVLH(chief)
+LVLH_drd2 = init_deputy(ECI,chief,2).to_LVLH(chief)
+
+print(LVLH_drd1.state - state1)
+print(LVLH_drd2.state - state2)
+
+p = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
+delv_max = np.sum(p,axis=0)
+print(delv_max)
 
 ###CHARGE 2 #####
 
@@ -274,14 +291,15 @@ if not X_d2.success:
 pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
 pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
-last_time = time[-1]
-state1 = pert_LVLH_drd1[-1]
-state2 = pert_LVLH_drd2[-1]
-
-burn_time = 200
-kappa = 0.5
+burn_time = 1
+kappa = 1
+kappa4 = 1
 times_burn2 = times_remain[7*t5:]
 times_burn2_ls = list(chunks(times_burn2,burn_time))
+
+last_time = times_burn2[0]
+state1 = pert_LVLH_drd1[-1]
+state2 = pert_LVLH_drd2[-1]
 
 for time in times_burn2_ls:
     print(last_time)
@@ -299,7 +317,11 @@ for time in times_burn2_ls:
     pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
     last_time = time[-1]
-    state1,state2,delv_ls = fix_delv_burn(burn_time,kappa,last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
+    if last_time + burn_time > times_burn2[-1]:
+        alpha_time = times_burn2[-1]
+    else:
+        alpha_time = last_time + burn_time
+    state1,state2,delv_ls = fix_delv_burn(times_burn2[-1]-last_time+0.1,kappa,kappa4,alpha_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],delv_ls)
 
 chief = Chief(ECI,times[-1],True)
 LVLH_drd1 = init_deputy(ECI,chief,1).to_LVLH(chief)

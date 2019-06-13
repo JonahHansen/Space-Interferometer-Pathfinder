@@ -4,7 +4,7 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-import modules.orbits as orb
+import modules.orbits2 as orb
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2 import J2_pet
 #from scipy.optimize import minimize
@@ -116,34 +116,34 @@ def integrate_delv_burn(t,pt,state1,state2,prev1,prev2,delv_ls):
     pindex = np.where(times==pt)[0][0]
 
     c = orb.Chief(ECI,pert_chief[index,:3],pert_chief[index,3:],ECI.q0)
-    b1 = orb.LVLH_Deputy(state1[:3],state1[3:],LVLH_drd1_0.q).to_Baseline(c)
-    b2 = orb.LVLH_Deputy(state2[:3],state2[3:],LVLH_drd2_0.q).to_Baseline(c)
+    c_s_hat = np.dot(c.LVLHmat,ECI.s_hat)
+    b1 = orb.LVLH_Deputy(state1[:3],state1[3:],LVLH_drd1_0.q,c_s_hat).to_Baseline(state2[:3]-state1[:3])
+    b2 = orb.LVLH_Deputy(state2[:3],state2[3:],LVLH_drd2_0.q,c_s_hat).to_Baseline(state2[:3]-state1[:3])
 
     pc = orb.Chief(ECI,pert_chief[pindex,:3],pert_chief[pindex,3:],ECI.q0)
-    pb1 = orb.LVLH_Deputy(prev1[:3],prev1[3:],LVLH_drd1_0.q).to_Baseline(pc)
-    pb2 = orb.LVLH_Deputy(prev2[:3],prev2[3:],LVLH_drd2_0.q).to_Baseline(pc)
+    pc_s_hat = np.dot(pc.LVLHmat,ECI.s_hat)
+    pb1 = orb.LVLH_Deputy(prev1[:3],prev1[3:],LVLH_drd1_0.q,pc_s_hat).to_Baseline(prev2[:3]-prev1[:3])
+    pb2 = orb.LVLH_Deputy(prev2[:3],prev2[3:],LVLH_drd2_0.q,pc_s_hat).to_Baseline(prev2[:3]-prev1[:3])
 
-    delv1 = 1*(b1.pos - pb1.pos)/(t-pt)
-    delv2 = 1*(b2.pos - pb2.pos)/(t-pt)
+    delv1 = np.zeros(3)
+    delv2 = np.zeros(3)
 
-    delv1 += 0*(b1.vel - pb1.vel)
-    delv2 += 0*(b2.vel - pb2.vel)
+    delv1[2] = -0.5*(b1.pos[2] - pb1.pos[2])/(t-pt)
+    delv2[2] = -0.5*(b2.pos[2] - pb2.pos[2])/(t-pt)
 
-    delta_b = (delv1[0] + delv2[0])/2
+    delta_b = -((b1.pos[0] - pb1.pos[0]) + (b2.pos[0] - pb2.pos[0]))/2
     delv1[0] = delta_b
     delv2[0] = delta_b
 
-    #print(delv1,delv2)
-
-    delv1_LVLH = orb.Baseline_Deputy(np.zeros(3),delv1,LVLH_drd1_0.q).to_LVLH(c)
-    delv2_LVLH = orb.Baseline_Deputy(np.zeros(3),delv2,LVLH_drd2_0.q).to_LVLH(c)
+    delv1_LVLH = orb.Baseline_Deputy(np.zeros(3),delv1,LVLH_drd1_0.q,b1.basemat).to_LVLH(c)
+    delv2_LVLH = orb.Baseline_Deputy(np.zeros(3),delv2,LVLH_drd2_0.q,b2.basemat).to_LVLH(c)
 
     print(delv1_LVLH.vel)
 
     #print(delv1_LVLH.vel,delv2_LVLH.vel)
 
-    state1[3:] -= delv1_LVLH.vel
-    state2[3:] -= delv2_LVLH.vel
+    state1[3:] += delv1_LVLH.vel
+    state2[3:] += delv2_LVLH.vel
 
     #Delta vs for each satellite
     delv_ls.append(list(delv1)+list(delv2))
