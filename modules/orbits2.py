@@ -185,7 +185,6 @@ class LVLH_Deputy(Satellite):
         vel = np.dot(basemat,self.vel)
         return Baseline_Deputy(pos,vel,self.q,basemat)
 
-
 class Baseline_Deputy(Satellite):
     def __init__(self,pos,vel,q,basemat):
         Satellite.__init__(self,pos,vel,q,np.array([0,0,1]))
@@ -197,6 +196,9 @@ class Baseline_Deputy(Satellite):
         s_hat = np.dot(self.basemat.transpose(),np.array([0,0,1]))
         return LVLH_Deputy(pos,vel,self.q,s_hat)
 
+    def inert_vel(self,ECI):
+        frame_vel = np.cross(np.dot(self.basemat,np.array([0,0,ECI.ang_vel])),self.pos)
+        return self.vel + frame_vel
 
 def init_chief(ECI,t,precession=False):
     phase = t*ECI.ang_vel

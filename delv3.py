@@ -99,7 +99,7 @@ delv_ls = [] #List of delta vs
 pert_LVLH_drd1 = np.zeros((0,6)) #Empty perturbed arrays
 pert_LVLH_drd2 = np.zeros((0,6))
 
-t_burn = 0.5 #How long between corrections in seconds
+t_burn = 1 #How long between corrections in seconds
 
 
 times_lsls = list(chunktime(times,t_burn)) #List of times
@@ -128,17 +128,22 @@ def integrate_delv_burn(t,pt,state1,state2,prev1,prev2,delv_ls):
     delv1 = np.zeros(3)
     delv2 = np.zeros(3)
 
-    delv1[2] = -0.5*(b1.pos[2] - pb1.pos[2])/(t-pt)
-    delv2[2] = -0.5*(b2.pos[2] - pb2.pos[2])/(t-pt)
+    delv1[2] = -0.2*(b1.inert_vel(ECI)[2] - pb1.inert_vel(ECI)[2])
+    delv2[2] = -0.2*(b2.inert_vel(ECI)[2] - pb2.inert_vel(ECI)[2])
 
-    delta_b = -((b1.pos[0] - pb1.pos[0]) + (b2.pos[0] - pb2.pos[0]))/2
-    delv1[0] = delta_b
-    delv2[0] = delta_b
+    print(delv1[2])
+
+    delv1[2] = -(b1.pos[2] - pb1.pos[2])/(t-pt)
+    delv2[2] = -(b2.pos[2] - pb2.pos[2])/(t-pt)
+
+    #delta_b = -((b1.pos[0] - pb1.pos[0]) + (b2.pos[0] - pb2.pos[0]))/2
+    #delv1[0] = delta_b
+    #delv2[0] = delta_b
 
     delv1_LVLH = orb.Baseline_Deputy(np.zeros(3),delv1,LVLH_drd1_0.q,b1.basemat).to_LVLH(c)
     delv2_LVLH = orb.Baseline_Deputy(np.zeros(3),delv2,LVLH_drd2_0.q,b2.basemat).to_LVLH(c)
 
-    print(delv1_LVLH.vel)
+    #print(delv1_LVLH.vel)
 
     #print(delv1_LVLH.vel,delv2_LVLH.vel)
 
@@ -169,7 +174,7 @@ for time in times_lsls:
     pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
 
     #Perform the burn
-    state1,state2,delv_ls = integrate_delv_burn(time[-1],last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],state1,state2,delv_ls)
+    state1,state2,delv_ls = integrate_delv_burn(time[-1],time[-2],pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],pert_LVLH_drd1[-2],pert_LVLH_drd2[-2],delv_ls)
 
     last_time = time[-1] #Last time of this round, to use in the next round
 
