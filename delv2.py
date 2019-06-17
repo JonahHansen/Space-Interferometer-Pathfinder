@@ -4,9 +4,10 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-from modules.orbits import ECI_orbit
+import modules.orbits as orb
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2 import J2_pet
+#from scipy.optimize import minimize
 
 plt.ion()
 
@@ -16,9 +17,9 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(20) #20
+inc_0 = np.radians(39) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(3) #0
 
 #Stellar vector
 ra = np.radians(90) #90
@@ -32,59 +33,170 @@ p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
-ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = orb.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 3
+n_orbits = 0.5
 #Number of phases in each orbit
-n_phases = 1000
+n_phases = 20000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
 """Initialise state arrays"""
-ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
-ECI_rd1 = np.zeros((n_times,6)) #Deputy 1 ECI position vector
-ECI_rd2 = np.zeros((n_times,6)) #Deputy 2 ECI position vector
-LVLH_drd1 = np.zeros((n_times,6)) #Deputy 1 LVLH position vector
-LVLH_drd2 = np.zeros((n_times,6)) #Deputy 2 LVLH position vector
+ECI_rc = np.zeros((n_times,6)) #Chief state
 s_hats = np.zeros((n_times,3)) #Star vectors
 
 #Calculate the positions of the chief and deputies in the absence of
 #perturbations in both the ECI and LVLH frames
 for i in range(n_times):
-    ECI_rc[i] = ECI.chief_state(times[i])
-    rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
-    ECI_rd1[i] = ECI.deputy1_state(ECI_rc[i]) #Deputy 1 position
-    ECI_rd2[i] = ECI.deputy2_state(ECI_rc[i]) #Deputy 2 position
-    LVLH_drd1[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd1[i])
-    LVLH_drd2[i] = ECI.ECI_to_LVLH_state(ECI_rc[i],rot_mat,ECI_rd2[i])
-    #print(LVLH_drd1[i,0] + LVLH_drd1[i,4]/ECI.ang_vel)
-    s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
+    chief = orb.init_chief(ECI,times[i],True)
+    ECI_rc[i] = chief.state
+    s_hats[i] = np.dot(chief.LVLHmat,ECI.s_hat) #Star vectors
+chief_0 = orb.init_chief(ECI,0)
+LVLH_drd1_0 = orb.init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
+LVLH_drd2_0 = orb.init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
 
-
-J2_func1 = J2_pet(LVLH_drd1[0],ECI,ECI.q1)
-J2_func2 = J2_pet(LVLH_drd2[0],ECI,ECI.q2)
+J2_func1 = J2_pet(LVLH_drd1_0,ECI)
+J2_func2 = J2_pet(LVLH_drd2_0,ECI)
 
 #Tolerance and steps required for the integrator
 rtol = 1e-9
 atol = 1e-18
 step = 10
 
-#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
-#Check if successful integration
-if not X_d1.success:
+def ECI_chief_pert(t,state):
+    [x,y,z,dx,dy,dz] = state
+
+    J2 = 0.00108263 #J2 Parameter
+
+    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/R_orb**5
+
+    #Calculate J2 acceleration for chief satellite
+    J2_fac2 = 5*z**2/R_orb**2
+    J2_p = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
+
+    g = -const.GM_earth.value/R_orb**3*(np.array([x,y,z]))
+
+    [ddx,ddy,ddz] = g + J2_p
+
+    return np.array([dx,dy,dz,ddx,ddy,ddz])
+
+X_c = solve_ivp(ECI_chief_pert, [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X_c.success:
     raise Exception("Integration failed!!!!")
+pert_chief = np.transpose(X_c.y)
 
-X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2[0], t_eval = times, rtol = rtol, atol = atol, max_step=step)
-if not X_d2.success:
-    raise Exception("Integration failed!!!!")
+#Take a list of times and split it into chunks of "t"s
+def chunktime(l, t):
+    # For item i in a range that is a length of l,
+    n = round(t*n_times/(ECI.period*n_orbits))
+    for i in range(0, len(l), n):
+        # Create an index range for l of n items:
+        yield l[i:i+n]
 
-#Peturbed orbits
-pert_LVLH_drd1 = np.transpose(X_d1.y)
-pert_LVLH_drd2 = np.transpose(X_d2.y)
+delv_ls = [] #List of delta vs
+pert_LVLH_drd1 = np.zeros((0,6)) #Empty perturbed arrays
+pert_LVLH_drd2 = np.zeros((0,6))
 
+t_burn = 0.5 #How long between corrections in seconds
+
+
+times_lsls = list(chunktime(times,t_burn)) #List of times
+
+state1 = LVLH_drd1_0.state #Initial state
+state2 = LVLH_drd2_0.state #Initial state
+
+last_time = 0
+
+#Function to determine delta v.
+def integrate_delv_burn(t,pt,state1,state2,prev1,prev2,delv_ls):
+
+    index = np.where(times==t)[0][0]
+    pindex = np.where(times==pt)[0][0]
+
+    c = orb.Chief(ECI,pert_chief[index,:3],pert_chief[index,3:],ECI.q0)
+    b1 = orb.LVLH_Deputy(state1[:3],state1[3:],LVLH_drd1_0.q).to_Baseline(c)
+    b2 = orb.LVLH_Deputy(state2[:3],state2[3:],LVLH_drd2_0.q).to_Baseline(c)
+
+    pc = orb.Chief(ECI,pert_chief[pindex,:3],pert_chief[pindex,3:],ECI.q0)
+    pb1 = orb.LVLH_Deputy(prev1[:3],prev1[3:],LVLH_drd1_0.q).to_Baseline(pc)
+    pb2 = orb.LVLH_Deputy(prev2[:3],prev2[3:],LVLH_drd2_0.q).to_Baseline(pc)
+
+    delv1 = 1*(b1.pos - pb1.pos)/(t-pt)
+    delv2 = 1*(b2.pos - pb2.pos)/(t-pt)
+
+    delv1 += 0*(b1.vel - pb1.vel)
+    delv2 += 0*(b2.vel - pb2.vel)
+
+    delta_b = (delv1[0] + delv2[0])/2
+    delv1[0] = delta_b
+    delv2[0] = delta_b
+
+    #print(delv1,delv2)
+
+    delv1_LVLH = orb.Baseline_Deputy(np.zeros(3),delv1,LVLH_drd1_0.q).to_LVLH(c)
+    delv2_LVLH = orb.Baseline_Deputy(np.zeros(3),delv2,LVLH_drd2_0.q).to_LVLH(c)
+
+    print(delv1_LVLH.vel)
+
+    #print(delv1_LVLH.vel,delv2_LVLH.vel)
+
+    state1[3:] -= delv1_LVLH.vel
+    state2[3:] -= delv2_LVLH.vel
+
+    #Delta vs for each satellite
+    delv_ls.append(list(delv1)+list(delv2))
+
+    return state1,state2,delv_ls
+
+
+
+for time in times_lsls:
+    print(last_time)
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(J2_func1, [last_time,time[-1]], state1, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration failed!!!!")
+
+    X_d2 = solve_ivp(J2_func2, [last_time,time[-1]], state2, t_eval = time, rtol = rtol, atol = atol, max_step=step)
+    if not X_d2.success:
+        raise Exception("Integration failed!!!!")
+
+    #Add states to the array
+    pert_LVLH_drd1=np.concatenate((pert_LVLH_drd1,np.transpose(X_d1.y)))
+    pert_LVLH_drd2=np.concatenate((pert_LVLH_drd2,np.transpose(X_d2.y)))
+
+    #Perform the burn
+    state1,state2,delv_ls = integrate_delv_burn(time[-1],last_time,pert_LVLH_drd1[-1],pert_LVLH_drd2[-1],state1,state2,delv_ls)
+
+    last_time = time[-1] #Last time of this round, to use in the next round
+
+total_sep = np.zeros(n_times) #Total separation
+
+for ix in range(n_times):
+    #Baseline separations is simply the difference between the positions of the two deputies
+    baseline_sep = np.linalg.norm(pert_LVLH_drd1[ix,:3]) - np.linalg.norm(pert_LVLH_drd2[ix,:3])
+    #Component of perturbed orbit in star direction
+    s_hat_drd1 = np.dot(pert_LVLH_drd1[ix,:3],s_hats[ix])
+    s_hat_drd2 = np.dot(pert_LVLH_drd2[ix,:3],s_hats[ix])
+    #Separation of the two deputies in the star direction
+    s_hat_sep = s_hat_drd1 - s_hat_drd2
+    #Sum of the separation along the star direction and the baseline direction
+    total_sep[ix] = baseline_sep + s_hat_sep
+
+max_sep = np.max(np.abs(total_sep)) #Maximum total separation
+
+#Norm the delta v
+normed_delvs = [[np.linalg.norm(x) for x in delv_ls[j]] for j in range(len(delv_ls))]
+
+delv_sums = np.sum(normed_delvs,axis=0) #Sum of the delta v for each satellite
+delv_sum = np.sum(delv_sums) #Total delta v sum
+
+print("max_sep = %.5f, delv = %s"%(max_sep,delv_sums))
+
+cost_func = 0.1*delv_sum + 0.2*max_sep # Cost function
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
@@ -182,8 +294,6 @@ plt.clf()
 ax1 = plt.axes(projection='3d')
 ax1.set_aspect('equal')
 ax1.plot3D(ECI_rc[:,0],ECI_rc[:,1],ECI_rc[:,2],'b-')
-ax1.plot3D(ECI_rd1[:,0],ECI_rd1[:,1],ECI_rd1[:,2],'r-')
-ax1.plot3D(ECI_rd2[:,0],ECI_rd2[:,1],ECI_rd2[:,2],'g-')
 ax1.set_xlabel('x (m)')
 ax1.set_ylabel('y (m)')
 ax1.set_zlabel('z (m)')
@@ -205,13 +315,13 @@ set_axes_equal(ax2)
 
 #Plot separation along the star direction
 plt.figure(3)
-#plt.clf()
+plt.clf()
 #plt.plot(times,s_hat_drd1,"b-",label="SCHWEIGHART Deputy 1, s direction")
 #plt.plot(times,s_hat_drd2,"g-",label="SCHWEIGHART Deputy 2, s direction")
 #plt.plot(times,s_hat_sep,"r-",label="SCHWEIGHART Separation, s direction")
-plt.plot(times,s_hat_drd1,"c-",label="JONAH Deputy 1, s direction")
-plt.plot(times,s_hat_drd2,"m-",label="JONAH Deputy 2, s direction")
-plt.plot(times,s_hat_sep,"y-",label="JONAH Separation, s direction")
+plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
+plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
+plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
@@ -229,7 +339,7 @@ plt.legend()
 
 #Plot separation in the baseline frame
 plt.figure(5)
-#plt.clf()
+plt.clf()
 
 points1 = np.array([b_hat_drd1, s_hat_drd1]).T.reshape(-1, 1, 2)
 points2 = np.array([b_hat_drd2, s_hat_drd2]).T.reshape(-1, 1, 2)
@@ -237,7 +347,7 @@ segments1 = np.concatenate([points1[:-1], points1[1:]], axis=1)
 segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
 norm = plt.Normalize(times.min(), times.max())
 ax = plt.gca()
-lc1 = LineCollection(segments1, cmap='YlGnBu', norm=norm)
+lc1 = LineCollection(segments1, cmap='YlOrRd', norm=norm)
 lc1.set_array(times)
 lc1.set_linewidth(2)
 ax.add_collection(lc1)
@@ -255,4 +365,4 @@ plt.title("Position of deputies due to \n perturbations in Baseline frame")
 cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
-cbar.set_label('Time (JONAH) (s)', rotation=270, labelpad = 15)
+cbar.set_label('Time (s)', rotation=270, labelpad = 15)

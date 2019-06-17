@@ -4,7 +4,7 @@ import numpy as np
 from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
-import modules.orbits as orbits
+from modules.orbits import ECI_orbit
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2 import J2_pet
 
@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(20) #20
+inc_0 = np.radians(80) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(90) #90
-dec = np.radians(-40)#-40
+ra = np.radians(0) #90
+dec = np.radians(-10)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -32,34 +32,32 @@ p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
-ECI = orbits.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1
+n_orbits = 5
 #Number of phases in each orbit
-n_phases = 1000
+n_phases = 100
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
 
 """Initialise state arrays"""
-ECI_rc = np.zeros((n_times,6)) #Chief state
+ECI_rc = np.zeros((n_times,6)) #Chief ECI position vector
 s_hats = np.zeros((n_times,3)) #Star vectors
 
 #Calculate the positions of the chief and deputies in the absence of
 #perturbations in both the ECI and LVLH frames
 for i in range(n_times):
-    chief = orbits.init_chief(ECI,times[i],True)
-    ECI_rc[i] = chief.state
-    s_hats[i] = np.dot(chief.LVLHmat,ECI.s_hat) #Star vectors
+    ECI_rc[i] = ECI.chief_state_precess(times[i])
+    rot_mat = ECI.to_LVLH_mat(ECI_rc[i]) #Rotation matrix
+    s_hats[i] = np.dot(rot_mat,ECI.s_hat) #Star vectors
 
-chief_0 = orbits.init_chief(ECI,0)
-LVLH_drd1_0 = orbits.init_deputy(ECI,chief_0,1).to_LVLH(chief_0)
-LVLH_drd2_0 = orbits.init_deputy(ECI,chief_0,2).to_LVLH(chief_0)
+LVLH_drd1_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy1_state(ECI_rc[0]))
+LVLH_drd2_0 = ECI.ECI_to_LVLH_state(ECI_rc[0],ECI.to_LVLH_mat(ECI_rc[0]),ECI.deputy2_state(ECI_rc[0]))
 
-#Equations of motion
-J2_func1 = J2_pet(LVLH_drd1_0,ECI)
-J2_func2 = J2_pet(LVLH_drd2_0,ECI)
+J2_func1 = J2_pet(LVLH_drd1_0,ECI,ECI.q1)
+J2_func2 = J2_pet(LVLH_drd2_0,ECI,ECI.q2)
 
 #Tolerance and steps required for the integrator
 rtol = 1e-9
@@ -67,12 +65,12 @@ atol = 1e-18
 step = 10
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], LVLH_drd1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
     raise Exception("Integration failed!!!!")
 
-X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], LVLH_drd2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 
@@ -80,29 +78,6 @@ if not X_d2.success:
 pert_LVLH_drd1 = np.transpose(X_d1.y)
 pert_LVLH_drd2 = np.transpose(X_d2.y)
 
-"""
-def ECI_chief_pert(t,state):
-    [x,y,z,dx,dy,dz] = state
-    
-    J2 = 0.00108263 #J2 Parameter
-    
-    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/R_orb**5
-    
-    #Calculate J2 acceleration for chief satellite
-    J2_fac2 = 5*z**2/R_orb**2
-    J2_p = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
-    
-    g = -const.GM_earth.value/R_orb**3*(np.array([x,y,z]))
-    
-    [ddx,ddy,ddz] = g + J2_p
-    
-    return np.array([dx,dy,dz,ddx,ddy,ddz])
-
-X_c = solve_ivp(ECI_chief_pert, [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-if not X_c.success:
-    raise Exception("Integration failed!!!!")
-pert_chief = np.transpose(X_c.y)
-"""
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
