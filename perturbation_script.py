@@ -16,9 +16,9 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(80) #20
+inc_0 = np.radians(1) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(10) #0
 
 #Stellar vector
 ra = np.radians(90) #90
@@ -35,20 +35,21 @@ p_list = [1] #Currently just using J2
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 0.5
+n_orbits = 3
 #Number of phases in each orbit
 n_phases = 1000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0,True)
-chief_0 = orbits.init_chief(ref,0,True).to_LVLH(pos_ref,LVLH)
-deputy1_0 = orbits.init_deputy(ref,0,1,True).to_LVLH(pos_ref,LVLH)
-deputy2_0 = orbits.init_deputy(ref,0,2,True).to_LVLH(pos_ref,LVLH)
+pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)
+chief_0 = orbits.init_chief(ref,0).to_LVLH(pos_ref,vel_ref,LVLH)
+deputy1_0 = orbits.init_deputy(ref,0,1).to_LVLH(pos_ref,vel_ref,LVLH)
+deputy2_0 = orbits.init_deputy(ref,0,2).to_LVLH(pos_ref,vel_ref,LVLH)
 
 #Equations of motion
 J2_func0 = J2_pet(chief_0,ref)
+
 J2_func1 = J2_pet(deputy1_0,ref)
 J2_func2 = J2_pet(deputy2_0,ref)
 
@@ -65,7 +66,7 @@ X_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.state, t_eval = times, 
 #Check if successful integration
 if not X_d0.success:
     raise Exception("Integration failed!!!!")
-
+"""
 X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
@@ -202,6 +203,7 @@ def set_axes_equal(ax):
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     set_axes_radius(ax, origin, radius)
 """
+"""
 #Plot ECI Orbit
 plt.figure(1)
 plt.clf()
@@ -226,6 +228,7 @@ ax2.set_ylabel('v (m)')
 ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
+"""
 """
 #Plot separation along the star direction
 plt.figure(3)
@@ -280,3 +283,4 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+"""

@@ -11,13 +11,13 @@ def J2_rel_pet(sat,ref,n):
     r_ref = ref.R_orb
     i_ref = ref.inc_0
 
-    if n == 1:
-        q = ref.q1
-    elif n == 2:
-        q = ref.q2
+    #if n == 1:
+    #    q = ref.q1
+    #elif n == 2:
+    #    q = ref.q2
 
-    h_dep = qt.rotate(ref.h_0,q)
-    i_dep = np.arccos(h_dep[2]/np.linalg.norm(h_dep))
+    #h_dep = qt.rotate(ref.h_0,q)
+    i_dep,Om = sat.orbit_elems()
 
     J2 = 0.00108263
     R_e = const.R_earth.value
@@ -87,16 +87,16 @@ def J2_pet(sat,ref):
     r_ref = ref.R_orb
     i_ref = ref.inc_0
 
-
     J2 = 0.00108263
     R_e = const.R_earth.value
 
     [x_0,y_0,z_0] = sat.pos
     dz_0 = sat.vel[2]
 
-    c = ref.Sch_c
+    s = 3*J2*R_e**2/(8*r_ref**2)*(1+3*np.cos(2*i_ref))
+    c = np.sqrt(1+s)
     n = ref.ang_vel
-    k = ref.Sch_k
+    k = n*c+3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_ref)**2
     
     i_sat = dz_0/(k*r_ref)+i_ref
 
@@ -106,7 +106,7 @@ def J2_pet(sat,ref):
         omega_0 = z_0/(r_ref*np.sin(i_ref))
 
     if (omega_0 and i_ref) != 0:
-        gamma_0 = np.pi/2 - np.arctan((1/np.tan(i_ref)*np.sin(i_sat)-np.cos(i_sat)*np.cos(omega_0))/np.sin(omega_0))
+        gamma_0 = np.arctan(1/((1/np.tan(i_ref)*np.sin(i_sat)-np.cos(i_sat)*np.cos(omega_0))/np.sin(omega_0)))
     else:
         gamma_0 = 0
         
@@ -126,7 +126,7 @@ def J2_pet(sat,ref):
         return(m*np.sin(phi)-z_0,l*np.sin(phi)+q*m*np.cos(phi)-dz_0)
 
     #Solve simultaneous equations
-    m,phi = fsolve(equations,(1,1))
+    m,phi = fsolve(equations,(0,0))
 
     #Equations of motion
     def J2_pet_func(t,state):
@@ -141,11 +141,13 @@ def J2_pet(sat,ref):
         Gamma2 = np.array([0,0,0])
         Gamma3 = np.array([0,0,0])
 
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - (3*np.sin(i_ref)**2*np.sin(k*t)**2/2) - ((1+3*np.cos(2*i_ref))/8)) + Gamma2[0] + Gamma3[0]
-        dX4 = -2*n*c*dx - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t) + Gamma2[1] + Gamma3[1]
-        dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi) + Gamma2[2] + Gamma3[2]
-        #print(x + dx/n) #Energy
+        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - ((3*np.sin(i_ref)**2*np.sin(k*t)**2)/2) - ((1+3*np.cos(2*i_ref))/8))
+        dX4 = -2*n*c*dx - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
+        #print(dX4)
+        dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
+        print(x + dx/(n*c)) #Energy
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
     return J2_pet_func
+

@@ -50,13 +50,26 @@ class Reference_orbit:
         self.Sch_c = np.sqrt(1+Sch_s)
         self.Sch_k = self.ang_vel*self.Sch_c + 3*self.ang_vel*J2*const.R_earth.value**2/(2*R_orb**2)*(np.cos(inc_0)**2)
 
+
         #Quaternion rotation of reference (chief) orbit
         q_Om = qt.to_q(zaxis,Om_0)
-        q_inc = qt.to_q(yaxis,-inc_0)
-        self.q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
+        q_inc = qt.to_q(xaxis,inc_0)
+        #self.q0 = qt.comb_rot(qt.comb_rot(qt.conjugate(q_Om),q_inc),q_Om)
+        self.q0 = qt.comb_rot(q_inc,q_Om)
 
         #Angular momentum vector of chief satellite
         self.h_0 = qt.rotate(zaxis,self.q0)
+
+        #Initial argument of latitude
+        #n = np.cross(zaxis,self.h_0)
+        #init_pos = qt.rotate(xaxis,self.q0)
+        #if init_pos[2]<0:
+        #    self.arg_0 = 2*np.pi - np.arccos(np.dot(n,init_pos))
+        #else:
+        #    self.arg_0 = np.arccos(np.dot(n,init_pos))
+            
+        #Time delay for perturbation:
+        #self.t_0 = self.arg_0/self.Sch_k
 
         #New coord system:
         z_hat = self.h_0 #In direction of angular momentum
@@ -103,18 +116,20 @@ class Reference_orbit:
         v = np.dot(sep,self.v_hat)
         return np.array([u,v])
         
-    def ref_orbit_pos(self,t,precession=False):
+    def ref_orbit_pos(self,t,precession=True):
         
         if precession:
             J2 = 0.00108263
             sq_mu = np.sqrt(const.GM_earth.value)
             R_e = const.R_earth.value
             
+            t_dash = t
+            
             factor = 3*sq_mu*J2*R_e**2/(2*self.R_orb**(3.5))*np.cos(self.inc_0)
             
             i = self.inc_0 - factor/self.Sch_k*np.sin(self.inc_0)
-            Om = self.Om_0 - factor*t
-            th = self.Sch_k*t
+            Om = self.Om_0 - factor*t_dash
+            th = self.Sch_k*t_dash
             dot_i = 0
             dot_Om = -factor
             dot_th = self.Sch_k
@@ -185,12 +200,12 @@ class ECI_Sat(Satellite):
     def __init__(self,pos,vel,time,reference):
         Satellite.__init__(self,pos,vel,time,reference)
 
-    def to_LVLH(self,pos_ref,LVLH):
+    def to_LVLH(self,pos_ref,vel_ref,LVLH,precession=True):
         
         non_zero_pos = np.dot(LVLH,self.pos) #Position in LVLH, origin at centre of Earth
         pos = non_zero_pos - np.dot(LVLH,pos_ref) #Position, origin at chief spacecraft
         
-        omega_L = np.array([0,0,self.reference.ang_vel]) #Angular momentum vector in LVLH frame
+        omega_L = np.array([0,0,np.linalg.norm(np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2)])
         vel = np.dot(LVLH,self.vel) - np.cross(omega_L,non_zero_pos) #Velocity, including rotating frame
         
         return LVLH_Sat(pos,vel,self.time,self.reference)
@@ -220,13 +235,13 @@ class LVLH_Sat(Satellite):
 
     """ Takes a given state vector in LVLH coordinates and converts to ECI """
     """ Requires chief state and the change of basis matrix """
-    def to_ECI(self,pos_ref,LVLH):
+    def to_ECI(self,pos_ref,vel_ref,LVLH,precession=True):
         
         inv_rotmat = LVLH.transpose() #LVLH to ECI change of basis matrix
         
         pos = np.dot(inv_rotmat,self.pos) + pos_ref #ECI position
         
-        omega_L = np.array([0,0,self.reference.ang_vel]) #Angular momentum vector
+        omega_L = np.array([0,0,np.linalg.norm(np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2)])
         #Velocity in ECI frame, removing the rotation of the LVLH frame
         vel = np.dot(inv_rotmat,(self.vel + np.cross(omega_L,np.dot(LVLH,pos))))
         
@@ -256,18 +271,20 @@ class Baseline_Sat(Satellite):
         return LVLH_Sat(pos,vel,self.time,self.reference)
 
 
-def init_chief(reference,t,precession=False):
+def init_chief(reference,t,precession=True):
     
     pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(t,precession)
 
     return ECI_Sat(pos_ref,vel_ref,t,reference)
 
 
-def init_deputy(reference,t,n,precession=False):
+def init_deputy(reference,t,n,precession=True):
+
+    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(t,precession)
 
     if precession:
         #New coord system:
-        z_hat = reference.h_0 #In direction of angular momentum
+        z_hat = np.cross(pos_ref,vel_ref)/np.linalg.norm(np.cross(pos_ref,vel_ref)) #In direction of angular momentum
 
         x = reference.s_hat-z_hat*(np.dot(reference.s_hat,z_hat)) #Projection of the star vector on the orbital plane
 
@@ -315,6 +332,6 @@ def init_deputy(reference,t,n,precession=False):
         else:
             raise Exception("Bad Deputy number")
 
-    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(t,precession)
+    
 
     return ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),t,reference)
