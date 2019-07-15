@@ -6,8 +6,7 @@ import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2 import J2_pet
-from modules.Schweighart_J2_rel import J2_rel_pet
+from modules.Schweighart_J2_solved import equations_creation
 
 plt.ion()
 
@@ -43,31 +42,25 @@ n_phases = 1000
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
+#Initial reference orbit state
 pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)
+
+#Initial states of the satellites
 chief_0 = orbits.init_chief(ref,0).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy1_0 = orbits.init_deputy(ref,0,1).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy2_0 = orbits.init_deputy(ref,0,2).to_LVLH(pos_ref,vel_ref,LVLH)
 
-#Equations of motion
-J2_func0 = J2_pet(chief_0,ref)
-J2_func1 = J2_pet(deputy1_0,ref)
-J2_func2 = J2_pet(deputy2_0,ref)
+#Create the state equations, from t = 0
+base_equation = equations_creation(ref)
+chief_equation_0 = base_equation(0,chief_0.state)
+deputy1_equation_0 = base_equation(0,deputy1_0.state)
+deputy2_equation_0 = base_equation(0,deputy2_0.state)
 
-#Relative equations of motion
-J2_rel_func1 = J2_rel_pet(deputy1_0,ref,1)
-J2_rel_func2 = J2_rel_pet(deputy2_0,ref,2)
+chief_states_sol = chief_equation_0(times).transpose()
+deputy1_states_sol = deputy1_equation_0(times).transpose()
+deputy2_states_sol = deputy2_equation_0(times).transpose()
 
-#Tolerance and steps required for the integrator
-rtol = 1e-9
-atol = 1e-18
-step = 10
-
-#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-#Check if successful integration
-if not X_d0.success:
-    raise Exception("Integration failed!!!!")
-
+"""
 X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
@@ -77,7 +70,6 @@ X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], deputy2_0.state, t_eval = times
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 
-#Relative integrations
 X_rel_d1 = solve_ivp(J2_rel_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_rel_d1.success:
@@ -87,13 +79,6 @@ X_rel_d2 = solve_ivp(J2_rel_func2, [times[0],times[-1]], deputy2_0.state, t_eval
 if not X_rel_d2.success:
     raise Exception("Integration failed!!!!")
 
-chief_states = X_d0.y.transpose()
-deputy1_states = X_d1.y.transpose()
-deputy2_states = X_d2.y.transpose()
-
-deputy1_rel_states = X_rel_d1.y.transpose()
-deputy2_rel_states = X_rel_d2.y.transpose()
-"""
 #Peturbed orbits
 pert_chief = np.transpose(X_d0.y)
 pert_deputy1 = np.transpose(X_d1.y)
