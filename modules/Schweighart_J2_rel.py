@@ -52,7 +52,7 @@ def J2_rel_pet(sat,ref,n):
         return(m*np.sin(phi)-z_0,l*np.sin(phi)+q*m*np.cos(phi)-dz_0)
 
     #Solve simultaneous equations
-    m,phi = fsolve(equations,(1,1))
+    m,phi = fsolve(equations,(0,0))
 
     #Equations of motion
     def J2_pet_func(t,state):

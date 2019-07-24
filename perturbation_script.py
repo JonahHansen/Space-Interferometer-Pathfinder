@@ -17,7 +17,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(1) #20
+inc_0 = np.radians(34) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(10) #0
 

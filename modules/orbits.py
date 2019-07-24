@@ -279,7 +279,7 @@ def init_chief(reference,t,precession=True):
     return ECI_Sat(pos_ref,vel_ref,t,reference)
 
 """ Initialise a deputy at a given time t from the reference orbit """
-""" the n variable is for the number of the deputy (i.e 1 or 2)
+""" the n variable is for the number of the deputy (i.e 1 or 2) """
 def init_deputy(reference,t,n,precession=True):
 
     #Reference orbit

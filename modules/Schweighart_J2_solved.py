@@ -67,7 +67,7 @@ def equations_creation(ref):
             return(m*np.sin(phi)-z0,l*np.sin(phi)+q*m*np.cos(phi)-dz0)
 
         #Solve simultaneous equations
-        m,phi = fsolve(equations,(1,1))
+        m,phi = fsolve(equations,(0,0))
 
         #Constants of the solved equations
         la1 = -(be*k*(3*d-4*g+4*a*(a*x0+dy0))-a*d*be*np.cos(2*k*t0))

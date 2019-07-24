@@ -16,19 +16,16 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(1) #20
+inc_0 = np.radians(30) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(10) #0
+Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(90) #90
-dec = np.radians(-40)#-40
+ra = np.radians(0) #90
+dec = np.radians(-47)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
-
-#List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
@@ -56,59 +53,26 @@ chief_equation_0 = base_equation(0,chief_0.state)
 deputy1_equation_0 = base_equation(0,deputy1_0.state)
 deputy2_equation_0 = base_equation(0,deputy2_0.state)
 
-chief_states_sol = chief_equation_0(times).transpose()
-deputy1_states_sol = deputy1_equation_0(times).transpose()
-deputy2_states_sol = deputy2_equation_0(times).transpose()
+chief_p_states = chief_equation_0(times).transpose()
+deputy1_p_states = deputy1_equation_0(times).transpose()
+deputy2_p_states = deputy2_equation_0(times).transpose()
 
-"""
-X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-#Check if successful integration
-if not X_d1.success:
-    raise Exception("Integration failed!!!!")
+d1_rel_states = deputy1_p_states - chief_p_states
+d2_rel_states = deputy2_p_states - chief_p_states
 
-X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-if not X_d2.success:
-    raise Exception("Integration failed!!!!")
-
-X_rel_d1 = solve_ivp(J2_rel_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-#Check if successful integration
-if not X_rel_d1.success:
-    raise Exception("Integration failed!!!!")
-
-X_rel_d2 = solve_ivp(J2_rel_func2, [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
-if not X_rel_d2.success:
-    raise Exception("Integration failed!!!!")
-
-#Peturbed orbits
-pert_chief = np.transpose(X_d0.y)
-pert_deputy1 = np.transpose(X_d1.y)
-pert_deputy2 = np.transpose(X_d2.y)
-
-pert_rel_deputy1 = np.transpose(X_rel_d1.y)
-pert_rel_deputy2 = np.transpose(X_rel_d2.y)
-
-man_rel_dep1 = pert_deputy1 - pert_chief
-man_rel_dep2 = pert_deputy2 - pert_chief
-
-p_chief = []
-p_dep1 = []
-p_dep2 = []
+ECI_rc = np.zeros((len(times),3))
 rel_p_dep1 = []
 rel_p_dep2 = []
 
 print("Integration Done")
-for i in range(len(pert_chief)):
+for i in range(len(times)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    #p_chief.append(orbits.LVLH_Sat(pert_chief[i,:3],pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    #p_dep1.append(orbits.LVLH_Sat(pert_deputy1[i,:3],pert_deputy1[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    #p_dep2.append(orbits.LVLH_Sat(pert_deputy2[i,:3],pert_deputy2[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep1.append(orbits.LVLH_Sat(pert_deputy1[i,:3]-pert_chief[i,:3],pert_deputy1[i,3:]-pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep2.append(orbits.LVLH_Sat(pert_deputy2[i,:3]-pert_chief[i,:3],pert_deputy2[i,3:]-pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
-
 baseline_sep = np.zeros(n_times) #Separation along the baseline
 s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
 s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
@@ -196,7 +160,7 @@ def set_axes_equal(ax):
     origin = np.mean(limits, axis=1)
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     set_axes_radius(ax, origin, radius)
-"""
+
 """
 #Plot ECI Orbit
 plt.figure(1)
@@ -223,7 +187,7 @@ ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
 """
-"""
+
 #Plot separation along the star direction
 plt.figure(3)
 plt.clf()
@@ -277,4 +241,3 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
-"""
