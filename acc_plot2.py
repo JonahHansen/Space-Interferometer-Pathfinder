@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
-file = "HQvariance.npy"
+file = "HQvariance2.npy"
 
 a = np.load(file)
 b = a.transpose()
@@ -24,11 +25,11 @@ for item in a:
                     array[i,dec] = max_acc
 
 vmin = 1e-8
-vmax = 1e-5
+vmax = 5e-5
 
-plt.imshow(array,origin="lower",cmap="viridis",extent=[-90,90,-90,90],vmin=vmin,vmax=vmax)
+plt.imshow(array,origin="lower",cmap="viridis",extent=[-90,90,-90,90],norm=LogNorm(vmin=1e-7, vmax=1e-5))
 cbar = plt.colorbar()
-cbar.set_label("Max acc", rotation=270, labelpad=15)
+cbar.set_label("Acc in Star direction", rotation=270, labelpad=15)
 plt.xlabel("Declination (deg)")
 plt.ylabel("Inclination (deg)")
 plt.show()

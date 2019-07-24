@@ -28,7 +28,7 @@ Om_0 = np.radians(0)
 
 #Stellar vector
 ra = np.radians(0)
-dec = np.radians(45)
+dec = np.radians(1)
 
 #The max distance to the other satellites in m
 delta_r_max = 1000e3
@@ -86,7 +86,7 @@ plt.figure(1,figsize=(8,7.5))
 #Make pretty plots.
 lvlh_pos_ls = [] #list of lvlh positions
 base_pos_ls = [] #list of baseline positions
-for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,7*np.pi,300)): #np.pi, 31*np.pi,450))
+for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,10)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
@@ -182,5 +182,5 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,7*np.pi,300)): #np.pi, 31
 
     plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
 
-    plt.savefig("pngs/orb{:03d}.png".format(im_ix))
+    #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
     plt.pause(.01)

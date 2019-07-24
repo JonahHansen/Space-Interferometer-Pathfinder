@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(30) #20
+inc_0 = np.radians(1) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
 #Stellar vector
 ra = np.radians(0) #90
-dec = np.radians(-47)#-40
+dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -32,9 +32,9 @@ delta_r_max = 0.3e3
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 3
+n_orbits = 1
 #Number of phases in each orbit
-n_phases = 1000
+n_phases = 500
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
@@ -84,6 +84,7 @@ total_sep = np.zeros(n_times) #Total separation
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
     baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
+
     #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
     s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
@@ -94,9 +95,13 @@ for ix in range(n_times):
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
-
+    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
     #Sum of the separation along the star direction and the baseline direction
-    total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+
+poly = np.polyfit(times,baseline_sep,5)
+baseline_sep = np.poly1d(poly)(times)
+total_sep = baseline_sep + s_hat_sep
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
