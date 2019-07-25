@@ -74,6 +74,7 @@ for i in range(len(times)):
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
 baseline_sep = np.zeros(n_times) #Separation along the baseline
+baseline_sep_bad = np.zeros(n_times) #Separation along the baseline
 s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
 s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
 b_hat_drd1 = np.zeros(n_times) #Deputy1 position in baseline direction
@@ -83,7 +84,7 @@ total_sep = np.zeros(n_times) #Total separation
 
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
-    baseline_sep[ix] = np.linalg.norm(base_dep2[ix].pos - base_chief[ix].pos) - np.linalg.norm(base_dep1[ix].pos - base_chief[ix].pos)
+    baseline_sep_bad[ix] = np.linalg.norm(base_dep2[ix].pos - base_chief[ix].pos) - np.linalg.norm(base_dep1[ix].pos - base_chief[ix].pos)
 
     #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = base_dep1[ix].pos[2] - base_chief[ix].pos[2]
@@ -95,7 +96,11 @@ for ix in range(n_times):
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd2[ix] - s_hat_drd1[ix]
-    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
+    baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
+    if np.abs(baseline_sep[ix]-baseline_sep_bad[ix])>0.0005:
+        import pdb
+        pdb.set_trace()
+    
     #Sum of the separation along the star direction and the baseline direction
     total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
