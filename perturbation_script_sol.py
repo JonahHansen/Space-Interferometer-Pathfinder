@@ -16,7 +16,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(1) #20
+inc_0 = np.radians(2) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
@@ -53,23 +53,23 @@ chief_equation_0 = base_equation(0,chief_0.state)
 deputy1_equation_0 = base_equation(0,deputy1_0.state)
 deputy2_equation_0 = base_equation(0,deputy2_0.state)
 
+#List of perturbed states at each time
 chief_p_states = chief_equation_0(times).transpose()
 deputy1_p_states = deputy1_equation_0(times).transpose()
 deputy2_p_states = deputy2_equation_0(times).transpose()
 
-d1_rel_states = deputy1_p_states - chief_p_states
-d2_rel_states = deputy2_p_states - chief_p_states
-
 ECI_rc = np.zeros((len(times),3))
-rel_p_dep1 = []
-rel_p_dep2 = []
+base_dep1 = []
+base_dep2 = []
+base_chief = []
 
-print("Integration Done")
+#Change list of states into satellite classes, and change into Baseline frame
 for i in range(len(times)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-print("Classifying Done")
+    base_dep1.append(orbits.LVLH_Sat(deputy1_p_states[i,:3],deputy1_p_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    base_dep2.append(orbits.LVLH_Sat(deputy2_p_states[i,:3],deputy2_p_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    base_chief.append(orbits.LVLH_Sat(chief_p_states[i,:3],chief_p_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
@@ -83,25 +83,25 @@ total_sep = np.zeros(n_times) #Total separation
 
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
-    baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
+    baseline_sep[ix] = np.linalg.norm(base_dep2[ix].pos - base_chief[ix].pos) - np.linalg.norm(base_dep1[ix].pos - base_chief[ix].pos)
 
     #Component of perturbed orbit in star direction
-    s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
-    s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
+    s_hat_drd1[ix] = base_dep1[ix].pos[2] - base_chief[ix].pos[2]
+    s_hat_drd2[ix] = base_dep2[ix].pos[2] - base_chief[ix].pos[2]
 
     #Component of perturbed orbit in baseline direction
-    b_hat_drd1[ix] = rel_p_dep1[ix].pos[0]
-    b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
+    b_hat_drd1[ix] = base_dep1[ix].pos[0] - base_chief[ix].pos[0]
+    b_hat_drd2[ix] = base_dep2[ix].pos[0] - base_chief[ix].pos[0]
 
     #Separation of the two deputies in the star direction
-    s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
+    s_hat_sep[ix] = s_hat_drd2[ix] - s_hat_drd1[ix]
     #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
     #Sum of the separation along the star direction and the baseline direction
-    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+    total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
-poly = np.polyfit(times,baseline_sep,5)
-baseline_sep = np.poly1d(poly)(times)
-total_sep = baseline_sep + s_hat_sep
+#poly = np.polyfit(times,baseline_sep,5)
+#baseline_sep = np.poly1d(poly)(times)
+#total_sep = baseline_sep + s_hat_sep
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):

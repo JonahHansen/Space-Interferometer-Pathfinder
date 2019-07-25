@@ -40,19 +40,16 @@ def equations_creation(ref):
 
         #Same constants as defined in Schweighart
         i_sat = dz0/(k*r_ref)+i_ref
-        print(i_sat)
 
         if i_ref == 0:
             omega_0 = 0
         else:
             omega_0 = z0/(r_ref*np.sin(i_ref))
-        print(omega_0)
+
         if (omega_0 and i_ref) != 0:
             gamma_0 = np.arctan(np.sin(omega_0)/(1/np.tan(i_ref)*np.sin(i_sat)-np.cos(i_sat)*np.cos(omega_0)))
         else:
             gamma_0 = 0
-
-        print("gamma0 = "+str(gamma_0))
 
         phi_0 = np.arccos(np.cos(i_sat)*np.cos(i_ref)+np.sin(i_sat)*np.sin(i_ref)*np.cos(omega_0))
 
@@ -65,7 +62,6 @@ def equations_creation(ref):
 
 
         q = w*c - (temp-np.sin(gamma_0)**2*np.cos(i_sat))*(d_omega_sat - d_omega_ref)-d_omega_sat*np.cos(i_sat)
-        print("q = "+str(q))
 
         l = -r_ref*np.sin(i_sat)*np.sin(i_ref)*np.sin(omega_0)/np.sin(phi_0)*(d_omega_sat-d_omega_ref)
         l = l if l == l else 0
