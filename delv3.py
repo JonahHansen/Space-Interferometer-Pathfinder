@@ -38,7 +38,7 @@ ECI = orb.ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 #Number of orbits
 n_orbits = 0.5
 #Number of phases in each orbit
-n_phases = 20000
+n_phases = 50000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
@@ -99,7 +99,7 @@ delv_ls = [] #List of delta vs
 pert_LVLH_drd1 = np.zeros((0,6)) #Empty perturbed arrays
 pert_LVLH_drd2 = np.zeros((0,6))
 
-t_burn = 1 #How long between corrections in seconds
+t_burn = 0.2 #How long between corrections in seconds
 
 
 times_lsls = list(chunktime(times,t_burn)) #List of times
@@ -188,6 +188,8 @@ for ix in range(n_times):
     s_hat_drd2 = np.dot(pert_LVLH_drd2[ix,:3],s_hats[ix])
     #Separation of the two deputies in the star direction
     s_hat_sep = s_hat_drd1 - s_hat_drd2
+    b1 = orb.LVLH_Deputy(pert_LVLH_drd1[ix,:3],pert_LVLH_drd1[ix,3:],LVLH_drd1_0.q,c_s_hat).to_Baseline(pert_LVLH_drd2[ix,:3]-pert_LVLH_drd1[ix,:3])
+    b2 = orb.LVLH_Deputy(pert_LVLH_drd2[ix,:3],pert_LVLH_drd2[ix,3:],LVLH_drd2_0.q,c_s_hat).to_Baseline(pert_LVLH_drd2[ix,:3]-pert_LVLH_drd1[ix,:3])
     #Sum of the separation along the star direction and the baseline direction
     total_sep[ix] = baseline_sep + s_hat_sep
 

@@ -9,7 +9,7 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 import astropy.units as u
 import astropy.constants as const
-from modules.orbits import ECI_orbit, Chief, init_deputy
+import modules.orbits as orbits
 
 plt.ion()
 
@@ -28,20 +28,20 @@ Om_0 = np.radians(0)
 
 #Stellar vector
 ra = np.radians(0)
-dec = np.radians(45)
+dec = np.radians(1)
 
 #The max distance to the other satellites in m
-delta_r_max = 1050e3
+delta_r_max = 1000e3
 
 lines = ['r:', 'g:', 'g:']
 points = ['r.', 'g.', 'g.']
 
 #------------------------------------------------------------------------------------------
-#Calculate orbit, in the geocentric (ECI) frame
-ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+#Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
+ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 num_times = 1000
-times = np.linspace(0,ECI.period,num_times)
+times = np.linspace(0,ref.period,num_times)
 
 c_pos = np.zeros((num_times,3))
 dep1_pos = np.zeros((num_times,3))
@@ -49,32 +49,44 @@ dep2_pos = np.zeros((num_times,3))
 LVLH_pos0 = np.zeros((num_times,3))
 LVLH_pos1 = np.zeros((num_times,3))
 LVLH_pos2 = np.zeros((num_times,3))
+Base_pos0 = np.zeros((num_times,3))
+Base_pos1 = np.zeros((num_times,3))
+Base_pos2 = np.zeros((num_times,3))
 s_hats = np.zeros((num_times,3))
 
 i = 0
 for t in times:
-    chief = Chief(ECI,t)
+    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
+    chief = orbits.init_chief(ref,t)
     c_pos[i] = chief.pos
-    dep1 = init_deputy(ECI,chief,1)
-    dep2 = init_deputy(ECI,chief,2)
+    dep1 = orbits.init_deputy(ref,t,1)
+    dep2 = orbits.init_deputy(ref,t,2)
     dep1_pos[i] = dep1.pos
     dep2_pos[i] = dep2.pos
-    LVLH_pos0[i] = np.array([0,0,0])
-    LVLH_pos1[i] = dep1.to_LVLH(chief).pos
-    LVLH_pos2[i] = dep2.to_LVLH(chief).pos
-    s_hats[i] = np.dot(chief.mat,ECI.s_hat)
+    LVLH_pos0[i] = chief.to_LVLH(pos_ref,vel_ref,LVLH).pos
+    LVLH_pos1[i] = dep1.to_LVLH(pos_ref,vel_ref,LVLH).pos
+    LVLH_pos2[i] = dep2.to_LVLH(pos_ref,vel_ref,LVLH).pos
+    Base_pos0[i] = chief.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
+    Base_pos1[i] = dep1.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
+    Base_pos2[i] = dep2.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
+    s_hats[i] = np.dot(LVLH,ref.s_hat)
     i += 1
 
 #All ECI positions
 ECI_all = [c_pos,dep1_pos,dep2_pos]
 #All LVLH positions, plus stellar vector
 LVLH_all = [LVLH_pos0,LVLH_pos1,LVLH_pos2,s_hats]
+#All Baseline positions
+Base_all = [Base_pos0,Base_pos1,Base_pos2]
 
-period = ECI.period/60 #In minutes
+period = ref.period/60 #In minutes
+
+plt.figure(1,figsize=(8,7.5))
 
 #Make pretty plots.
-pos_ls = [] #list of positions
-for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*np.pi,450))
+lvlh_pos_ls = [] #list of lvlh positions
+base_pos_ls = [] #list of baseline positions
+for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,10)): #np.pi, 31*np.pi,450))
 #for sat_phase in np.linspace(np.pi*1.45,np.pi*1.5,2):
     plt.clf()
     plt.subplot(1, 2, 1)
@@ -82,8 +94,9 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*n
     map.bluemarble(scale=0.4)
     plt.axis([-0.1*R_orb, 2.1*R_orb, -0.0*R_orb, 2.0*R_orb])
     lvlh_ls = []
+    base_ls = []
     #Find non-vignetted parts (two vectors)
-    for xyz, lvlh, point, line in zip(ECI_all, LVLH_all, points, lines):
+    for xyz, point, line in zip(ECI_all, points, lines):
         visible = (-xyz[:,1] > 0) | (np.sqrt(xyz[:,0]**2 + xyz[:,2]**2) > R_e)
         visible = np.concatenate(([False],visible, [False]))
         out_of_eclipse = np.where(visible[1:] & np.logical_not(visible[:-1]))[0]
@@ -92,7 +105,7 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*n
             plt.plot(xyz[oute:ine+1,0] + R_e, xyz[oute:ine+1,2] + R_e,line)
 
         #Interpolate to current time.
-        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ECI.ang_vel*times, xyz[:,ii]) for ii in range(3)]
+        sat_xyz = [np.interp( (sat_phase) % (2*np.pi), ref.ang_vel*times, xyz[:,ii]) for ii in range(3)]
 
         #If in foreground or more than R_earth away in (x,z) plane, plot.
         if (-sat_xyz[1] > 0) | (np.sqrt(sat_xyz[0]**2 + sat_xyz[2]**2) > R_e):
@@ -100,11 +113,16 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*n
 
     #Interpolate LVLH orbit, to make LVLH plot
     for lvlh in LVLH_all:
-        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ECI.ang_vel*times, lvlh[:,ii]) for ii in range(3)]
+        sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ref.ang_vel*times, lvlh[:,ii]) for ii in range(3)]
         lvlh_ls.append(sat_lvlh)
 
+    #Interpolate LVLH orbit, to make LVLH plot
+    for base in Base_all:
+        sat_base = [np.interp( (sat_phase) % (2*np.pi), ref.ang_vel*times, base[:,ii]) for ii in range(3)]
+        base_ls.append(sat_base)
+
     plt.tight_layout()
-    plt.subplot(336, aspect='equal')
+    plt.subplot(233, aspect='equal')
     #plt.axes().set_aspect('equal')
 
     km = 1e-3
@@ -113,11 +131,11 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*n
     plt.ylim(-2*delta_r_max*km,2*delta_r_max*km)
 
     #Star vector
-    s = lvlh_ls[3]
+    s =  lvlh_ls[3]
 
     #List of positions
-    pos_ls.append([lvlh_ls[0],lvlh_ls[1],lvlh_ls[2]])
-    pos_arr = np.array(pos_ls)
+    lvlh_pos_ls.append([lvlh_ls[0],lvlh_ls[1],lvlh_ls[2]])
+    pos_arr = np.array(lvlh_pos_ls)
 
     #Plot previous positions as a line
     plt.plot(pos_arr[:,0,1]*km,pos_arr[:,0,2]*km,'r--')
@@ -131,8 +149,38 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,5)): #np.pi, 31*n
     plt.title("LVLH Frame")
     plt.xlabel("v (chief velocity axis) (km)")
     plt.ylabel("h (chief OAM axis) (km)")
-    
+
     plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
-    
-    #plt.savefig("pngs2/orb{:03d}.png".format(im_ix))
+
+    plt.subplot(236, aspect='equal')
+    #plt.axes().set_aspect('equal')
+
+    km = 1e-3
+
+    plt.xlim(-2*delta_r_max*km,2*delta_r_max*km)
+    plt.ylim(-2*delta_r_max*km,2*delta_r_max*km)
+
+    #Star vector
+    s = np.array([0,0,1])
+
+    #List of positions
+    base_pos_ls.append([base_ls[0],base_ls[1],base_ls[2]])
+    pos_arr = np.array(base_pos_ls)
+
+    #Plot previous positions as a line
+    plt.plot(pos_arr[:,0,0]*km,pos_arr[:,0,2]*km,'r--')
+    plt.plot(pos_arr[:,1,0]*km,pos_arr[:,1,2]*km,'b--')
+    plt.plot(pos_arr[:,2,0]*km,pos_arr[:,2,2]*km,'b--')
+
+    #Plot the current point
+    plt.plot(pos_arr[-1,0,0]*km,pos_arr[-1,0,2]*km,'ro')
+    plt.plot(pos_arr[-1,1,0]*km,pos_arr[-1,1,2]*km,'bo')
+    plt.plot(pos_arr[-1,2,0]*km,pos_arr[-1,2,2]*km,'bo')
+    plt.title("Baseline Frame")
+    plt.xlabel("b (baseline axis) (km)")
+    plt.ylabel("s (star vector axis) (km)")
+
+    plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
+
+    #plt.savefig("pngs/orb{:03d}.png".format(im_ix))
     plt.pause(.01)
