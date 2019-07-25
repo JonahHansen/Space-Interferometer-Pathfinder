@@ -53,5 +53,5 @@ def check_earth(dep1,dep2,R_orb,s,UVmat):
     return (check_dep1 and check_dep2)
 
 """ Combine both checks """
-def check_obs(t,dep1,dep2,antisun_angle,ECI):
-    return check_sun(ECI.s_hat,t,antisun_angle) and check_earth(dep1,dep2,ECI.R_orb,ECI.s_hat,ECI.UVmat)
+def check_obs(t,dep1,dep2,antisun_angle,ref):
+    return check_sun(ref.s_hat,t,antisun_angle) and check_earth(dep1,dep2,ref.R_orb,ref.s_hat,ref.UVmat)

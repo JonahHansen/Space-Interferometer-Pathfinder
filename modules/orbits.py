@@ -109,8 +109,8 @@ class Reference_orbit:
         self.q2 = qt.comb_rot(q_phase2,q_plane2)
 
     """ Find u and v vectors given the deputy state vectors"""
-    def uv(self,ECI_dep1,ECI_dep2):
-        sep = ECI_dep2.pos - ECI_dep1.pos #Baseline vector
+    def uv(self,dep1,dep2):
+        sep = dep2.pos - dep1.pos #Baseline vector
         u = np.dot(sep,self.u_hat)
         v = np.dot(sep,self.v_hat)
         return np.array([u,v])

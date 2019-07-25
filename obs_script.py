@@ -2,7 +2,7 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.constants as const
-from modules.orbits import ECI_orbit, Chief, init_deputy
+import modules.orbits as orbits
 from modules.observability import check_obs
 
 plt.ion()
@@ -25,14 +25,12 @@ J2 = 0.00108263
 Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(100) #90
-dec = np.radians(-40)#-40
+ra = np.radians(90) #90
+dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
-#List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1] #Currently just using J2
 
 #Angle within anti-sun axis
 antisun_angle = np.radians(40)
@@ -49,33 +47,33 @@ inc_0 = i_from_precession(precess_rate)
 
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
-ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 365.25*24*60*60/ECI.period
+n_orbits = 365.25*24*60*60/ref.period
 #Number of phases in each orbit
-n_phases = ECI.period/60/2
+n_phases = ref.period/60/2
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
-times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
+times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
 """Initialise arrays"""
 obs = np.zeros(n_times) #Observable? array
 u_v = np.zeros((n_times,2)) #uv point array
 
 time_for_observing = 45 #Min
-obs_num = int(n_phases/(ECI.period/60/time_for_observing))
+obs_num = int(n_phases/(ref.period/60/time_for_observing))
 
 i = 0
 j = 0
 for t in times:
-    ECI_rc = Chief(ECI,t,True) #Include precession
-    ECI_rd1 = init_deputy(ECI,ECI_rc,1) #Deputy 1 position
-    ECI_rd2 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
-    obs[i] = check_obs(t,ECI_rd1,ECI_rd2,antisun_angle,ECI) #Check if observable
+    chief = orbits.init_chief(ref,t) #Include precession
+    dep1 = orbits.init_deputy(ref,t,1) #Deputy 1 position
+    dep2 = orbits.init_deputy(ref,t,2) #Deputy 2 position
+    obs[i] = check_obs(t,dep1,dep2,antisun_angle,ref) #Check if observable
     if obs[i]:
         j += 1
-        u_v[i] = ECI.uv(ECI_rd1,ECI_rd2) #Find uv point if observable
+        u_v[i] = ref.uv(dep1,dep2) #Find uv point if observable
     else:
         if j < obs_num:
             for k in range(j):
