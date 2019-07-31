@@ -170,7 +170,15 @@ class Reference_orbit:
         eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
         LVLH_mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
 
-        b_hat = np.cross(rho_hat,self.s_hat)/np.linalg.norm(np.cross(rho_hat,self.s_hat)) #Baseline unit vector
+        if not np.any(np.cross(rho_hat,self.s_hat)):
+            pos_ref,vel_ref,LVLH,Base_pos = self.ref_orbit_pos(t+0.1,precession)
+            pos_ref,vel_ref,LVLH,Base_neg = self.ref_orbit_pos(t-0.1,precession)
+            b_hat_pos = Base_pos[0]
+            b_hat_neg = Base_pos[0]
+            b = (b_hat_pos + b_hat_neg)*0.5
+            b_hat = b/np.linalg.norm(b)
+        else:
+            b_hat = np.cross(rho_hat,self.s_hat)/np.linalg.norm(np.cross(rho_hat,self.s_hat)) #Baseline unit vector
         o_hat = np.cross(self.s_hat,b_hat) #Other unit vector
         Base_mat = np.array([b_hat,o_hat,self.s_hat]) #Baseline rotation matrix
 

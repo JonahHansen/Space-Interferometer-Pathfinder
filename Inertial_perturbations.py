@@ -6,7 +6,7 @@ import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_solved import equations_creation
+from modules.ECI_perturbations import dX_dt
 
 plt.ion()
 
@@ -16,7 +16,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(1) #20
+inc_0 = np.radians(64) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
@@ -39,40 +39,79 @@ n_phases = 500
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-#Initial reference orbit state
 pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)
+chief_0 = orbits.init_chief(ref,0).state
+deputy1_0 = orbits.init_deputy(ref,0,1).state
+deputy2_0 = orbits.init_deputy(ref,0,2).state
 
-#Initial states of the satellites
-chief_0 = orbits.init_chief(ref,0).to_LVLH(pos_ref,vel_ref,LVLH)
-deputy1_0 = orbits.init_deputy(ref,0,1).to_LVLH(pos_ref,vel_ref,LVLH)
-deputy2_0 = orbits.init_deputy(ref,0,2).to_LVLH(pos_ref,vel_ref,LVLH)
+#Tolerance and steps required for the integrator
+rtol = 1e-9
+atol = 1e-18
+step = 10
 
-#Create the state equations, from t = 0
-base_equation = equations_creation(ref)
-chief_equation_0 = base_equation(0,chief_0.state)
-deputy1_equation_0 = base_equation(0,deputy1_0.state)
-deputy2_equation_0 = base_equation(0,deputy2_0.state)
+def dX_dt(t,state,ref):
+    [x,y,z] = state[:3] #Position
+    v = state[3:] #Velocity
 
-chief_p_states = chief_equation_0(times).transpose()
-deputy1_p_states = deputy1_equation_0(times).transpose()
-deputy2_p_states = deputy2_equation_0(times).transpose()
+    #First half of the differential vector (derivative of position, velocity)
+    dX0 = v[0]
+    dX1 = v[1]
+    dX2 = v[2]
 
-d1_rel_states = deputy1_p_states - chief_p_states
-d2_rel_states = deputy2_p_states - chief_p_states
+    J2 = 0.00108263 #J2 Parameter
 
-ECI_rc = np.zeros((len(times),3))
-rel_p_dep1 = []
-rel_p_dep2 = []
+    #Calculate J2 acceleration from the equation in ECI frame
+    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/ref.R_orb**5
+    J2_fac2 = 5*z**2/ref.R_orb**2
+    J2_p = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
+
+    r_hat = np.array([x,y,z])/np.linalg.norm(np.sqrt(x**2+y**2+z**2))
+    a = -const.GM_earth.value/ref.R_orb**2*r_hat + J2_p
+    dX3 = a[0]
+    dX4 = a[1]
+    dX5 = a[2]
+    return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X_d0 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d0.success:
+    raise Exception("Integration failed!!!!")
+
+X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X_d2.success:
+    raise Exception("Integration failed!!!!")
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d1.success:
+    raise Exception("Integration failed!!!!")
+
+chief_rel_states = X_d0.y.transpose()
+deputy1_rel_states = X_d1.y.transpose()
+deputy2_rel_states = X_d2.y.transpose()
+
+
+p_chief = []
+p_dep1 = []
+p_dep2 = []
+rel_p_dep1 = np.zeros((len(times),6))
+rel_p_dep2 = np.zeros((len(times),6))
 
 print("Integration Done")
 for i in range(len(times)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    p_chief.append(orbits.ECI_Sat(chief_rel_states[i,:3],chief_rel_states[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
+    p_dep1.append(orbits.ECI_Sat(deputy1_rel_states[i,:3],deputy1_rel_states[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
+    p_dep2.append(orbits.ECI_Sat(deputy2_rel_states[i,:3],deputy2_rel_states[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
+    rel_p_dep1[i] = p_dep1[i].state-p_chief[i].state
+    rel_p_dep2[i] = p_dep2[i].state-p_chief[i].state
 print("Classifying Done")
-
+"""
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
+
 baseline_sep = np.zeros(n_times) #Separation along the baseline
 s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
 s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
@@ -84,7 +123,6 @@ total_sep = np.zeros(n_times) #Total separation
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
     baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
-
     #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
     s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
@@ -95,13 +133,9 @@ for ix in range(n_times):
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
-    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
-    #Sum of the separation along the star direction and the baseline direction
-    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
-poly = np.polyfit(times,baseline_sep,5)
-baseline_sep = np.poly1d(poly)(times)
-total_sep = baseline_sep + s_hat_sep
+    #Sum of the separation along the star direction and the baseline direction
+    total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
@@ -167,6 +201,7 @@ def set_axes_equal(ax):
     set_axes_radius(ax, origin, radius)
 
 """
+"""
 #Plot ECI Orbit
 plt.figure(1)
 plt.clf()
@@ -192,7 +227,7 @@ ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
 """
-
+"""
 #Plot separation along the star direction
 plt.figure(3)
 plt.clf()
@@ -246,3 +281,4 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+"""

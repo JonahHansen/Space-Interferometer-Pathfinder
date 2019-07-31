@@ -6,7 +6,7 @@ import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_solved import equations_creation
+from modules.Schweighart_J2_solved_clean import propagate_spacecraft
 
 plt.ion()
 
@@ -16,7 +16,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(1) #20
+inc_0 = np.radians(64) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
@@ -47,15 +47,9 @@ chief_0 = orbits.init_chief(ref,0).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy1_0 = orbits.init_deputy(ref,0,1).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy2_0 = orbits.init_deputy(ref,0,2).to_LVLH(pos_ref,vel_ref,LVLH)
 
-#Create the state equations, from t = 0
-base_equation = equations_creation(ref)
-chief_equation_0 = base_equation(0,chief_0.state)
-deputy1_equation_0 = base_equation(0,deputy1_0.state)
-deputy2_equation_0 = base_equation(0,deputy2_0.state)
-
-chief_p_states = chief_equation_0(times).transpose()
-deputy1_p_states = deputy1_equation_0(times).transpose()
-deputy2_p_states = deputy2_equation_0(times).transpose()
+chief_p_states = propagate_spacecraft(0,chief_0.state,times,ref).transpose()
+deputy1_p_states = propagate_spacecraft(0,deputy1_0.state,times,ref).transpose()
+deputy2_p_states = propagate_spacecraft(0,deputy2_0.state,times,ref).transpose()
 
 d1_rel_states = deputy1_p_states - chief_p_states
 d2_rel_states = deputy2_p_states - chief_p_states
@@ -98,10 +92,6 @@ for ix in range(n_times):
     #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
     #Sum of the separation along the star direction and the baseline direction
     #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
-
-poly = np.polyfit(times,baseline_sep,5)
-baseline_sep = np.poly1d(poly)(times)
-total_sep = baseline_sep + s_hat_sep
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):

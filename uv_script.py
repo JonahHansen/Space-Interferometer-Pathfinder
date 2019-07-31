@@ -4,7 +4,6 @@ import numpy as np
 import astropy.constants as const
 import modules.orbits as orbits
 from modules.observability import check_obs
-import modules.quaternions as qt
 
 plt.ion()
 
@@ -33,7 +32,7 @@ dec = np.radians(0)#-40
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(60)
+antisun_angle = np.radians(40)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -44,56 +43,52 @@ def i_from_precession(rho):
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
 inc_0 = i_from_precession(precess_rate)
-inc_0 = 39
+
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
-ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
+ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1*24*60*60/ref.period
+n_orbits = 365.25*24*60*60/ref.period
 #Number of phases in each orbit
 n_phases = ref.period/60/2
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-n_ra = 180
-n_dec = 90
-
-ras = np.linspace(0,np.radians(360),n_ra)
-decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
-ra,dec = np.meshgrid(ras,decs)
-
-s_hats = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]).transpose()
-
 """Initialise arrays"""
-obs = np.zeros((n_times,n_ra,n_dec)) #Observable? array
+obs = np.zeros(n_times) #Observable? array
+u_v = np.zeros((n_times,2)) #uv point array
 
 time_for_observing = 45 #Min
 obs_num = int(n_phases/(ref.period/60/time_for_observing))
 
 i = 0
-j = np.zeros((n_ra,n_dec))
-
-""" Initialise a deputy at a given time t from the reference orbit """
-""" the n variable is for the number of the deputy (i.e 1 or 2) """
-
-
+j = 0
 for t in times:
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
-    obs[i] = check_obs(t,s_hats,pos_ref,antisun_angle,ref) #Check if observable
-    for ix in range(n_ra):
-        for iy in range(n_dec):
-            if obs[i,ix,iy]:
-                j[ix,iy] += 1
-            else:
-                if j[ix,iy] < obs_num:
-                    for k in range(int(j[ix,iy])):
-                        obs[i-1-k,ix,iy] = 0
-                j[ix,iy] = 0
+    dep1 = orbits.init_deputy(ref,t,1) #Deputy 1 position
+    dep2 = orbits.init_deputy(ref,t,2) #Deputy 2 position
+    obs[i] = check_obs(t,ref.s_hat,pos_ref,antisun_angle,ref,False) #Check if observable
+    if obs[i]:
+        j += 1
+        u_v[i] = ref.uv(dep1,dep2) #Find uv point if observable
+    else:
+        if j < obs_num:
+            for k in range(j):
+                obs[i-1-k] = 0
+                u_v[i-1-k] = [0,0]
+        j = 0
     i += 1
     print(i*100/n_times)
 
-percent = np.sum(obs,axis=0)/len(obs)*100
-plt.imshow(percent.transpose())
-plt.show()
+neg_uv = -u_v
+uv = np.concatenate((u_v,neg_uv))
+plt.clf()
+plt.scatter(uv[:,0],uv[:,1],s=1)
+plt.xlabel("u(m)")
+plt.ylabel("v(m)")
+plt.title("UV plane over a year, anti-sun angle = %s degrees"%round(np.degrees(antisun_angle)))
+
+percent = sum(obs)/len(obs)*100
+print("Percentage viewable over a year: %.3f"%percent)
