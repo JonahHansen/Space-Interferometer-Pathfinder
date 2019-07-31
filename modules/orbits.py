@@ -94,6 +94,7 @@ class Reference_orbit:
         theta = np.arccos(dot)
 
         psi = self.delta_r_max*np.cos(theta)/self.R_orb #Angle between chief and deputy WRT Earth
+        print(psi*self.R_orb)
         omega = -np.arctan(self.delta_r_max/self.R_orb*np.sin(theta)) #Amount of rotation
 
         #Define deputy orbital planes in terms of a rotation of the chief satellite
@@ -169,7 +170,7 @@ class Reference_orbit:
         eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
         LVLH_mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
 
-        b_hat = np.cross(rho_hat,self.s_hat) #Baseline unit vector
+        b_hat = np.cross(rho_hat,self.s_hat)/np.linalg.norm(np.cross(rho_hat,self.s_hat)) #Baseline unit vector
         o_hat = np.cross(self.s_hat,b_hat) #Other unit vector
         Base_mat = np.array([b_hat,o_hat,self.s_hat]) #Baseline rotation matrix
 

@@ -16,7 +16,7 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(2) #20
+inc_0 = np.radians(0) #20
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
@@ -79,12 +79,14 @@ s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
 s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
 b_hat_drd1 = np.zeros(n_times) #Deputy1 position in baseline direction
 b_hat_drd2 = np.zeros(n_times) #Deputy2 position in baseline direction
+o_hat_drd1 = np.zeros(n_times) #Deputy1 position in "Other" direction
+o_hat_drd2 = np.zeros(n_times) #Deputy2 position in "Other" direction
 s_hat_sep = np.zeros(n_times) #Separation along the baseline
 total_sep = np.zeros(n_times) #Total separation
 
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
-    baseline_sep_bad[ix] = np.linalg.norm(base_dep2[ix].pos - base_chief[ix].pos) - np.linalg.norm(base_dep1[ix].pos - base_chief[ix].pos)
+    baseline_sep[ix] = np.linalg.norm(base_dep2[ix].pos - base_chief[ix].pos) - np.linalg.norm(base_dep1[ix].pos - base_chief[ix].pos)
 
     #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = base_dep1[ix].pos[2] - base_chief[ix].pos[2]
@@ -93,13 +95,17 @@ for ix in range(n_times):
     #Component of perturbed orbit in baseline direction
     b_hat_drd1[ix] = base_dep1[ix].pos[0] - base_chief[ix].pos[0]
     b_hat_drd2[ix] = base_dep2[ix].pos[0] - base_chief[ix].pos[0]
+    
+    #Component of perturbed orbit in "other" direction
+    o_hat_drd1[ix] = base_dep1[ix].pos[1] - base_chief[ix].pos[1]
+    o_hat_drd2[ix] = base_dep2[ix].pos[1] - base_chief[ix].pos[1]
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd2[ix] - s_hat_drd1[ix]
-    baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
-    if np.abs(baseline_sep[ix]-baseline_sep_bad[ix])>0.0005:
-        import pdb
-        pdb.set_trace()
+    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
+    #if np.abs(baseline_sep[ix]-baseline_sep_bad[ix])>0.0005:
+    #    import pdb
+    #    pdb.set_trace()
     
     #Sum of the separation along the star direction and the baseline direction
     total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
@@ -251,3 +257,29 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+
+
+#Plot perturbed LVLH orbits
+plt.figure(6)
+plt.clf()
+ax2 = plt.axes(projection='3d')
+ax2.set_aspect('equal')
+ax2.plot3D(b_hat_drd1,o_hat_drd1,s_hat_drd1,'b--')
+ax2.plot3D(b_hat_drd2,o_hat_drd2,s_hat_drd2,'r--')
+ax2.set_xlabel('b (m)')
+ax2.set_ylabel('o (m)')
+ax2.set_zlabel('s (m)')
+ax2.set_title('Orbit in Baseline frame')
+set_axes_equal(ax2)
+
+#Plot perturbed LVLH orbits
+plt.figure(7)
+plt.clf()
+ax2 = plt.axes(projection='3d')
+ax2.set_aspect('equal')
+ax2.plot3D(np.abs(b_hat_drd1)-np.abs(b_hat_drd2),np.abs(o_hat_drd1)-np.abs(o_hat_drd2),np.abs(s_hat_drd1)-np.abs(s_hat_drd2),'r-')
+ax2.set_xlabel('b (m)')
+ax2.set_ylabel('o (m)')
+ax2.set_zlabel('s (m)')
+ax2.set_title('Separation in Baseline frame')
+set_axes_equal(ax2)
