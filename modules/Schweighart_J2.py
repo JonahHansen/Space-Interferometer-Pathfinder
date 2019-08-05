@@ -5,7 +5,7 @@ import modules.quaternions as qt
 
 """ J2 Perturbation function from Schweighart's paper """
 """ Relative to reference orbit """
-def J2_pet(sat,ref):
+def J2_pet(sat0,ref):
 
     #DEFINE VARIABLES AS IN PAPER
     r_ref = ref.R_orb #Radius of the reference orbit (and chief)
@@ -15,8 +15,8 @@ def J2_pet(sat,ref):
     R_e = const.R_earth.value
 
     #Initial conditions
-    [x_0,y_0,z_0] = sat.pos
-    dz_0 = sat.vel[2]
+    [x_0,y_0,z_0] = sat0.pos
+    dz_0 = sat0.vel[2]
 
     #Define variables from Schweghart
     c = ref.Sch_c
