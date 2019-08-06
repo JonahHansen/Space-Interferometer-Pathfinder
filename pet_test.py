@@ -8,6 +8,8 @@ import modules.orbits as orbits
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2_solved_clean import propagate_spacecraft
 from modules.Schweighart_J2 import J2_pet
+from modules.ECI_perturbations import dX_dt
+import sys
 
 plt.ion()
 
@@ -17,13 +19,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(89) #20
+inc_0 = np.radians(float(sys.argv[1])) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(float(sys.argv[2])) #0
 
 #Stellar vector
-ra = np.radians(45) #90
-dec = np.radians(56)#-40
+ra = np.radians(float(sys.argv[3])) #90
+dec = np.radians(float(sys.argv[4]))#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -64,7 +66,7 @@ rtol = 1e-9
 atol = 1e-18
 step = 10
 
-def dX_dt(t,state,ref):
+def dX_dt2(t,state,ref):
     [x,y,z] = state[:3] #Position
     v = state[3:] #Velocity
 
@@ -88,18 +90,18 @@ def dX_dt(t,state,ref):
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d0 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d0 = solve_ivp(lambda t, y: dX_dt2(t,y,ref), [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d0.success:
     raise Exception("Integration failed!!!!")
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d1 = solve_ivp(lambda t, y: dX_dt2(t,y,ref), [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X_d1.success:
     raise Exception("Integration failed!!!!")
 
-X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X_d2 = solve_ivp(lambda t, y: dX_dt2(t,y,ref), [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X_d2.success:
     raise Exception("Integration failed!!!!")
 
@@ -138,6 +140,24 @@ deputy2_p_states_num = X2_d2.y.transpose()
 d1_rel_num = deputy1_p_states_num - chief_p_states_num
 d2_rel_num = deputy2_p_states_num - chief_p_states_num
 
+
+#------------------------------------------------------------------------------------------
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X3_d1.success:
+    raise Exception("Integration failed!!!!")
+
+X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X3_d2.success:
+    raise Exception("Integration failed!!!!")
+
+d1_rel_bad = X3_d1.y.transpose()
+d2_rel_bad = X3_d2.y.transpose()
+
+
+
 #------------------------------------------------------------------------------------------
 
 ECI_rc = np.zeros((len(times),3))
@@ -146,6 +166,8 @@ d1_eci_lvlh = []
 d2_eci_lvlh = []
 d1_relsat_num = []
 d2_relsat_num = []
+d1_relsat_bad = []
+d2_relsat_bad = []
 d1_relsat_sol = []
 d2_relsat_sol = []
 
@@ -159,6 +181,8 @@ for i in range(len(times)):
     d2_relsat_num.append(orbits.LVLH_Sat(d2_rel_num[i,:3],d2_rel_num[i,3:],times[i],ref))
     d1_relsat_sol.append(orbits.LVLH_Sat(d1_rel_sol[i,:3],d1_rel_sol[i,3:],times[i],ref))
     d2_relsat_sol.append(orbits.LVLH_Sat(d2_rel_sol[i,:3],d2_rel_sol[i,3:],times[i],ref))
+    d1_relsat_bad.append(orbits.LVLH_Sat(d1_rel_bad[i,:3],d1_rel_bad[i,3:],times[i],ref))
+    d2_relsat_bad.append(orbits.LVLH_Sat(d2_rel_bad[i,:3],d2_rel_bad[i,3:],times[i],ref))
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -169,18 +193,24 @@ rho_d1_num = np.zeros(n_times)
 rho_d2_num = np.zeros(n_times)
 rho_d1_sol = np.zeros(n_times)
 rho_d2_sol = np.zeros(n_times)
+rho_d1_bad = np.zeros(n_times)
+rho_d2_bad = np.zeros(n_times)
 xi_d1_eci = np.zeros(n_times)
 xi_d2_eci = np.zeros(n_times)
 xi_d1_num = np.zeros(n_times)
 xi_d2_num = np.zeros(n_times)
 xi_d1_sol = np.zeros(n_times)
 xi_d2_sol = np.zeros(n_times)
+xi_d1_bad = np.zeros(n_times)
+xi_d2_bad = np.zeros(n_times)
 eta_d1_eci = np.zeros(n_times)
 eta_d2_eci = np.zeros(n_times)
 eta_d1_num = np.zeros(n_times)
 eta_d2_num = np.zeros(n_times)
 eta_d1_sol = np.zeros(n_times)
 eta_d2_sol = np.zeros(n_times)
+eta_d1_bad = np.zeros(n_times)
+eta_d2_bad = np.zeros(n_times)
 
 for ix in range(n_times):
     #Component of perturbed orbit in rho direction
@@ -190,6 +220,8 @@ for ix in range(n_times):
     rho_d2_num[ix] = d2_relsat_num[ix].pos[0]
     rho_d1_sol[ix] = d1_relsat_sol[ix].pos[0]
     rho_d2_sol[ix] = d2_relsat_sol[ix].pos[0]
+    rho_d1_bad[ix] = d1_relsat_bad[ix].pos[0]
+    rho_d2_bad[ix] = d2_relsat_bad[ix].pos[0]
 
     #Component of perturbed orbit in xi direction
     xi_d1_eci[ix] = d1_eci_lvlh[ix].pos[1] - c_eci_lvlh[ix].pos[1]
@@ -198,6 +230,8 @@ for ix in range(n_times):
     xi_d2_num[ix] = d2_relsat_num[ix].pos[1]
     xi_d1_sol[ix] = d1_relsat_sol[ix].pos[1]
     xi_d2_sol[ix] = d2_relsat_sol[ix].pos[1]
+    xi_d1_bad[ix] = d1_relsat_bad[ix].pos[1]
+    xi_d2_bad[ix] = d2_relsat_bad[ix].pos[1]
 
     #Component of perturbed orbit in eta direction
     eta_d1_eci[ix] = d1_eci_lvlh[ix].pos[2] - c_eci_lvlh[ix].pos[2]
@@ -206,60 +240,161 @@ for ix in range(n_times):
     eta_d2_num[ix] = d2_relsat_num[ix].pos[2]
     eta_d1_sol[ix] = d1_relsat_sol[ix].pos[2]
     eta_d2_sol[ix] = d2_relsat_sol[ix].pos[2]
+    eta_d1_bad[ix] = d1_relsat_bad[ix].pos[2]
+    eta_d2_bad[ix] = d2_relsat_bad[ix].pos[2]
 
 # ---------------------------------------------------------------------- #
 
 #Plot separation along the rho direction
 plt.figure(1)
 plt.clf()
-#plt.plot(times,rho_d1_eci,"b--",label="Deputy 1, ECI")
-#plt.plot(times,rho_d2_eci,"r--",label="Deputy 2, ECI")
-#plt.plot(times,rho_d1_num,"b:",label="Deputy 1, Numerical")
-#plt.plot(times,rho_d2_num,"r:",label="Deputy 2, Numerical")
+plt.subplot(3,3,1)
 plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
 plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
-#plt.plot(times,rho_d1_sol-rho_d1_num,"c:",label="Deputy 1, Num Residuals")
-#plt.plot(times,rho_d2_sol-rho_d2_num,"m:",label="Deputy 2, Num Residuals")
-#plt.plot(times,rho_d1_sol-rho_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-#plt.plot(times,rho_d2_sol-rho_d2_eci,"m--",label="Deputy 2, ECI Residuals")
-plt.xlabel("Times(s)")
+plt.plot(times,rho_d1_bad,"b--",label="Deputy 1, Old")
+plt.plot(times,rho_d2_bad,"r--",label="Deputy 2, Old")
+plt.plot(times,rho_d1_sol-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Rho Separation(m)")
-plt.title('Rho Separations against time due to perturbations')
+plt.title("Old Integration")
 plt.legend()
 
-#Plot separation along the xi direction
-plt.figure(2)
-plt.clf()
-plt.plot(times,xi_d1_eci,"b--",label="Deputy 1, ECI")
-plt.plot(times,xi_d2_eci,"r--",label="Deputy 2, ECI")
-plt.plot(times,xi_d1_num,"b:",label="Deputy 1, Numerical")
-plt.plot(times,xi_d2_num,"r:",label="Deputy 2, Numerical")
+plt.subplot(3,3,2)
+plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,rho_d1_num,"b--",label="Deputy 1, Num")
+plt.plot(times,rho_d2_num,"r--",label="Deputy 2, Num")
+plt.plot(times,rho_d1_sol-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.title("Numerical Schweighart")
+plt.legend()
+
+plt.subplot(3,3,3)
+plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,rho_d1_eci,"b--",label="Deputy 1, ECI")
+plt.plot(times,rho_d2_eci,"r--",label="Deputy 2, ECI")
+plt.plot(times,rho_d1_sol-rho_d1_eci,"c--",label="Deputy 1, ECI Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.title("ECI Integration")
+plt.legend()
+
+plt.subplot(3,3,4)
 plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
 plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
-plt.plot(times,xi_d1_sol-xi_d1_num,"c:",label="Deputy 1, Num Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_num,"m:",label="Deputy 2, Num Residuals")
-plt.plot(times,xi_d1_sol-xi_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_eci,"m--",label="Deputy 2, ECI Residuals")
-plt.xlabel("Times(s)")
+plt.plot(times,xi_d1_bad,"b--",label="Deputy 1, Old")
+plt.plot(times,xi_d2_bad,"r--",label="Deputy 2, Old")
+plt.plot(times,xi_d1_sol-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Xi Separation(m)")
-plt.title('Xi Separations against time due to perturbations')
 plt.legend()
 
-#Plot separation along the eta direction
-plt.figure(3)
-plt.clf()
-plt.plot(times,eta_d1_eci,"b--",label="Deputy 1, ECI")
-plt.plot(times,eta_d2_eci,"r--",label="Deputy 2, ECI")
-plt.plot(times,eta_d1_num,"b:",label="Deputy 1, Numerical")
-plt.plot(times,eta_d2_num,"r:",label="Deputy 2, Numerical")
+plt.subplot(3,3,5)
+plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,xi_d1_num,"b--",label="Deputy 1, Num")
+plt.plot(times,xi_d2_num,"r--",label="Deputy 2, Num")
+plt.plot(times,xi_d1_sol-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.legend()
+
+plt.subplot(3,3,6)
+plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,xi_d1_eci,"b--",label="Deputy 1, ECI")
+plt.plot(times,xi_d2_eci,"r--",label="Deputy 2, ECI")
+plt.plot(times,xi_d1_sol-xi_d1_eci,"c--",label="Deputy 1, ECI Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.legend()
+
+plt.subplot(3,3,7)
 plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
 plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
-plt.plot(times,eta_d1_sol-eta_d1_num,"c:",label="Deputy 1, Num Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_num,"m:",label="Deputy 2, Num Residuals")
+plt.plot(times,eta_d1_bad,"b--",label="Deputy 1, Old")
+plt.plot(times,eta_d2_bad,"r--",label="Deputy 2, Old")
+plt.plot(times,eta_d1_sol-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,eta_d2_sol-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.ylabel("Eta Separation(m)")
+plt.xlabel("Times(s)")
+plt.legend()
+
+plt.subplot(3,3,8)
+plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,eta_d1_num,"b--",label="Deputy 1, Num")
+plt.plot(times,eta_d2_num,"r--",label="Deputy 2, Num")
+plt.plot(times,eta_d1_sol-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,eta_d2_sol-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.xlabel("Times(s)")
+plt.legend()
+
+plt.subplot(3,3,9)
+plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
+plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,eta_d1_eci,"b--",label="Deputy 1, ECI")
+plt.plot(times,eta_d2_eci,"r--",label="Deputy 2, ECI")
 plt.plot(times,eta_d1_sol-eta_d1_eci,"c--",label="Deputy 1, ECI Residuals")
 plt.plot(times,eta_d2_sol-eta_d2_eci,"m--",label="Deputy 2, ECI Residuals")
 plt.xlabel("Times(s)")
-plt.ylabel("Eta Separation(m)")
-plt.title('Eta Separations against time due to perturbations')
 plt.legend()
 
+plt.suptitle('Separations against time due to perturbations')
+
+
+plt.figure(2)
+plt.clf()
+plt.subplot(3,3,1)
+plt.plot(times,rho_d1_sol-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.ylabel("Rho Separation(m)")
+plt.title("Old Integration")
+plt.legend()
+
+plt.subplot(3,3,2)
+plt.plot(times,rho_d1_sol-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.title("Numerical Schweighart")
+plt.legend()
+
+plt.subplot(3,3,3)
+plt.plot(times,rho_d1_sol-rho_d1_eci,"c--",label="Deputy 1, ECI Residuals")
+plt.plot(times,rho_d2_sol-rho_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.title("ECI Integration")
+plt.legend()
+
+plt.subplot(3,3,4)
+plt.plot(times,xi_d1_sol-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.ylabel("Xi Separation(m)")
+plt.legend()
+
+plt.subplot(3,3,5)
+plt.plot(times,xi_d1_sol-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.legend()
+
+plt.subplot(3,3,6)
+plt.plot(times,xi_d1_sol-xi_d1_eci,"c--",label="Deputy 1, ECI Residuals")
+plt.plot(times,xi_d2_sol-xi_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.legend()
+
+plt.subplot(3,3,7)
+plt.plot(times,eta_d1_sol-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,eta_d2_sol-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.ylabel("Eta Separation(m)")
+plt.xlabel("Times(s)")
+plt.legend()
+
+plt.subplot(3,3,8)
+plt.plot(times,eta_d1_sol-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,eta_d2_sol-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.xlabel("Times(s)")
+plt.legend()
+
+plt.subplot(3,3,9)
+plt.plot(times,eta_d1_sol-eta_d1_eci,"c--",label="Deputy 1, ECI Residuals")
+plt.plot(times,eta_d2_sol-eta_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.xlabel("Times(s)")
+plt.legend()
+
+plt.suptitle('Residual Separations against time due to perturbations')
