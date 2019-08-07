@@ -43,18 +43,18 @@ n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
 #Initial reference orbit state
-pos_ref0,vel_ref0,LVLH0,Base0 = ref.ref_orbit_pos(0)
+#pos_ref0,vel_ref0,LVLH0,Base0 = ref.ref_orbit_pos(0)
 
 #Initial states of the satellites
-chief_0 = orbits.init_chief(ref,0)
-deputy1_0 = orbits.init_deputy(ref,0,1)
-deputy2_0 = orbits.init_deputy(ref,0,2)
+chief_0 = orbits.init_chief(ref)
+deputy1_0 = orbits.init_deputy(ref,1)
+deputy2_0 = orbits.init_deputy(ref,2)
 
 #------------------------------------------------------------------------------------------
 ### SOLVED #####
-chief_p_states_sol = propagate_spacecraft(0,chief_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state,times,ref).transpose()
-deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state,times,ref).transpose()
-deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state,times,ref).transpose()
+chief_p_states_sol = propagate_spacecraft(0,chief_0.to_LVLH().to_Curvy().state,times,ref).transpose()
+deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_LVLH().to_Curvy().state,times,ref).transpose()
+deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_LVLH().to_Curvy().state,times,ref).transpose()
 
 d1_rel_sol = deputy1_p_states_sol - chief_p_states_sol
 d2_rel_sol = deputy2_p_states_sol - chief_p_states_sol
@@ -62,7 +62,7 @@ d2_rel_sol = deputy2_p_states_sol - chief_p_states_sol
 #------------------------------------------------------------------------------------------
 
 #Tolerance and steps required for the integrator
-rtol = 1e-9
+rtol = 1e-12
 atol = 1e-18
 step = 10
 
@@ -115,21 +115,21 @@ d2_rel_eci = deputy2_p_states_eci - chief_p_states_eci
 #------------------------------------------------------------------------------------------
 
 #Equations of motion
-J2_func0 = J2_pet(chief_0.to_LVLH(pos_ref0,vel_ref0,LVLH0),ref)
-J2_func1 = J2_pet(deputy1_0.to_LVLH(pos_ref0,vel_ref0,LVLH0),ref)
-J2_func2 = J2_pet(deputy2_0.to_LVLH(pos_ref0,vel_ref0,LVLH0),ref)
+J2_func0 = J2_pet(chief_0.to_LVLH().to_Curvy(),ref)
+J2_func1 = J2_pet(deputy1_0.to_LVLH().to_Curvy(),ref)
+J2_func2 = J2_pet(deputy2_0.to_LVLH().to_Curvy(),ref)
 
-X2_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X2_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.to_LVLH().to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X2_d0.success:
     raise Exception("Integration failed!!!!")
 
-X2_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X2_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.to_LVLH().to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X2_d1.success:
     raise Exception("Integration failed!!!!")
 
-X2_d2 = solve_ivp(J2_func2, [times[0],times[-1]], deputy2_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X2_d2 = solve_ivp(J2_func2, [times[0],times[-1]], deputy2_0.to_LVLH().to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X2_d2.success:
     raise Exception("Integration failed!!!!")
 
@@ -144,12 +144,12 @@ d2_rel_num = deputy2_p_states_num - chief_p_states_num
 #------------------------------------------------------------------------------------------
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X3_d1.success:
     raise Exception("Integration failed!!!!")
 
-X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.to_LVLH(pos_ref0,vel_ref0,LVLH0).state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X3_d2.success:
     raise Exception("Integration failed!!!!")
 
@@ -174,15 +174,15 @@ d2_relsat_sol = []
 print("Integration Done")
 for i in range(len(times)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    c_eci_lvlh.append(orbits.ECI_Sat(chief_p_states_eci[i,:3],chief_p_states_eci[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
-    d1_eci_lvlh.append(orbits.ECI_Sat(deputy1_p_states_eci[i,:3],deputy1_p_states_eci[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
-    d2_eci_lvlh.append(orbits.ECI_Sat(deputy2_p_states_eci[i,:3],deputy2_p_states_eci[i,3:],times[i],ref).to_LVLH(pos_ref,vel_ref,LVLH))
-    d1_relsat_num.append(orbits.LVLH_Sat(d1_rel_num[i,:3],d1_rel_num[i,3:],times[i],ref))
-    d2_relsat_num.append(orbits.LVLH_Sat(d2_rel_num[i,:3],d2_rel_num[i,3:],times[i],ref))
-    d1_relsat_sol.append(orbits.LVLH_Sat(d1_rel_sol[i,:3],d1_rel_sol[i,3:],times[i],ref))
-    d2_relsat_sol.append(orbits.LVLH_Sat(d2_rel_sol[i,:3],d2_rel_sol[i,3:],times[i],ref))
-    d1_relsat_bad.append(orbits.LVLH_Sat(d1_rel_bad[i,:3],d1_rel_bad[i,3:],times[i],ref))
-    d2_relsat_bad.append(orbits.LVLH_Sat(d2_rel_bad[i,:3],d2_rel_bad[i,3:],times[i],ref))
+    c_eci_lvlh.append(orbits.ECI_Sat(chief_p_states_eci[i,:3],chief_p_states_eci[i,3:],times[i],ref).to_LVLH().to_Curvy())
+    d1_eci_lvlh.append(orbits.ECI_Sat(deputy1_p_states_eci[i,:3],deputy1_p_states_eci[i,3:],times[i],ref).to_LVLH().to_Curvy())
+    d2_eci_lvlh.append(orbits.ECI_Sat(deputy2_p_states_eci[i,:3],deputy2_p_states_eci[i,3:],times[i],ref).to_LVLH().to_Curvy())
+    d1_relsat_num.append(orbits.Curvy_Sat(d1_rel_num[i,:3],d1_rel_num[i,3:],times[i],ref))
+    d2_relsat_num.append(orbits.Curvy_Sat(d2_rel_num[i,:3],d2_rel_num[i,3:],times[i],ref))
+    d1_relsat_sol.append(orbits.Curvy_Sat(d1_rel_sol[i,:3],d1_rel_sol[i,3:],times[i],ref))
+    d2_relsat_sol.append(orbits.Curvy_Sat(d2_rel_sol[i,:3],d2_rel_sol[i,3:],times[i],ref))
+    d1_relsat_bad.append(orbits.LVLH_Sat(d1_rel_bad[i,:3],d1_rel_bad[i,3:],times[i],ref).to_Curvy())
+    d2_relsat_bad.append(orbits.LVLH_Sat(d2_rel_bad[i,:3],d2_rel_bad[i,3:],times[i],ref).to_Curvy())
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #

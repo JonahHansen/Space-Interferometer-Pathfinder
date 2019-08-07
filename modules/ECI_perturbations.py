@@ -42,8 +42,8 @@ def dX_dt(t, state, ref):
 
     #Calculate Chief and deputy states in ECI frame at the time t
 
-    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t,False)
-    pos_dep = orbits.LVLH_Sat(r,v,t,ref).to_ECI(pos_ref,vel_ref,LVLH,False).pos
+    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t,True)
+    pos_dep = orbits.LVLH_Sat(r,v,t,ref).to_ECI(True).pos
 
     """ J2 Acceleration """
     J2_p = J2_pert(pos_dep,pos_ref,ref.R_orb) #Calculate J2 in ECI frame
