@@ -77,6 +77,8 @@ def propagate_spacecraft(t0,state0,t,ref):
     la2 = -al**2*d*(a-3*k)
     la3 = k*(be*(3*d-4*g+4*(b*x0+a*dy0))+d*(-3*a**2+3*b+4*a*k)*np.cos(2*k*t0))
     la4 = -2*al*k*(2*be*dx0+d*(a-3*k)*np.sin(2*k*t0))
+    
+    #print(la1,la2,la3,la4)
 
     ka1 = (2*k*(be*k*(-4*a**2*y0-a*(3*d-4*g+4*b*x0)*t0+4*a*dx0+4*b*(y0-dy0*t0)) +
           b*d*be*t0*np.cos(2*k*t0)) - be*d*(b-3*a*k)*np.sin(2*k*t0))

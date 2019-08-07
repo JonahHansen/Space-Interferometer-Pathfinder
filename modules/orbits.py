@@ -279,12 +279,13 @@ class LVLH_Sat(Satellite):
         dx,dy,dz = self.vel
         R0 = self.reference.R_orb
         R0x = R0 + x
-        Rd = np.linalg.norm(np.array([R0,0,0]) + self.pos)
+        new_r = np.array([R0,0,0]) + self.pos
+        Rd = np.linalg.norm(new_r)
         phi = np.arctan(y/R0x)
         theta = np.arcsin(z/Rd)
-        dRd = np.linalg.norm(self.vel)
+        dRd = np.dot(new_r,self.vel)/Rd
         dphi = (dy*R0x - y*dx)/(y**2+R0x**2)
-        dtheta = (dz*Rd-z*dRd)/Rd**2*np.sqrt(1+z**2/(y**2+R0x**2))
+        dtheta = (dz*Rd-z*dRd)/np.sqrt(Rd**4-z**2*Rd**2)
 
         pos = np.array([Rd-R0,R0*phi,R0*theta])
         vel = np.array([dRd,R0*dphi,R0*dtheta])
@@ -330,7 +331,6 @@ def init_deputy(reference,n,precession=True):
 
     #Reference orbit
     pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(0,precession)
-
     if precession:
         #New coord system:
         z_hat = np.cross(pos_ref,vel_ref)/np.linalg.norm(np.cross(pos_ref,vel_ref)) #In direction of angular momentum
@@ -357,6 +357,8 @@ def init_deputy(reference,n,precession=True):
 
         psi = reference.delta_r_max*np.cos(theta)/reference.R_orb #Angle between chief and deputy WRT Earth
         omega = -np.arctan(reference.delta_r_max/reference.R_orb*np.sin(theta)) #Amount of rotation
+
+        print(psi,omega,vel_ref)
 
         if n == 1:
             #Define deputy orbital planes in terms of a rotation of the chief satellite
@@ -386,7 +388,6 @@ def init_deputy(reference,n,precession=True):
 
     temp_sat = ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference)
     #temp_sat.vel[0] = temp_sat.pos[1]*ref.ang_vel*(1-ref.Sch_s)/(2*np.sqrt(1+ref.Sch_s))
-
     #temp_sat.vel[1] = -2*temp_sat.pos[0]*ref.ang_vel*np.sqrt(1+ref.Sch_s) + 3*J2*R_e**2*ref.ang_vel**2/(4*ref.Sch_k*ref.R_orb)*np.sin(ref.inc_0)**2
 
     return temp_sat
