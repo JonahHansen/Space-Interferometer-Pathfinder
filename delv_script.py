@@ -27,12 +27,50 @@ dec = np.radians(0)#-40
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
+
+def del_v_func(c,d1,d2,t,pt,ref):
+    sat0 = orbits.Curvy_Sat(c[:3],c[3:],t,ref).to_Baseline()
+    sat1 = orbits.Curvy_Sat(d1[:3],d1[3:],t,ref).to_Baseline()
+    sat2 = orbits.Curvy_Sat(d2[:3],d2[3:],t,ref).to_Baseline()
+    
+    dsat1 = sat1.state-sat0.state
+    dsat2 = sat2.state-sat0.state
+    
+    delvs1 = np.zeros(3)
+    delvs2 = np.zeros(3)
+    delvb = np.zeros(3)
+    
+    delvs1[2] = -dsat1[2]/(t-pt)
+    delvs2[2] = -dsat2[2]/(t-pt)
+    
+    #Calculate position vector to the midpoint of the two deputies
+    del_b = dsat1[0:3] - dsat2[0:3] #Separation vector
+    del_b_half = 0.5*del_b #Midpoint
+    m0 = dsat1[0:3] + del_b_half #Midpoint from centre
+    m0[2] = 0
+    
+    delvb = m0/(t-pt)
+    delvb = np.array([0,0,0])
+    
+    delv = np.array([np.linalg.norm(delvs1),np.linalg.norm(delvs2),np.linalg.norm(delvb)])
+    
+    sat0.vel += delvb
+    sat1.vel += delvs1
+    sat2.vel += delvs2
+    
+    new_sat0 = sat0.to_Curvy().state
+    new_sat1 = sat1.to_Curvy().state
+    new_sat2 = sat2.to_Curvy().state
+    
+    return delv,new_sat0,new_sat1,new_sat2
+    
+
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1
+n_orbits = 0.5
 #Number of phases in each orbit
 n_phases = 500
 #Total evaluation points
@@ -44,49 +82,42 @@ chief_0 = orbits.init_chief(ref).to_LVLH().state
 deputy1_0 = orbits.init_deputy(ref,1).to_LVLH().state
 deputy2_0 = orbits.init_deputy(ref,2).to_LVLH().state
 
-t_burn =
-t0 = 0
+chief_states = np.array([chief_0])
+deputy1_states = np.array([deputy1_0])
+deputy2_states = np.array([deputy2_0])
+delv_bank = []
 
+t_burn = 1
+t0 = 0.1
+t_bank = np.array([0])
 
-
-while t < times[-1]:
+while t0 < times[-1]:
     burn_pt = t0 + t_burn
-    ts = np.linspace(t0,burn_pt,100)
-    chief_states.append(propagate_spacecraft(t0,chief_0,ts,ref).transpose())
-    deputy1_states.append(propagate_spacecraft(t0,deputy1_0,ts,ref).transpose())
-    deputy2_states.append(propagate_spacecraft(t0,deputy2_0,ts,ref).transpose())
+    ts = np.linspace(t0,burn_pt,t_burn) #Every 0.1s
+    t_bank = np.append(t_bank,ts)
+    chief_states = np.append(chief_states,propagate_spacecraft(t0,chief_0,ts,ref).transpose(),axis=0)
+    deputy1_states = np.append(deputy1_states,propagate_spacecraft(t0,deputy1_0,ts,ref).transpose(),axis=0)
+    deputy2_states = np.append(deputy2_states,propagate_spacecraft(t0,deputy2_0,ts,ref).transpose(),axis=0)
     
-    new vels function
+    delv,new_c,new_d1,new_d2 = del_v_func(chief_states[-1],deputy1_states[-1],deputy2_states[-1],burn_pt,t0,ref)
     
-    chief_0 = chief_states[-1] + delv
-    chief_0 = chief_states[-1] + delv
-    chief_0 = chief_states[-1] + delv
+    delv_bank.append(delv)
+    chief_0 = new_c
+    deputy1_0 = new_d1
+    deputy2_0 = new_d2
     t0 = burn_pt
-    
 
+d1_rel_states = deputy1_states - np.array(chief_states)
+d2_rel_states = np.array(deputy2_states) - np.array(chief_states)
 
-
-
-
-
-
-
-chief_p_states = propagate_spacecraft(0,chief_0.state,times,ref).transpose()
-deputy1_p_states = propagate_spacecraft(0,deputy1_0.state,times,ref).transpose()
-deputy2_p_states = propagate_spacecraft(0,deputy2_0.state,times,ref).transpose()
-
-d1_rel_states = deputy1_p_states - chief_p_states
-d2_rel_states = deputy2_p_states - chief_p_states
-
-ECI_rc = np.zeros((len(times),3))
 rel_p_dep1 = []
 rel_p_dep2 = []
 
 print("Integration Done")
 for i in range(len(times)):
-    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t_bank[i],True)
+    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],t_bank[i],ref).to_Baseline())
+    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],t_bank[i],ref).to_Baseline())
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -117,95 +148,11 @@ for ix in range(n_times):
     #Sum of the separation along the star direction and the baseline direction
     #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
-#Numerical differentiation twice - position -> acceleration
-def acc(pos,times):
-    vel = np.gradient(pos, times, edge_order=2)
-    acc = np.gradient(vel, times, edge_order=2)
-    return acc
-
-#Accelerations - numerically integrate the position/time arrays found above
-#Returns the absolute value of the acceleration in a given direction
-acc_s1 = np.abs(acc(s_hat_drd1,times))
-acc_s2 = np.abs(acc(s_hat_drd2,times))
-acc_delta_b = np.abs(acc(baseline_sep,times))
-acc_delta_s = np.abs(acc(s_hat_sep,times))
-acc_total = np.abs(acc(total_sep,times))
-
-#Maximum accelerations
-max_acc_s1 = max(acc_s1)
-max_acc_s2 = max(acc_s2)
-max_acc_delta_b = max(acc_delta_b)
-max_acc_delta_s = max(acc_delta_s)
-max_acc_total = max(acc_total)
-
-#Delta v (Integral of the absolute value of the acceleration)
-delta_v_s1 = np.trapz(acc_s1)
-delta_v_s2 = np.trapz(acc_s2)
-delta_v_delta_b = np.trapz(acc_delta_b)
-delta_v_delta_s = np.trapz(acc_delta_s)
-delta_v_total = np.trapz(acc_total)
-
-#Result array
-#result[0] is the max a between deputy 1 and chief in the star direction
-#result[1] is the max a between deputy 2 and chief in the star direction
-#result[2] is the max a between the two deputies in the star direction (ie the difference between 0 and 1)
-#result[3] is the max a in the baseline direction
-#result[4] is the max total a (sum of 2 and 3; the total acceleration that needs to be corrected for)
-#result[5-9] are the same, but for delta v
-
-result = np.array([max_acc_s1,max_acc_s2,max_acc_delta_s,
-                   max_acc_delta_b,max_acc_total,delta_v_s1,delta_v_s2,
-                   delta_v_delta_s,delta_v_delta_b,delta_v_total])
+print(np.sum(np.array(delv_bank),axis=0))
+print(np.max(np.abs(s_hat_sep)))
 
 # ---------------------------------------------------------------------- #
 ### PLOTTING STUFF ###
-
-### Functions to set 3D axis aspect ratio as equal
-def set_axes_radius(ax, origin, radius):
-    ax.set_xlim3d([origin[0] - radius, origin[0] + radius])
-    ax.set_ylim3d([origin[1] - radius, origin[1] + radius])
-    ax.set_zlim3d([origin[2] - radius, origin[2] + radius])
-
-def set_axes_equal(ax):
-    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
-    cubes as cubes, etc..  This is one possible solution to Matplotlib's
-    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
-
-    Input
-      ax: a matplotlib axis, e.g., as output from plt.gca().
-    '''
-
-    limits = np.array([ax.get_xlim3d(),ax.get_ylim3d(),ax.get_zlim3d()])
-    origin = np.mean(limits, axis=1)
-    radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
-    set_axes_radius(ax, origin, radius)
-
-"""
-#Plot ECI Orbit
-plt.figure(1)
-plt.clf()
-ax1 = plt.axes(projection='3d')
-ax1.set_aspect('equal')
-ax1.plot3D(ECI_rc[:,0],ECI_rc[:,1],ECI_rc[:,2],'b-')
-ax1.set_xlabel('x (m)')
-ax1.set_ylabel('y (m)')
-ax1.set_zlabel('z (m)')
-ax1.set_title('Orbit in ECI frame')
-set_axes_equal(ax1)
-
-#Plot perturbed LVLH orbits
-plt.figure(2)
-plt.clf()
-ax2 = plt.axes(projection='3d')
-ax2.set_aspect('equal')
-ax2.plot3D(pert_LVLH_drd1[:,0],pert_LVLH_drd1[:,1],pert_LVLH_drd1[:,2],'b--')
-ax2.plot3D(pert_LVLH_drd2[:,0],pert_LVLH_drd2[:,1],pert_LVLH_drd2[:,2],'c--')
-ax2.set_xlabel('r (m)')
-ax2.set_ylabel('v (m)')
-ax2.set_zlabel('h (m)')
-ax2.set_title('Orbit in LVLH frame')
-set_axes_equal(ax2)
-"""
 
 #Plot separation along the star direction
 plt.figure(3)

@@ -229,6 +229,13 @@ class ECI_Sat(Satellite):
         vel = np.dot(self.reference.UVmat,self.vel)
         return UV_Sat(pos,vel,self.time,self.reference)
 
+    def to_Baseline(self):
+        return self.to_LVLH().to_Baseline()
+        
+    def to_Curvy(self):
+        return self.to_LVLH().to_Curvy()
+
+
 
 """ Satellite in UV frame """
 class UV_Sat(Satellite):
@@ -306,6 +313,13 @@ class Baseline_Sat(Satellite):
         pos = np.dot(mat,self.pos)
         vel = np.dot(mat,self.vel)
         return LVLH_Sat(pos,vel,self.time,self.reference)
+        
+    def to_Curvy(self):
+        return self.to_LVLH().to_Curvy()
+        
+    def to_ECI(self):
+        return self.to_LVLH().to_ECI()
+        
 
 class Curvy_Sat(Satellite):
     def __init__(self,pos,vel,time,reference):
@@ -314,11 +328,35 @@ class Curvy_Sat(Satellite):
     """ Change to LVLH frame. Requires the LVLH and Baseline matrox of the """
     """ reference orbit at the same time. Can also change to require less Input """
     """ at the sake of speed """
-    def to_LVLH(self,LVLH,Base):
-        mat = np.dot(LVLH,Base.transpose())
-        pos = np.dot(mat,self.pos)
-        vel = np.dot(mat,self.vel)
-        return LVLH_Sat(pos,vel,self.time,self.reference)
+    def to_LVLH(self):
+        
+        xc,yc,zc = self.pos
+        dxc,dyc,dzc = self.vel
+        R0 = self.reference.R_orb
+        
+        Rd = R0 + xc
+        phi = yc/R0
+        theta = zc/R0
+        
+        x = Rd*np.cos(phi)*np.cos(theta) - R0
+        y = Rd*np.sin(phi)*np.cos(theta)
+        z = Rd*np.sin(theta)
+        
+        dphi = dyc/R0
+        dtheta = dzc/R0
+        
+        dx = dxc*np.cos(phi)*np.cos(theta) - Rd*np.sin(phi)*np.cos(theta)*dphi - Rd*np.cos(phi)*np.sin(theta)*dtheta
+        dy = dxc*np.sin(phi)*np.cos(theta) + Rd*np.cos(phi)*np.cos(theta)*dphi - Rd*np.sin(phi)*np.sin(theta)*dtheta
+        dz = dxc*np.sin(theta) + Rd*np.cos(theta)*dtheta
+        return LVLH_Sat(np.array([x,y,z]),np.array([dx,dy,dz]),self.time,self.reference)
+
+    def to_Baseline(self):
+        return self.to_LVLH().to_Baseline()
+        
+    def to_ECI(self):
+        return self.to_LVLH().to_ECI()
+
+
 
 """ Initialise the chief satellite at t = 0 from the reference orbit """
 def init_chief(reference,precession=True):
