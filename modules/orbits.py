@@ -7,7 +7,6 @@ import modules.quaternions as qt
 """
 Reference Orbit class: Use this to first calculate the orbit from scratch.
 Initially in ECI frame
-
 Parameters:
 n_p = number of phases
 R_orb = radius of orbit
@@ -362,6 +361,16 @@ class Curvy_Sat(Satellite):
 def init_chief(reference,precession=True):
     pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(0,precession)
     return ECI_Sat(pos_ref,vel_ref,0,reference)
+    
+    #ref = reference
+    #J2 = 0.00108263
+    #R_e = const.R_earth.value
+
+    #temp_sat = ECI_Sat(pos_ref,vel_ref,0,ref).to_Curvy()
+    #temp_sat.vel[0] = temp_sat.pos[1]*ref.ang_vel*(1-ref.Sch_s)/(2*np.sqrt(1+ref.Sch_s))
+    #temp_sat.vel[1] = -2*temp_sat.pos[0]*ref.ang_vel*np.sqrt(1+ref.Sch_s) + 3*J2*R_e**2*ref.ang_vel**2/(4*ref.Sch_k*ref.R_orb)*np.sin(ref.inc_0)**2
+
+    #return temp_sat.to_ECI()
 
 """ Initialise a deputy at t=0 from the reference orbit """
 """ the n variable is for the number of the deputy (i.e 1 or 2) """
@@ -420,12 +429,15 @@ def init_deputy(reference,n,precession=True):
             q = reference.q2
         else:
             raise Exception("Bad Deputy number")
-    ref = reference
-    J2 = 0.00108263
-    R_e = const.R_earth.value
+    
+    return ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference)
+    
+    #ref = reference
+    #J2 = 0.00108263
+    #R_e = const.R_earth.value
 
-    temp_sat = ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference)
+    #temp_sat = ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference).to_Curvy()
     #temp_sat.vel[0] = temp_sat.pos[1]*ref.ang_vel*(1-ref.Sch_s)/(2*np.sqrt(1+ref.Sch_s))
     #temp_sat.vel[1] = -2*temp_sat.pos[0]*ref.ang_vel*np.sqrt(1+ref.Sch_s) + 3*J2*R_e**2*ref.ang_vel**2/(4*ref.Sch_k*ref.R_orb)*np.sin(ref.inc_0)**2
 
-    return temp_sat
+    #return temp_sat.to_ECI()
