@@ -42,11 +42,17 @@ def dX_dt(t, state, ref):
     dX1 = v[1]
     dX2 = v[2]
 
-
     #Calculate Chief and deputy states in ECI frame at the time t
 
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
-    n = np.linalg.norm(np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2) #Angular velocity
+    w = np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2
+    n = np.linalg.norm(w) #Angular velocity
+    
+    pos_ref2,vel_ref2,LVLH2,Base2 = ref.ref_orbit_pos(t-1)
+    w2 = np.cross(pos_ref2,vel_ref2)/np.linalg.norm(pos_ref2)**2
+    
+    dn = (w-w2)/1
+    print(np.cross(dn,r))
     #print(n-ref.ang_vel*ref.Sch_c)
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
 
@@ -71,11 +77,11 @@ def dX_dt(t, state, ref):
     #Position vector of deputy
     rd = np.array([ref.R_orb+r[0],r[1],r[2]])
     #Acceleration vector - analytical version (See Butcher 18)
-    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,r)) - const.GM_earth.value*r/np.linalg.norm(rd)**3  + LVLH_J2_p# + LVLH_solar_p + LVLH_drag_p
+    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,r)) - np.cross(dn,r) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + const.GM_earth.value*np.dot(LVLH,pos_ref)/ref.R_orb**3  + LVLH_J2_p# + LVLH_solar_p + LVLH_drag_p
     #LVLH_J2_p = 0
     #import pdb; pdb.set_trace()
     #Acceleration is the HCW Equations, plus the required perturbations
-    #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p2 + Gamma3
+    #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + Gamma3
 
     #Print kinetic energy while integrating
     #print(r[0] + v[0]/n)

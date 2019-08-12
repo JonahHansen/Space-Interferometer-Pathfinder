@@ -7,7 +7,7 @@ from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2_solved_clean import propagate_spacecraft
-from modules.Schweighart_J2 import J2_pet
+from modules.Schweighart_J2 import J2_pet2 as J2_pet
 from modules.ECI_perturbations_abs import dX_dt
 import sys
 
@@ -51,17 +51,18 @@ deputy1_0 = orbits.init_deputy(ref,1)
 deputy2_0 = orbits.init_deputy(ref,2)
 
 #------------------------------------------------------------------------------------------
-### SOLVED #####
+### Schweighart solved version (see 2002 paper) #####
 chief_p_states_sol = propagate_spacecraft(0,chief_0.to_Curvy().state,times,ref).transpose()
 deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose()
 deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose()
 
 #------------------------------------------------------------------------------------------
+### ECI version ###
 
 #Tolerance and steps required for the integrator
 rtol = 1e-12
 atol = 1e-18
-step = 10
+step = 1
 
 def dX_dt2(t,state,ref):
     [x,y,z] = state[:3] #Position
@@ -74,13 +75,15 @@ def dX_dt2(t,state,ref):
 
     J2 = 0.00108263 #J2 Parameter
 
+    r = np.sqrt(x**2+y**2+z**2)
+    #print(r-ref.R_orb)
     #Calculate J2 acceleration from the equation in ECI frame
-    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/ref.R_orb**5
-    J2_fac2 = 5*z**2/ref.R_orb**2
+    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/r**5
+    J2_fac2 = 5*z**2/r**2
     J2_p = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
 
-    r_hat = np.array([x,y,z])/np.linalg.norm(np.sqrt(x**2+y**2+z**2))
-    a = -const.GM_earth.value/ref.R_orb**2*r_hat + J2_p
+    r_hat = np.array([x,y,z])/r
+    a = -const.GM_earth.value/r**2*r_hat + J2_p
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]
@@ -106,7 +109,8 @@ chief_p_states_eci = X_d0.y.transpose()
 deputy1_p_states_eci = X_d1.y.transpose()
 deputy2_p_states_eci = X_d2.y.transpose()
 
-#------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
+### Mike's adapted version of Schweighart ###
 
 #Equations of motion
 J2_func0 = J2_pet(chief_0.to_LVLH().to_Curvy(),ref)
@@ -132,6 +136,11 @@ deputy1_p_states_num = X2_d1.y.transpose()
 deputy2_p_states_num = X2_d2.y.transpose()
 
 #------------------------------------------------------------------------------------------
+### Old version (LVLH Matrix) ###
+
+rtol = 1e-6
+atol = 1e-9
+step = 10000
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
 X3_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
@@ -180,9 +189,9 @@ for i in range(len(times)):
     c_sol.append(orbits.Curvy_Sat(chief_p_states_sol[i,:3],chief_p_states_sol[i,3:],times[i],ref).to_LVLH())
     d1_sol.append(orbits.Curvy_Sat(deputy1_p_states_sol[i,:3],deputy1_p_states_sol[i,3:],times[i],ref).to_LVLH())
     d2_sol.append(orbits.Curvy_Sat(deputy2_p_states_sol[i,:3],deputy2_p_states_sol[i,3:],times[i],ref).to_LVLH())
-    c_bad.append(orbits.Curvy_Sat(chief_p_states_bad[i,:3],chief_p_states_bad[i,3:],times[i],ref).to_LVLH())
-    d1_bad.append(orbits.Curvy_Sat(deputy1_p_states_bad[i,:3],deputy1_p_states_bad[i,3:],times[i],ref).to_LVLH())
-    d2_bad.append(orbits.Curvy_Sat(deputy2_p_states_bad[i,:3],deputy2_p_states_bad[i,3:],times[i],ref).to_LVLH())
+    c_bad.append(orbits.LVLH_Sat(chief_p_states_bad[i,:3],chief_p_states_bad[i,3:],times[i],ref))
+    d1_bad.append(orbits.LVLH_Sat(deputy1_p_states_bad[i,:3],deputy1_p_states_bad[i,3:],times[i],ref))
+    d2_bad.append(orbits.LVLH_Sat(deputy2_p_states_bad[i,:3],deputy2_p_states_bad[i,3:],times[i],ref))
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -262,21 +271,21 @@ plt.legend()
 plt.subplot(3,3,2)
 plt.plot(times,rho_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,rho_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,rho_d1_num,"b--",label="Deputy 1, Num")
-plt.plot(times,rho_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
-plt.title("Numerical Schweighart")
+plt.plot(times,rho_d1_num,"b--",label="Deputy 1, Mike")
+plt.plot(times,rho_d2_num,"r--",label="Deputy 2, Mike")
+plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Mike Residuals")
+plt.title("Mike's Adapted Schweighart")
 plt.legend()
 
 plt.subplot(3,3,3)
 plt.plot(times,rho_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,rho_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,rho_d1_sol,"b--",label="Deputy 1, Solved")
-plt.plot(times,rho_d2_sol,"r--",label="Deputy 2, Solved")
-plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Sol Residuals")
-plt.title("ECI Integration")
+plt.plot(times,rho_d1_sol,"b--",label="Deputy 1, Schweighart")
+plt.plot(times,rho_d2_sol,"r--",label="Deputy 2, Schweighart")
+plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
+plt.title("Schweighart's version")
 plt.legend()
 
 plt.subplot(3,3,4)
@@ -292,19 +301,19 @@ plt.legend()
 plt.subplot(3,3,5)
 plt.plot(times,xi_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,xi_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,xi_d1_num,"b--",label="Deputy 1, Num")
-plt.plot(times,xi_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,xi_d1_num,"b--",label="Deputy 1, Mike")
+plt.plot(times,xi_d2_num,"r--",label="Deputy 2, Mike")
+plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Mike Residuals")
 plt.legend()
 
 plt.subplot(3,3,6)
 plt.plot(times,xi_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,xi_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,xi_d1_sol,"b--",label="Deputy 1, Solved")
-plt.plot(times,xi_d2_sol,"r--",label="Deputy 2, Solved")
-plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Sol Residuals")
+plt.plot(times,xi_d1_sol,"b--",label="Deputy 1, Schweighart")
+plt.plot(times,xi_d2_sol,"r--",label="Deputy 2, Schweighart")
+plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
 plt.legend()
 
 plt.subplot(3,3,7)
@@ -321,20 +330,20 @@ plt.legend()
 plt.subplot(3,3,8)
 plt.plot(times,eta_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,eta_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,eta_d1_num,"b--",label="Deputy 1, Num")
-plt.plot(times,eta_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,eta_d1_num,"b--",label="Deputy 1, Mike")
+plt.plot(times,eta_d2_num,"r--",label="Deputy 2, Mike")
+plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Mike Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,9)
 plt.plot(times,eta_d1_eci,"b-",label="Deputy 1, ECI")
 plt.plot(times,eta_d2_eci,"r-",label="Deputy 2, ECI")
-plt.plot(times,eta_d1_sol,"b--",label="Deputy 1, Solved")
-plt.plot(times,eta_d2_sol,"r--",label="Deputy 2, Solved")
-plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Sol Residuals")
+plt.plot(times,eta_d1_sol,"b--",label="Deputy 1, Schweighart")
+plt.plot(times,eta_d2_sol,"r--",label="Deputy 2, Schweighart")
+plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
@@ -351,15 +360,15 @@ plt.title("Old Integration")
 plt.legend()
 
 plt.subplot(3,3,2)
-plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
-plt.title("Numerical Schweighart")
+plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Mike Residuals")
+plt.title("Mike's Adapted Schweighart")
 plt.legend()
 
 plt.subplot(3,3,3)
-plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Sol Residuals")
-plt.title("ECI Integration")
+plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
+plt.title("Schweighart's version")
 plt.legend()
 
 plt.subplot(3,3,4)
@@ -369,13 +378,13 @@ plt.ylabel("Xi Separation(m)")
 plt.legend()
 
 plt.subplot(3,3,5)
-plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Mike Residuals")
 plt.legend()
 
 plt.subplot(3,3,6)
-plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Sol Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
 plt.legend()
 
 plt.subplot(3,3,7)
@@ -386,15 +395,16 @@ plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,8)
-plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Mike Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Mike Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,9)
-plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Sol Residuals")
-plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Sol Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Schweighart Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Schweighart Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.suptitle('Residual Separations against time due to perturbations')
+
