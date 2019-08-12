@@ -52,7 +52,7 @@ def dX_dt(t, state, ref):
     w2 = np.cross(pos_ref2,vel_ref2)/np.linalg.norm(pos_ref2)**2
     
     dn = (w-w2)/1
-    print(np.cross(dn,r))
+    
     #print(n-ref.ang_vel*ref.Sch_c)
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
 

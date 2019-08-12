@@ -147,9 +147,9 @@ def J2_pet(sat0,ref):
     return J2_pet_func
 
 #Equations of motion
-J2_func0 = J2_pet(chief_0.to_LVLH().to_Curvy(),ref)
-J2_func1 = J2_pet(deputy1_0.to_LVLH().to_Curvy(),ref)
-J2_func2 = J2_pet(deputy2_0.to_LVLH().to_Curvy(),ref)
+J2_func0 = J2_pet(chief_0.to_Curvy(),ref)
+J2_func1 = J2_pet(deputy1_0.to_Curvy(),ref)
+J2_func2 = J2_pet(deputy2_0.to_Curvy(),ref)
 
 X2_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
