@@ -2,8 +2,9 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.constants as const
-from modules.orbits import ECI_orbit, Chief, init_deputy
+import modules.orbits as orbits
 from modules.observability import check_obs
+import modules.quaternions as qt
 
 plt.ion()
 
@@ -25,17 +26,14 @@ J2 = 0.00108263
 Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(100) #90
-dec = np.radians(-40)#-40
+ra = np.radians(90) #90
+dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
-#List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
-p_list = [1] #Currently just using J2
-
 #Angle within anti-sun axis
-antisun_angle = np.radians(40)
+antisun_angle = np.radians(60)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -46,52 +44,56 @@ def i_from_precession(rho):
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
 inc_0 = i_from_precession(precess_rate)
-
+inc_0 = 39
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
-ECI = ECI_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
+ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
 
 #Number of orbits
-n_orbits = 365.25*24*60*60/ECI.period
+n_orbits = 1*24*60*60/ref.period
 #Number of phases in each orbit
-n_phases = ECI.period/60/2
+n_phases = ref.period/60/2
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
-times = np.linspace(0,ECI.period*n_orbits,n_times) #Create list of times
+times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
+
+n_ra = 180
+n_dec = 90
+
+ras = np.linspace(0,np.radians(360),n_ra)
+decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
+ra,dec = np.meshgrid(ras,decs)
+
+s_hats = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]).transpose()
 
 """Initialise arrays"""
-obs = np.zeros(n_times) #Observable? array
-u_v = np.zeros((n_times,2)) #uv point array
+obs = np.zeros((n_times,n_ra,n_dec)) #Observable? array
 
 time_for_observing = 45 #Min
-obs_num = int(n_phases/(ECI.period/60/time_for_observing))
+obs_num = int(n_phases/(ref.period/60/time_for_observing))
 
 i = 0
-j = 0
+j = np.zeros((n_ra,n_dec))
+
+""" Initialise a deputy at a given time t from the reference orbit """
+""" the n variable is for the number of the deputy (i.e 1 or 2) """
+
+
 for t in times:
-    ECI_rc = Chief(ECI,t,True) #Include precession
-    ECI_rd1 = init_deputy(ECI,ECI_rc,1) #Deputy 1 position
-    ECI_rd2 = init_deputy(ECI,ECI_rc,2) #Deputy 2 position
-    obs[i] = check_obs(t,ECI_rd1,ECI_rd2,antisun_angle,ECI) #Check if observable
-    if obs[i]:
-        j += 1
-        u_v[i] = ECI.uv(ECI_rd1,ECI_rd2) #Find uv point if observable
-    else:
-        if j < obs_num:
-            for k in range(j):
-                obs[i-1-k] = 0
-                u_v[i-1-k] = [0,0]
-        j = 0
+    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
+    obs[i] = check_obs(t,s_hats,pos_ref,antisun_angle,ref) #Check if observable
+    for ix in range(n_ra):
+        for iy in range(n_dec):
+            if obs[i,ix,iy]:
+                j[ix,iy] += 1
+            else:
+                if j[ix,iy] < obs_num:
+                    for k in range(int(j[ix,iy])):
+                        obs[i-1-k,ix,iy] = 0
+                j[ix,iy] = 0
     i += 1
     print(i*100/n_times)
 
-neg_uv = -u_v
-uv = np.concatenate((u_v,neg_uv))
-plt.clf()
-plt.scatter(uv[:,0],uv[:,1],s=1)
-plt.xlabel("u(m)")
-plt.ylabel("v(m)")
-plt.title("UV plane over a year, anti-sun angle = %s degrees"%round(np.degrees(antisun_angle)))
-
-percent = sum(obs)/len(obs)*100
-print("Percentage viewable over a year: %.3f"%percent)
+percent = np.sum(obs,axis=0)/len(obs)*100
+plt.imshow(percent.transpose())
+plt.show()

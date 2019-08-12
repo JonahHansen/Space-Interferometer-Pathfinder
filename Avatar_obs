@@ -1,0 +1,13 @@
+##### Select resources #####
+#PBS -N Observability
+#PBS -l select=1:ncpus=28
+#PBS -l place=scatter:excl
+##### Queue #####
+#PBS -q smallmem
+##### Mail Options #####
+#PBS -m abe
+##### Change to your working directory #####
+cd /avatar/jhansen/OrbitDynamics2
+##### Execute Program #####
+python multi_obs.py
+
