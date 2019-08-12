@@ -8,7 +8,7 @@ import modules.orbits as orbits
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2_solved_clean import propagate_spacecraft
 from modules.Schweighart_J2 import J2_pet
-from modules.ECI_perturbations import dX_dt
+from modules.ECI_perturbations_abs import dX_dt
 import sys
 
 plt.ion()
@@ -55,9 +55,6 @@ deputy2_0 = orbits.init_deputy(ref,2)
 chief_p_states_sol = propagate_spacecraft(0,chief_0.to_Curvy().state,times,ref).transpose()
 deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose()
 deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose()
-
-d1_rel_sol = deputy1_p_states_sol - chief_p_states_sol
-d2_rel_sol = deputy2_p_states_sol - chief_p_states_sol
 
 #------------------------------------------------------------------------------------------
 
@@ -109,7 +106,6 @@ chief_p_states_eci = X_d0.y.transpose()
 deputy1_p_states_eci = X_d1.y.transpose()
 deputy2_p_states_eci = X_d2.y.transpose()
 
-
 #------------------------------------------------------------------------------------------
 
 #Equations of motion
@@ -135,13 +131,14 @@ chief_p_states_num = X2_d0.y.transpose()
 deputy1_p_states_num = X2_d1.y.transpose()
 deputy2_p_states_num = X2_d2.y.transpose()
 
-d1_rel_num = deputy1_p_states_num - chief_p_states_num
-d2_rel_num = deputy2_p_states_num - chief_p_states_num
-
-
 #------------------------------------------------------------------------------------------
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X3_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X3_c.success:
+    raise Exception("Integration failed!!!!")
+
 X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X3_d1.success:
@@ -151,36 +148,41 @@ X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.t
 if not X3_d2.success:
     raise Exception("Integration failed!!!!")
 
-d1_rel_bad = X3_d1.y.transpose()
-d2_rel_bad = X3_d2.y.transpose()
-
-
+chief_p_states_bad = X3_c.y.transpose()
+deputy1_p_states_bad = X3_d1.y.transpose()
+deputy2_p_states_bad = X3_d2.y.transpose()
 
 #------------------------------------------------------------------------------------------
 
 ECI_rc = np.zeros((len(times),3))
-c_eci_lvlh = []
-d1_eci_lvlh = []
-d2_eci_lvlh = []
-d1_relsat_num = []
-d2_relsat_num = []
-d1_relsat_bad = []
-d2_relsat_bad = []
-d1_relsat_sol = []
-d2_relsat_sol = []
+c_eci = []
+d1_eci = []
+d2_eci = []
+c_num = []
+d1_num = []
+d2_num = []
+c_bad = []
+d1_bad = []
+d2_bad = []
+c_sol = []
+d1_sol = []
+d2_sol = []
 
 print("Integration Done")
 for i in range(len(times)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    c_eci_lvlh.append(orbits.ECI_Sat(chief_p_states_eci[i,:3],chief_p_states_eci[i,3:],times[i],ref).to_Curvy())
-    d1_eci_lvlh.append(orbits.ECI_Sat(deputy1_p_states_eci[i,:3],deputy1_p_states_eci[i,3:],times[i],ref).to_Curvy())
-    d2_eci_lvlh.append(orbits.ECI_Sat(deputy2_p_states_eci[i,:3],deputy2_p_states_eci[i,3:],times[i],ref).to_Curvy())
-    d1_relsat_num.append(orbits.Curvy_Sat(d1_rel_num[i,:3],d1_rel_num[i,3:],times[i],ref))
-    d2_relsat_num.append(orbits.Curvy_Sat(d2_rel_num[i,:3],d2_rel_num[i,3:],times[i],ref))
-    d1_relsat_sol.append(orbits.Curvy_Sat(d1_rel_sol[i,:3],d1_rel_sol[i,3:],times[i],ref))
-    d2_relsat_sol.append(orbits.Curvy_Sat(d2_rel_sol[i,:3],d2_rel_sol[i,3:],times[i],ref))
-    d1_relsat_bad.append(orbits.LVLH_Sat(d1_rel_bad[i,:3],d1_rel_bad[i,3:],times[i],ref).to_Curvy())
-    d2_relsat_bad.append(orbits.LVLH_Sat(d2_rel_bad[i,:3],d2_rel_bad[i,3:],times[i],ref).to_Curvy())
+    c_eci.append(orbits.ECI_Sat(chief_p_states_eci[i,:3],chief_p_states_eci[i,3:],times[i],ref).to_LVLH())
+    d1_eci.append(orbits.ECI_Sat(deputy1_p_states_eci[i,:3],deputy1_p_states_eci[i,3:],times[i],ref).to_LVLH())
+    d2_eci.append(orbits.ECI_Sat(deputy2_p_states_eci[i,:3],deputy2_p_states_eci[i,3:],times[i],ref).to_LVLH())
+    c_num.append(orbits.Curvy_Sat(chief_p_states_num[i,:3],chief_p_states_num[i,3:],times[i],ref).to_LVLH())
+    d1_num.append(orbits.Curvy_Sat(deputy1_p_states_num[i,:3],deputy1_p_states_num[i,3:],times[i],ref).to_LVLH())
+    d2_num.append(orbits.Curvy_Sat(deputy2_p_states_num[i,:3],deputy2_p_states_num[i,3:],times[i],ref).to_LVLH())
+    c_sol.append(orbits.Curvy_Sat(chief_p_states_sol[i,:3],chief_p_states_sol[i,3:],times[i],ref).to_LVLH())
+    d1_sol.append(orbits.Curvy_Sat(deputy1_p_states_sol[i,:3],deputy1_p_states_sol[i,3:],times[i],ref).to_LVLH())
+    d2_sol.append(orbits.Curvy_Sat(deputy2_p_states_sol[i,:3],deputy2_p_states_sol[i,3:],times[i],ref).to_LVLH())
+    c_bad.append(orbits.Curvy_Sat(chief_p_states_bad[i,:3],chief_p_states_bad[i,3:],times[i],ref).to_LVLH())
+    d1_bad.append(orbits.Curvy_Sat(deputy1_p_states_bad[i,:3],deputy1_p_states_bad[i,3:],times[i],ref).to_LVLH())
+    d2_bad.append(orbits.Curvy_Sat(deputy2_p_states_bad[i,:3],deputy2_p_states_bad[i,3:],times[i],ref).to_LVLH())
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -212,34 +214,34 @@ eta_d2_bad = np.zeros(n_times)
 
 for ix in range(n_times):
     #Component of perturbed orbit in rho direction
-    rho_d1_eci[ix] = d1_eci_lvlh[ix].pos[0] - c_eci_lvlh[ix].pos[0]
-    rho_d2_eci[ix] = d2_eci_lvlh[ix].pos[0] - c_eci_lvlh[ix].pos[0]
-    rho_d1_num[ix] = d1_relsat_num[ix].pos[0]
-    rho_d2_num[ix] = d2_relsat_num[ix].pos[0]
-    rho_d1_sol[ix] = d1_relsat_sol[ix].pos[0]
-    rho_d2_sol[ix] = d2_relsat_sol[ix].pos[0]
-    rho_d1_bad[ix] = d1_relsat_bad[ix].pos[0]
-    rho_d2_bad[ix] = d2_relsat_bad[ix].pos[0]
+    rho_d1_eci[ix] = d1_eci[ix].pos[0] - c_eci[ix].pos[0]
+    rho_d2_eci[ix] = d2_eci[ix].pos[0] - c_eci[ix].pos[0]
+    rho_d1_num[ix] = d1_num[ix].pos[0] - c_num[ix].pos[0]
+    rho_d2_num[ix] = d2_num[ix].pos[0] - c_num[ix].pos[0]
+    rho_d1_sol[ix] = d1_sol[ix].pos[0] - c_sol[ix].pos[0]
+    rho_d2_sol[ix] = d2_sol[ix].pos[0] - c_sol[ix].pos[0]
+    rho_d1_bad[ix] = d1_bad[ix].pos[0] - c_bad[ix].pos[0]
+    rho_d2_bad[ix] = d2_bad[ix].pos[0] - c_bad[ix].pos[0]
 
     #Component of perturbed orbit in xi direction
-    xi_d1_eci[ix] = d1_eci_lvlh[ix].pos[1] - c_eci_lvlh[ix].pos[1]
-    xi_d2_eci[ix] = d2_eci_lvlh[ix].pos[1] - c_eci_lvlh[ix].pos[1]
-    xi_d1_num[ix] = d1_relsat_num[ix].pos[1]
-    xi_d2_num[ix] = d2_relsat_num[ix].pos[1]
-    xi_d1_sol[ix] = d1_relsat_sol[ix].pos[1]
-    xi_d2_sol[ix] = d2_relsat_sol[ix].pos[1]
-    xi_d1_bad[ix] = d1_relsat_bad[ix].pos[1]
-    xi_d2_bad[ix] = d2_relsat_bad[ix].pos[1]
+    xi_d1_eci[ix] = d1_eci[ix].pos[1] - c_eci[ix].pos[1]
+    xi_d2_eci[ix] = d2_eci[ix].pos[1] - c_eci[ix].pos[1]
+    xi_d1_num[ix] = d1_num[ix].pos[1] - c_num[ix].pos[1]
+    xi_d2_num[ix] = d2_num[ix].pos[1] - c_num[ix].pos[1]
+    xi_d1_sol[ix] = d1_sol[ix].pos[1] - c_sol[ix].pos[1]
+    xi_d2_sol[ix] = d2_sol[ix].pos[1] - c_sol[ix].pos[1]
+    xi_d1_bad[ix] = d1_bad[ix].pos[1] - c_bad[ix].pos[1]
+    xi_d2_bad[ix] = d2_bad[ix].pos[1] - c_bad[ix].pos[1]
 
     #Component of perturbed orbit in eta direction
-    eta_d1_eci[ix] = d1_eci_lvlh[ix].pos[2] - c_eci_lvlh[ix].pos[2]
-    eta_d2_eci[ix] = d2_eci_lvlh[ix].pos[2] - c_eci_lvlh[ix].pos[2]
-    eta_d1_num[ix] = d1_relsat_num[ix].pos[2]
-    eta_d2_num[ix] = d2_relsat_num[ix].pos[2]
-    eta_d1_sol[ix] = d1_relsat_sol[ix].pos[2]
-    eta_d2_sol[ix] = d2_relsat_sol[ix].pos[2]
-    eta_d1_bad[ix] = d1_relsat_bad[ix].pos[2]
-    eta_d2_bad[ix] = d2_relsat_bad[ix].pos[2]
+    eta_d1_eci[ix] = d1_eci[ix].pos[2] - c_eci[ix].pos[2]
+    eta_d2_eci[ix] = d2_eci[ix].pos[2] - c_eci[ix].pos[2]
+    eta_d1_num[ix] = d1_num[ix].pos[2] - c_num[ix].pos[2]
+    eta_d2_num[ix] = d2_num[ix].pos[2] - c_num[ix].pos[2]
+    eta_d1_sol[ix] = d1_sol[ix].pos[2] - c_sol[ix].pos[2]
+    eta_d2_sol[ix] = d2_sol[ix].pos[2] - c_sol[ix].pos[2]
+    eta_d1_bad[ix] = d1_bad[ix].pos[2] - c_bad[ix].pos[2]
+    eta_d2_bad[ix] = d2_bad[ix].pos[2] - c_bad[ix].pos[2]
 
 # ---------------------------------------------------------------------- #
 
@@ -247,92 +249,92 @@ for ix in range(n_times):
 plt.figure(1)
 plt.clf()
 plt.subplot(3,3,1)
-plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,rho_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,rho_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,rho_d1_bad,"b--",label="Deputy 1, Old")
 plt.plot(times,rho_d2_bad,"r--",label="Deputy 2, Old")
-plt.plot(times,rho_d1_sol-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,rho_d1_eci-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Rho Separation(m)")
 plt.title("Old Integration")
 plt.legend()
 
 plt.subplot(3,3,2)
-plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,rho_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,rho_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,rho_d1_num,"b--",label="Deputy 1, Num")
 plt.plot(times,rho_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,rho_d1_sol-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.title("Numerical Schweighart")
 plt.legend()
 
 plt.subplot(3,3,3)
-plt.plot(times,rho_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,rho_d2_sol,"r-",label="Deputy 2, Solved")
-plt.plot(times,rho_d1_eci,"b--",label="Deputy 1, ECI")
-plt.plot(times,rho_d2_eci,"r--",label="Deputy 2, ECI")
-plt.plot(times,rho_d1_sol-rho_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,rho_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,rho_d2_eci,"r-",label="Deputy 2, ECI")
+plt.plot(times,rho_d1_sol,"b--",label="Deputy 1, Solved")
+plt.plot(times,rho_d2_sol,"r--",label="Deputy 2, Solved")
+plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.title("ECI Integration")
 plt.legend()
 
 plt.subplot(3,3,4)
-plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,xi_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,xi_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,xi_d1_bad,"b--",label="Deputy 1, Old")
 plt.plot(times,xi_d2_bad,"r--",label="Deputy 2, Old")
-plt.plot(times,xi_d1_sol-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Xi Separation(m)")
 plt.legend()
 
 plt.subplot(3,3,5)
-plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,xi_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,xi_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,xi_d1_num,"b--",label="Deputy 1, Num")
 plt.plot(times,xi_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,xi_d1_sol-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.legend()
 
 plt.subplot(3,3,6)
-plt.plot(times,xi_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,xi_d2_sol,"r-",label="Deputy 2, Solved")
-plt.plot(times,xi_d1_eci,"b--",label="Deputy 1, ECI")
-plt.plot(times,xi_d2_eci,"r--",label="Deputy 2, ECI")
-plt.plot(times,xi_d1_sol-xi_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,xi_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,xi_d2_eci,"r-",label="Deputy 2, ECI")
+plt.plot(times,xi_d1_sol,"b--",label="Deputy 1, Solved")
+plt.plot(times,xi_d2_sol,"r--",label="Deputy 2, Solved")
+plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.legend()
 
 plt.subplot(3,3,7)
-plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,eta_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,eta_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,eta_d1_bad,"b--",label="Deputy 1, Old")
 plt.plot(times,eta_d2_bad,"r--",label="Deputy 2, Old")
-plt.plot(times,eta_d1_sol-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Eta Separation(m)")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,8)
-plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
+plt.plot(times,eta_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,eta_d2_eci,"r-",label="Deputy 2, ECI")
 plt.plot(times,eta_d1_num,"b--",label="Deputy 1, Num")
 plt.plot(times,eta_d2_num,"r--",label="Deputy 2, Num")
-plt.plot(times,eta_d1_sol-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,9)
-plt.plot(times,eta_d1_sol,"b-",label="Deputy 1, Solved")
-plt.plot(times,eta_d2_sol,"r-",label="Deputy 2, Solved")
-plt.plot(times,eta_d1_eci,"b--",label="Deputy 1, ECI")
-plt.plot(times,eta_d2_eci,"r--",label="Deputy 2, ECI")
-plt.plot(times,eta_d1_sol-eta_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,eta_d1_eci,"b-",label="Deputy 1, ECI")
+plt.plot(times,eta_d2_eci,"r-",label="Deputy 2, ECI")
+plt.plot(times,eta_d1_sol,"b--",label="Deputy 1, Solved")
+plt.plot(times,eta_d2_sol,"r--",label="Deputy 2, Solved")
+plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
@@ -342,56 +344,56 @@ plt.suptitle('Separations against time due to perturbations')
 plt.figure(2)
 plt.clf()
 plt.subplot(3,3,1)
-plt.plot(times,rho_d1_sol-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,rho_d1_eci-rho_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Rho Separation(m)")
 plt.title("Old Integration")
 plt.legend()
 
 plt.subplot(3,3,2)
-plt.plot(times,rho_d1_sol-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,rho_d1_eci-rho_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.title("Numerical Schweighart")
 plt.legend()
 
 plt.subplot(3,3,3)
-plt.plot(times,rho_d1_sol-rho_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,rho_d2_sol-rho_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,rho_d1_eci-rho_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,rho_d2_eci-rho_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.title("ECI Integration")
 plt.legend()
 
 plt.subplot(3,3,4)
-plt.plot(times,xi_d1_sol-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Xi Separation(m)")
 plt.legend()
 
 plt.subplot(3,3,5)
-plt.plot(times,xi_d1_sol-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.legend()
 
 plt.subplot(3,3,6)
-plt.plot(times,xi_d1_sol-xi_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,xi_d2_sol-xi_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,xi_d1_eci-xi_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,xi_d2_eci-xi_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.legend()
 
 plt.subplot(3,3,7)
-plt.plot(times,eta_d1_sol-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_bad,"c--",label="Deputy 1, Old Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_bad,"m--",label="Deputy 2, Old Residuals")
 plt.ylabel("Eta Separation(m)")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,8)
-plt.plot(times,eta_d1_sol-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_num,"c--",label="Deputy 1, Num Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_num,"m--",label="Deputy 2, Num Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
 plt.subplot(3,3,9)
-plt.plot(times,eta_d1_sol-eta_d1_eci,"c--",label="Deputy 1, ECI Residuals")
-plt.plot(times,eta_d2_sol-eta_d2_eci,"m--",label="Deputy 2, ECI Residuals")
+plt.plot(times,eta_d1_eci-eta_d1_sol,"c--",label="Deputy 1, Sol Residuals")
+plt.plot(times,eta_d2_eci-eta_d2_sol,"m--",label="Deputy 2, Sol Residuals")
 plt.xlabel("Times(s)")
 plt.legend()
 
