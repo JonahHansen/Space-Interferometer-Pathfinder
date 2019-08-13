@@ -53,8 +53,8 @@ deputy2_0 = orbits.init_deputy(ref,2)
 #------------------------------------------------------------------------------------------
 ### Schweighart solved version (see 2002 paper) #####
 chief_p_states_sol = propagate_spacecraft(0,chief_0.to_Curvy().state,times,ref).transpose()
-deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose()
-deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose()
+deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose() - chief_p_states_sol
+deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose() - chief_p_states_sol
 
 print("Done Solved")
 #------------------------------------------------------------------------------------------
@@ -169,8 +169,8 @@ if not X2_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_mike = X2_d0.y.transpose()
-deputy1_p_states_mike = X2_d1.y.transpose()
-deputy2_p_states_mike = X2_d2.y.transpose()
+deputy1_p_states_mike = X2_d1.y.transpose() - chief_p_states_mike
+deputy2_p_states_mike = X2_d2.y.transpose() - chief_p_states_mike
 
 print("Done Mike")
 #------------------------------------------------------------------------------------------
@@ -181,23 +181,23 @@ atol = 1e-12
 step = 100
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-X3_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X3_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], chief_0.to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X3_c.success:
     raise Exception("Integration failed!!!!")
 
-X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X3_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy1_0.to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 #Check if successful integration
 if not X3_d1.success:
     raise Exception("Integration failed!!!!")
 
-X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.to_LVLH().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+X3_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], deputy2_0.to_Curvy().state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
 if not X3_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_old = X3_c.y.transpose()
-deputy1_p_states_old = X3_d1.y.transpose()
-deputy2_p_states_old = X3_d2.y.transpose()
+deputy1_p_states_old = X3_d1.y.transpose() - chief_p_states_old
+deputy2_p_states_old = X3_d2.y.transpose() - chief_p_states_old
 
 print("Done Old")
 #------------------------------------------------------------------------------------------
@@ -226,8 +226,8 @@ if not X2_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_num = X2_d0.y.transpose()
-deputy1_p_states_num = X2_d1.y.transpose()
-deputy2_p_states_num = X2_d2.y.transpose()
+deputy1_p_states_num = X2_d1.y.transpose() - chief_p_states_num
+deputy2_p_states_num = X2_d2.y.transpose() - chief_p_states_num
 
 print("Done Numerical")
 #------------------------------------------------------------------------------------------
@@ -266,9 +266,9 @@ for i in range(len(times)):
     d1_num.append(orbits.Curvy_Sat(deputy1_p_states_num[i,:3],deputy1_p_states_num[i,3:],times[i],ref).to_LVLH())
     d2_num.append(orbits.Curvy_Sat(deputy2_p_states_num[i,:3],deputy2_p_states_num[i,3:],times[i],ref).to_LVLH())
 
-    c_old.append(orbits.LVLH_Sat(chief_p_states_old[i,:3],chief_p_states_old[i,3:],times[i],ref))
-    d1_old.append(orbits.LVLH_Sat(deputy1_p_states_old[i,:3],deputy1_p_states_old[i,3:],times[i],ref))
-    d2_old.append(orbits.LVLH_Sat(deputy2_p_states_old[i,:3],deputy2_p_states_old[i,3:],times[i],ref))
+    c_old.append(orbits.Curvy_Sat(chief_p_states_old[i,:3],chief_p_states_old[i,3:],times[i],ref).to_LVLH())
+    d1_old.append(orbits.Curvy_Sat(deputy1_p_states_old[i,:3],deputy1_p_states_old[i,3:],times[i],ref).to_LVLH())
+    d2_old.append(orbits.Curvy_Sat(deputy2_p_states_old[i,:3],deputy2_p_states_old[i,3:],times[i],ref).to_LVLH())
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -288,14 +288,14 @@ for ix in range(n_times):
     #Component of perturbed orbit in rho direction
     rel_d1_eci[ix] = d1_eci[ix].pos - c_eci[ix].pos
     rel_d2_eci[ix] = d2_eci[ix].pos - c_eci[ix].pos
-    rel_d1_sol[ix] = d1_sol[ix].pos - c_sol[ix].pos
-    rel_d2_sol[ix] = d2_sol[ix].pos - c_sol[ix].pos
-    rel_d1_mike[ix] = d1_mike[ix].pos - c_mike[ix].pos
-    rel_d2_mike[ix] = d2_mike[ix].pos - c_mike[ix].pos
-    rel_d1_num[ix] = d1_num[ix].pos - c_num[ix].pos
-    rel_d2_num[ix] = d2_num[ix].pos - c_num[ix].pos
-    rel_d1_old[ix] = d1_old[ix].pos - c_old[ix].pos
-    rel_d2_old[ix] = d2_old[ix].pos - c_old[ix].pos
+    rel_d1_sol[ix] = d1_sol[ix].pos #- c_sol[ix].pos
+    rel_d2_sol[ix] = d2_sol[ix].pos #- c_sol[ix].pos
+    rel_d1_mike[ix] = d1_mike[ix].pos #- c_mike[ix].pos
+    rel_d2_mike[ix] = d2_mike[ix].pos #- c_mike[ix].pos
+    rel_d1_num[ix] = d1_num[ix].pos #- c_num[ix].pos
+    rel_d2_num[ix] = d2_num[ix].pos #- c_num[ix].pos
+    rel_d1_old[ix] = d1_old[ix].pos #- c_old[ix].pos
+    rel_d2_old[ix] = d2_old[ix].pos #- c_old[ix].pos
 
 rel_d1 = np.array([rel_d1_eci,rel_d1_sol,rel_d1_num,rel_d1_mike,rel_d1_old])
 rel_d2 = np.array([rel_d2_eci,rel_d2_sol,rel_d2_num,rel_d2_mike,rel_d2_old])
@@ -306,17 +306,17 @@ label = ["ECI", "Schweighart solved", "Schweighart Numerical", "Mike Schweighart
 axis = 0
 plt.figure(1)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
         plt.plot(times,rel_d1[ix,:,axis],'b-', label="Deputy 1, Y-axis")
         plt.plot(times,rel_d2[ix,:,axis],'r-', label="Deputy 2, Y-axis")
-        plt.plot(times,rel_d1[4-iy,:,axis],'b--', label="Deputy 1, X-axis")
-        plt.plot(times,rel_d2[4-iy,:,axis],'r--', label="Deputy 2, X-axis")
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+        plt.plot(times,rel_d1[3-iy,:,axis],'b--', label="Deputy 1, X-axis")
+        plt.plot(times,rel_d2[3-iy,:,axis],'r--', label="Deputy 2, X-axis")
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Differential Rho Separations against time')
@@ -326,17 +326,17 @@ plt.legend(loc=(2.4,-1))
 axis = 1
 plt.figure(2)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
         plt.plot(times,rel_d1[ix,:,axis],'b-', label="Deputy 1, Y-axis")
         plt.plot(times,rel_d2[ix,:,axis],'r-', label="Deputy 2, Y-axis")
-        plt.plot(times,rel_d1[4-iy,:,axis],'b--', label="Deputy 1, X-axis")
-        plt.plot(times,rel_d2[4-iy,:,axis],'r--', label="Deputy 2, X-axis")
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+        plt.plot(times,rel_d1[3-iy,:,axis],'b--', label="Deputy 1, X-axis")
+        plt.plot(times,rel_d2[3-iy,:,axis],'r--', label="Deputy 2, X-axis")
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Differential Xi Separations against time')
@@ -347,17 +347,17 @@ plt.legend(loc=(2.4,-1))
 axis = 2
 plt.figure(3)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
         plt.plot(times,rel_d1[ix,:,axis],'b-', label="Deputy 1, Y-axis")
         plt.plot(times,rel_d2[ix,:,axis],'r-', label="Deputy 2, Y-axis")
-        plt.plot(times,rel_d1[4-iy,:,axis],'b--', label="Deputy 1, X-axis")
-        plt.plot(times,rel_d2[4-iy,:,axis],'r--', label="Deputy 2, X-axis")
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+        plt.plot(times,rel_d1[3-iy,:,axis],'b--', label="Deputy 1, X-axis")
+        plt.plot(times,rel_d2[3-iy,:,axis],'r--', label="Deputy 2, X-axis")
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Differential Eta Separations against time')
@@ -367,13 +367,13 @@ plt.legend(loc=(2.4,-1))
 axis = 0
 plt.figure(4)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Residual Differential Rho Separations against time')
@@ -383,13 +383,13 @@ plt.legend(loc=(2.4,-1))
 axis = 1
 plt.figure(5)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Residual Differential Xi Separations against time')
@@ -399,13 +399,13 @@ plt.legend(loc=(2.4,-1))
 axis = 2
 plt.figure(6)
 plt.clf()
-for ix in range(4):
-    for iy in range(4-ix):
-        plt.subplot(4,4,12-ix*4+iy+1)
-        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[4-iy,:,axis],'c--', label="Deputy 1 Residuals")
-        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[4-iy,:,axis],'m--', label="Deputy 2 Residuals")
+for ix in range(3):
+    for iy in range(3-ix):
+        plt.subplot(3,3,6-ix*3+iy+1)
+        plt.plot(times,rel_d1[ix,:,axis] - rel_d1[3-iy,:,axis],'c--', label="Deputy 1 Residuals")
+        plt.plot(times,rel_d2[ix,:,axis] - rel_d2[3-iy,:,axis],'m--', label="Deputy 2 Residuals")
         if ix == 0:
-            plt.xlabel(label[4-iy])
+            plt.xlabel(label[3-iy])
         if iy == 0:
             plt.ylabel(label[ix])
 plt.suptitle('Residual Differential Eta Separations against time')
