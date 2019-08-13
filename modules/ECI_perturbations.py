@@ -42,8 +42,8 @@ def dX_dt(t, state, ref):
 
     #Calculate Chief and deputy states in ECI frame at the time t
 
-    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t,True)
-    pos_dep = orbits.LVLH_Sat(r,v,t,ref).to_ECI(True).pos
+    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
+    pos_dep = orbits.LVLH_Sat(r,v,t,ref).to_ECI().pos
 
     """ J2 Acceleration """
     J2_p = J2_pert(pos_dep,pos_ref,ref.R_orb) #Calculate J2 in ECI frame
@@ -53,14 +53,14 @@ def dX_dt(t, state, ref):
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
     Gamma2 = n**2/ref.R_orb*np.array([-3*r[0]**2 + 1.5*r[1]**2 + 1.5*r[2]**2, 3*r[0]*r[1], 3*r[0]*r[2]])
     Gamma3 = (n/ref.R_orb)**2*np.array([4*r[0]**3-6*r[0]*(r[1]**2+r[2]**2),-6*r[0]**2*r[1]+1.5*r[1]**3+1.5*r[1]*r[2]**2,-6*r[0]**2*r[2]+1.5*r[2]**3+1.5*r[2]*r[1]**2])
-    #Gamma2 = 0
-    #Gamma3 = 0
+    Gamma2 = 0
+    Gamma3 = 0
 
     #Position vector of deputy
     #rd = np.array([ECI.R_orb+r[0],r[1],r[2]])
     #Acceleration vector - analytical version (See Butcher 18)
     #a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,rd)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3  + LVLH_J2_p + LVLH_solar_p + LVLH_drag_p
-
+    #LVLH_J2_p = 0
 
     #Acceleration is the HCW Equations, plus the required perturbations
     a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + Gamma3

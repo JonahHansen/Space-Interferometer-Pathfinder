@@ -5,7 +5,7 @@ import modules.quaternions as qt
 
 """ J2 Perturbation function from Schweighart's paper """
 """ Relative to reference orbit """
-def J2_pet(sat0,ref):
+def J2_pert_num(sat0,ref):
 
     #DEFINE VARIABLES AS IN PAPER
     r_ref = ref.R_orb #Radius of the reference orbit (and chief)
@@ -54,7 +54,7 @@ def J2_pet(sat0,ref):
     m,phi = fsolve(equations,(0,0))
 
     #Equations of motion
-    def J2_pet_func(t,state):
+    def J2_pert_func(t,state):
         [x,y,z] = state[:3] #Position
         [dx,dy,dz] = state[3:] #Velocity
         dX0 = dx
@@ -74,43 +74,4 @@ def J2_pet(sat0,ref):
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
-    return J2_pet_func
-    
-    
-def J2_pet2(sat0,ref):
-
-    #DEFINE VARIABLES AS IN PAPER
-    r_ref = ref.R_orb #Radius of the reference orbit (and chief)
-    i_ref = ref.inc_0 #Inclination of the reference orbit (and chief)
-
-    J2 = 0.00108263
-    R_e = const.R_earth.value
-
-    #Initial conditions
-    [x_0,y_0,z_0] = sat0.pos
-    dz_0 = sat0.vel[2]
-
-    #Define variables
-    c = ref.Sch_c
-    n = ref.ang_vel
-    k = ref.Sch_k
-    h = 3*J2*R_e**2/(4*r_ref**2)
-
-    #Equations of motion
-    def J2_pet_func(t,state):
-        [x,y,z] = state[:3] #Position
-        [dx,dy,dz] = state[3:] #Velocity
-        dX0 = dx
-        dX1 = dy
-        dX2 = dz
-
-        theta = k*t
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + h*n**2*(12*np.sin(i_ref)**2*np.cos(2*theta)*x + 8*np.sin(i_ref)**2*np.sin(2*theta)*y+8*np.sin(2*i_ref)*np.sin(theta)*z)
-        dX4 = -2*n*c*dx + h*n**2*(8*np.sin(i_ref)**2*np.sin(2*theta)*x + 7*np.sin(i_ref)**2*np.cos(2*theta)*y-2*np.sin(2*i_ref)*np.cos(theta)*z)
-        dX5 = -(3*c**2-2)*n**2*z + h*n**2*(8*np.sin(2*i_ref)*np.sin(theta)*x - 2*np.sin(2*i_ref)*np.cos(theta)*y-5*np.sin(i_ref)**2*np.cos(2*theta)*z)
-        return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
-
-    return J2_pet_func
-
-
-
+    return J2_pert_func
