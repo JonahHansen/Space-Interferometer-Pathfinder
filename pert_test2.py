@@ -5,6 +5,7 @@ from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
+from scipy.optimize import fsolve
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2_solved_clean import propagate_spacecraft
 from modules.ECI_perturbations_abs import dX_dt
@@ -53,8 +54,8 @@ deputy2_0 = orbits.init_deputy(ref,2)
 #------------------------------------------------------------------------------------------
 ### Schweighart solved version (see 2002 paper) #####
 chief_p_states_sol = propagate_spacecraft(0,chief_0.to_Curvy().state,times,ref).transpose()
-deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose() - chief_p_states_sol
-deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose() - chief_p_states_sol
+deputy1_p_states_sol = propagate_spacecraft(0,deputy1_0.to_Curvy().state,times,ref).transpose()# - chief_p_states_sol
+deputy2_p_states_sol = propagate_spacecraft(0,deputy2_0.to_Curvy().state,times,ref).transpose()# - chief_p_states_sol
 
 print("Done Solved")
 #------------------------------------------------------------------------------------------
@@ -118,7 +119,7 @@ def J2_pert_Mike(sat0,ref):
 
     #DEFINE VARIABLES AS IN PAPER
     r_ref = ref.R_orb #Radius of the reference orbit (and chief)
-    i_ref = ref.inc_0 #Inclination of the reference orbit (and chief)
+    
 
     J2 = 0.00108263
     R_e = const.R_earth.value
@@ -132,6 +133,38 @@ def J2_pert_Mike(sat0,ref):
     n = ref.ang_vel
     k = ref.Sch_k
     h = 3*J2*R_e**2/(4*r_ref**2)
+    
+    i_ref = ref.inc_0# -(3*n*J2*R_e**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
+
+    i_sat = dz_0/(k*r_ref)+i_ref
+
+    if i_ref == 0:
+        omega_0 = 0
+    else:
+        omega_0 = z_0/(r_ref*np.sin(i_ref))
+
+    if (omega_0 and i_ref) != 0:
+        gamma_0 = np.arctan(1/((1/np.tan(i_ref)*np.sin(i_sat)-np.cos(i_sat)*np.cos(omega_0))/np.sin(omega_0)))
+    else:
+        gamma_0 = 0
+
+    phi_0 = np.arccos(np.cos(i_sat)*np.cos(i_ref)+np.sin(i_sat)*np.sin(i_ref)*np.cos(omega_0))
+    d_omega_sat = -3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_sat)
+    d_omega_ref = -3*n*J2*R_e**2/(2*r_ref**2)*np.cos(i_ref)
+
+    temp = np.cos(gamma_0)*np.sin(gamma_0)*1/np.tan(omega_0)
+    temp = temp if temp == temp else 0
+
+    q = n*c - (temp-np.sin(gamma_0)**2*np.cos(i_sat))*(d_omega_sat - d_omega_ref)-d_omega_sat*np.cos(i_sat)
+    l = -r_ref*np.sin(i_sat)*np.sin(i_ref)*np.sin(omega_0)/np.sin(phi_0)*(d_omega_sat-d_omega_ref)
+    l = l if l == l else 0
+
+    def equations(p):
+        m,phi = p
+        return(m*np.sin(phi)-z_0,l*np.sin(phi)+q*m*np.cos(phi)-dz_0)
+
+    #Solve simultaneous equations
+    m,phi = fsolve(equations,(0,0))
 
     #Equations of motion
     def J2_pert_func(t,state):
@@ -142,9 +175,10 @@ def J2_pert_Mike(sat0,ref):
         dX2 = dz
 
         theta = k*t
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + h*n**2*(12*np.sin(i_ref)**2*np.cos(2*theta)*x + 8*np.sin(i_ref)**2*np.sin(2*theta)*y+8*np.sin(2*i_ref)*np.sin(theta)*z)
-        dX4 = -2*n*c*dx + h*n**2*(8*np.sin(i_ref)**2*np.sin(2*theta)*x + 7*np.sin(i_ref)**2*np.cos(2*theta)*y-2*np.sin(2*i_ref)*np.cos(theta)*z)
+        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + h*n**2*(12*np.sin(i_ref)**2*np.cos(2*theta)*x + 8*np.sin(i_ref)**2*np.sin(2*theta)*y + 8*np.sin(2*i_ref)*np.sin(theta)*z) - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - ((3*np.sin(i_ref)**2*np.sin(k*t)**2)/2) - ((1+3*np.cos(2*i_ref))/8))
+        dX4 = -2*n*c*dx + h*n**2*(8*np.sin(i_ref)**2*np.sin(2*theta)*x - 7*np.sin(i_ref)**2*np.cos(2*theta)*y-2*np.sin(2*i_ref)*np.cos(theta)*z) - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
         dX5 = -(3*c**2-2)*n**2*z + h*n**2*(8*np.sin(2*i_ref)*np.sin(theta)*x - 2*np.sin(2*i_ref)*np.cos(theta)*y-5*np.sin(i_ref)**2*np.cos(2*theta)*z)
+        #dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
     return J2_pert_func
@@ -169,8 +203,8 @@ if not X2_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_mike = X2_d0.y.transpose()
-deputy1_p_states_mike = X2_d1.y.transpose() - chief_p_states_mike
-deputy2_p_states_mike = X2_d2.y.transpose() - chief_p_states_mike
+deputy1_p_states_mike = X2_d1.y.transpose()# - chief_p_states_mike
+deputy2_p_states_mike = X2_d2.y.transpose()# - chief_p_states_mike
 
 print("Done Mike")
 #------------------------------------------------------------------------------------------
@@ -196,8 +230,8 @@ if not X3_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_old = X3_c.y.transpose()
-deputy1_p_states_old = X3_d1.y.transpose() - chief_p_states_old
-deputy2_p_states_old = X3_d2.y.transpose() - chief_p_states_old
+deputy1_p_states_old = X3_d1.y.transpose()# - chief_p_states_old
+deputy2_p_states_old = X3_d2.y.transpose()# - chief_p_states_old
 
 print("Done Old")
 #------------------------------------------------------------------------------------------
@@ -226,8 +260,8 @@ if not X2_d2.success:
     raise Exception("Integration failed!!!!")
 
 chief_p_states_num = X2_d0.y.transpose()
-deputy1_p_states_num = X2_d1.y.transpose() - chief_p_states_num
-deputy2_p_states_num = X2_d2.y.transpose() - chief_p_states_num
+deputy1_p_states_num = X2_d1.y.transpose()# - chief_p_states_num
+deputy2_p_states_num = X2_d2.y.transpose()# - chief_p_states_num
 
 print("Done Numerical")
 #------------------------------------------------------------------------------------------
@@ -288,14 +322,14 @@ for ix in range(n_times):
     #Component of perturbed orbit in rho direction
     rel_d1_eci[ix] = d1_eci[ix].pos - c_eci[ix].pos
     rel_d2_eci[ix] = d2_eci[ix].pos - c_eci[ix].pos
-    rel_d1_sol[ix] = d1_sol[ix].pos #- c_sol[ix].pos
-    rel_d2_sol[ix] = d2_sol[ix].pos #- c_sol[ix].pos
-    rel_d1_mike[ix] = d1_mike[ix].pos #- c_mike[ix].pos
-    rel_d2_mike[ix] = d2_mike[ix].pos #- c_mike[ix].pos
-    rel_d1_num[ix] = d1_num[ix].pos #- c_num[ix].pos
-    rel_d2_num[ix] = d2_num[ix].pos #- c_num[ix].pos
-    rel_d1_old[ix] = d1_old[ix].pos #- c_old[ix].pos
-    rel_d2_old[ix] = d2_old[ix].pos #- c_old[ix].pos
+    rel_d1_sol[ix] = d1_sol[ix].pos - c_sol[ix].pos
+    rel_d2_sol[ix] = d2_sol[ix].pos - c_sol[ix].pos
+    rel_d1_mike[ix] = d1_mike[ix].pos - c_mike[ix].pos
+    rel_d2_mike[ix] = d2_mike[ix].pos - c_mike[ix].pos
+    rel_d1_num[ix] = d1_num[ix].pos - c_num[ix].pos
+    rel_d2_num[ix] = d2_num[ix].pos - c_num[ix].pos
+    rel_d1_old[ix] = d1_old[ix].pos - c_old[ix].pos
+    rel_d2_old[ix] = d2_old[ix].pos - c_old[ix].pos
 
 rel_d1 = np.array([rel_d1_eci,rel_d1_sol,rel_d1_num,rel_d1_mike,rel_d1_old])
 rel_d2 = np.array([rel_d2_eci,rel_d2_sol,rel_d2_num,rel_d2_mike,rel_d2_old])
