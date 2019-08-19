@@ -89,6 +89,7 @@ def dX_dt2(t,state,ref):
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]
+    
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
 #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
@@ -132,10 +133,11 @@ def J2_pert_Mike(sat0,ref):
     c = ref.Sch_c
     n = ref.ang_vel
     k = ref.Sch_k
-    h = 3*J2*R_e**2/(4*r_ref**2)
+    h = 3*J2*R_e**2/(800*r_ref**2)
+    #h = 6*J2*R_e**2/(r_ref**2)
     
-    i_ref = ref.inc_0# -(3*n*J2*R_e**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
-
+    i_ref = ref.inc_0 -(3*n*J2*R_e**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
+    
     i_sat = dz_0/(k*r_ref)+i_ref
 
     if i_ref == 0:
@@ -165,7 +167,8 @@ def J2_pert_Mike(sat0,ref):
 
     #Solve simultaneous equations
     m,phi = fsolve(equations,(0,0))
-
+    
+    
     #Equations of motion
     def J2_pert_func(t,state):
         [x,y,z] = state[:3] #Position
@@ -175,10 +178,23 @@ def J2_pert_Mike(sat0,ref):
         dX2 = dz
 
         theta = k*t
-        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + h*n**2*(12*np.sin(i_ref)**2*np.cos(2*theta)*x + 8*np.sin(i_ref)**2*np.sin(2*theta)*y + 8*np.sin(2*i_ref)*np.sin(theta)*z) - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - ((3*np.sin(i_ref)**2*np.sin(k*t)**2)/2) - ((1+3*np.cos(2*i_ref))/8))
-        dX4 = -2*n*c*dx + h*n**2*(8*np.sin(i_ref)**2*np.sin(2*theta)*x - 7*np.sin(i_ref)**2*np.cos(2*theta)*y-2*np.sin(2*i_ref)*np.cos(theta)*z) - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
-        dX5 = -(3*c**2-2)*n**2*z + h*n**2*(8*np.sin(2*i_ref)*np.sin(theta)*x - 2*np.sin(2*i_ref)*np.cos(theta)*y-5*np.sin(i_ref)**2*np.cos(2*theta)*z)
+        
+        gradJ2 = np.array([12*np.sin(i_ref)**2*np.cos(2*theta)*x + 8*np.sin(i_ref)**2*np.sin(2*theta)*y + 8*np.sin(2*i_ref)*np.sin(theta)*z,
+                           8*np.sin(i_ref)**2*np.sin(2*theta)*x - 7*np.sin(i_ref)**2*np.cos(2*theta)*y - 2*np.sin(2*i_ref)*np.cos(theta)*z,
+                           8*np.sin(2*i_ref)*np.sin(theta)*x - 2*np.sin(2*i_ref)*np.cos(theta)*y - 5*np.sin(i_ref)**2*np.cos(2*theta)*z])
+                  
+        #gradJ2 = np.array([(1-3*np.sin(i_ref)**2*np.sin(theta)**2)*x + np.sin(i_ref)**2*np.sin(2*theta)*y + np.sin(2*i_ref)*np.sin(theta)*z,
+        #          np.sin(i_ref)**2*np.sin(2*theta)*x + (-0.25 - np.sin(i_ref)**2*(0.5-7/4*np.sin(theta)**2))*y-0.25*np.sin(2*i_ref)*np.cos(theta)*z,
+        #          np.sin(2*i_ref)*np.sin(theta)*x - 0.25*np.sin(2*i_ref)*np.cos(theta)*y + (-0.75+np.sin(i_ref)**2*(0.5 + 1.25*np.sin(theta)**2))*z])
+                  
+        #gradJ2 -= np.array([4*ref.Sch_s/h*x,-ref.Sch_s/h*y,-3*ref.Sch_s/h*z])
+        
+        
+        dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x + h*n**2*gradJ2[0] - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - ((3*np.sin(i_ref)**2*np.sin(k*t)**2)/2) - ((1+3*np.cos(2*i_ref))/8))
+        dX4 = -2*n*c*dx + h*n**2*gradJ2[1] - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
+        dX5 = -(3*c**2-2)*n**2*z + h*n**2*gradJ2[2]
         #dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
+
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
     return J2_pert_func
@@ -330,6 +346,17 @@ for ix in range(n_times):
     rel_d2_num[ix] = d2_num[ix].pos - c_num[ix].pos
     rel_d1_old[ix] = d1_old[ix].pos - c_old[ix].pos
     rel_d2_old[ix] = d2_old[ix].pos - c_old[ix].pos
+    
+    rel_d1_eci[ix] = c_eci[ix].pos
+    rel_d2_eci[ix] = c_eci[ix].pos
+    rel_d1_sol[ix] = c_sol[ix].pos
+    rel_d2_sol[ix] = c_sol[ix].pos
+    rel_d1_mike[ix] = c_mike[ix].pos
+    rel_d2_mike[ix] = c_mike[ix].pos
+    rel_d1_num[ix] = c_num[ix].pos
+    rel_d2_num[ix] = c_num[ix].pos
+    rel_d1_old[ix] = c_old[ix].pos
+    rel_d2_old[ix] = c_old[ix].pos
 
 rel_d1 = np.array([rel_d1_eci,rel_d1_sol,rel_d1_num,rel_d1_mike,rel_d1_old])
 rel_d2 = np.array([rel_d2_eci,rel_d2_sol,rel_d2_num,rel_d2_mike,rel_d2_old])
