@@ -28,7 +28,7 @@ Om_0 = np.radians(0)
 
 #Stellar vector
 ra = np.radians(0)
-dec = np.radians(1)
+dec = np.radians(70)
 
 #The max distance to the other satellites in m
 delta_r_max = 1000e3
@@ -57,18 +57,18 @@ s_hats = np.zeros((num_times,3))
 i = 0
 for t in times:
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
-    chief = orbits.init_chief(ref,t)
+    chief = orbits.init_chief(ref,False,t)
     c_pos[i] = chief.pos
-    dep1 = orbits.init_deputy(ref,t,1)
-    dep2 = orbits.init_deputy(ref,t,2)
+    dep1 = orbits.init_deputy(ref,1,False,time=t)
+    dep2 = orbits.init_deputy(ref,2,False,time=t)
     dep1_pos[i] = dep1.pos
     dep2_pos[i] = dep2.pos
-    LVLH_pos0[i] = chief.to_LVLH(pos_ref,vel_ref,LVLH).pos
-    LVLH_pos1[i] = dep1.to_LVLH(pos_ref,vel_ref,LVLH).pos
-    LVLH_pos2[i] = dep2.to_LVLH(pos_ref,vel_ref,LVLH).pos
-    Base_pos0[i] = chief.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
-    Base_pos1[i] = dep1.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
-    Base_pos2[i] = dep2.to_LVLH(pos_ref,vel_ref,LVLH).to_Baseline(LVLH,Base).pos
+    LVLH_pos0[i] = chief.to_LVLH(ref_orbit=True).pos
+    LVLH_pos1[i] = dep1.to_LVLH(ref_orbit=True).pos
+    LVLH_pos2[i] = dep2.to_LVLH(ref_orbit=True).pos
+    Base_pos0[i] = chief.to_Baseline(ref_orbit=True).pos
+    Base_pos1[i] = dep1.to_Baseline(ref_orbit=True).pos
+    Base_pos2[i] = dep2.to_Baseline(ref_orbit=True).pos
     s_hats[i] = np.dot(LVLH,ref.s_hat)
     i += 1
 

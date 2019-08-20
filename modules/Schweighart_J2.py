@@ -70,7 +70,6 @@ def J2_pert_num(sat0,ref):
         dX4 = -2*n*c*dx - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
         #print(dX4)
         dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
-        #print(x + dx/(n*c)) #Energy
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 

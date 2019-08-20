@@ -6,7 +6,8 @@ import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_solved_clean import propagate_spacecraft
+from modules.Schweighart_J2 import J2_pet
+from modules.Schweighart_J2_rel import J2_rel_pet
 
 plt.ion()
 
@@ -16,57 +17,113 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(64) #20
+inc_0 = np.radians(34) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(10) #0
 
 #Stellar vector
-ra = np.radians(0) #90
-dec = np.radians(0)#-40
+ra = np.radians(90) #90
+dec = np.radians(-40)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
+
+#List of perturbations: 1 = J2, 2 = Solar radiation, 3 = Drag. Leave empty list if no perturbations.
+p_list = [1] #Currently just using J2
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1
+n_orbits = 3
 #Number of phases in each orbit
-n_phases = 500
+n_phases = 1000
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-#Initial reference orbit state
 pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)
-
-#Initial states of the satellites
 chief_0 = orbits.init_chief(ref,0).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy1_0 = orbits.init_deputy(ref,0,1).to_LVLH(pos_ref,vel_ref,LVLH)
 deputy2_0 = orbits.init_deputy(ref,0,2).to_LVLH(pos_ref,vel_ref,LVLH)
 
-chief_p_states = propagate_spacecraft(0,chief_0.state,times,ref).transpose()
-deputy1_p_states = propagate_spacecraft(0,deputy1_0.state,times,ref).transpose()
-deputy2_p_states = propagate_spacecraft(0,deputy2_0.state,times,ref).transpose()
+#Equations of motion
+J2_func0 = J2_pet(chief_0,ref)
+J2_func1 = J2_pet(deputy1_0,ref)
+J2_func2 = J2_pet(deputy2_0,ref)
 
-d1_rel_states = deputy1_p_states - chief_p_states
-d2_rel_states = deputy2_p_states - chief_p_states
+#Relative equations of motion
+J2_rel_func1 = J2_rel_pet(deputy1_0,ref,1)
+J2_rel_func2 = J2_rel_pet(deputy2_0,ref,2)
 
-ECI_rc = np.zeros((len(times),3))
+#Tolerance and steps required for the integrator
+rtol = 1e-9
+atol = 1e-18
+step = 10
+
+#Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+X_d0 = solve_ivp(J2_func0, [times[0],times[-1]], chief_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d0.success:
+    raise Exception("Integration failed!!!!")
+
+X_d1 = solve_ivp(J2_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_d1.success:
+    raise Exception("Integration failed!!!!")
+
+X_d2 = solve_ivp(J2_func2, [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X_d2.success:
+    raise Exception("Integration failed!!!!")
+
+#Relative integrations
+X_rel_d1 = solve_ivp(J2_rel_func1, [times[0],times[-1]], deputy1_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+#Check if successful integration
+if not X_rel_d1.success:
+    raise Exception("Integration failed!!!!")
+
+X_rel_d2 = solve_ivp(J2_rel_func2, [times[0],times[-1]], deputy2_0.state, t_eval = times, rtol = rtol, atol = atol, max_step=step)
+if not X_rel_d2.success:
+    raise Exception("Integration failed!!!!")
+
+chief_states = X_d0.y.transpose()
+deputy1_states = X_d1.y.transpose()
+deputy2_states = X_d2.y.transpose()
+
+deputy1_rel_states = X_rel_d1.y.transpose()
+deputy2_rel_states = X_rel_d2.y.transpose()
+"""
+#Peturbed orbits
+pert_chief = np.transpose(X_d0.y)
+pert_deputy1 = np.transpose(X_d1.y)
+pert_deputy2 = np.transpose(X_d2.y)
+
+pert_rel_deputy1 = np.transpose(X_rel_d1.y)
+pert_rel_deputy2 = np.transpose(X_rel_d2.y)
+
+man_rel_dep1 = pert_deputy1 - pert_chief
+man_rel_dep2 = pert_deputy2 - pert_chief
+
+p_chief = []
+p_dep1 = []
+p_dep2 = []
 rel_p_dep1 = []
 rel_p_dep2 = []
 
 print("Integration Done")
-for i in range(len(times)):
+for i in range(len(pert_chief)):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(times[i],True)
-    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
-    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    #p_chief.append(orbits.LVLH_Sat(pert_chief[i,:3],pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    #p_dep1.append(orbits.LVLH_Sat(pert_deputy1[i,:3],pert_deputy1[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    #p_dep2.append(orbits.LVLH_Sat(pert_deputy2[i,:3],pert_deputy2[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    rel_p_dep1.append(orbits.LVLH_Sat(pert_deputy1[i,:3]-pert_chief[i,:3],pert_deputy1[i,3:]-pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
+    rel_p_dep2.append(orbits.LVLH_Sat(pert_deputy2[i,:3]-pert_chief[i,:3],pert_deputy2[i,3:]-pert_chief[i,3:],times[i],ref).to_Baseline(LVLH,Base))
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
+
 baseline_sep = np.zeros(n_times) #Separation along the baseline
 s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
 s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
@@ -78,7 +135,6 @@ total_sep = np.zeros(n_times) #Total separation
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
     baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
-
     #Component of perturbed orbit in star direction
     s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
     s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
@@ -89,9 +145,9 @@ for ix in range(n_times):
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
-    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
+
     #Sum of the separation along the star direction and the baseline direction
-    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+    total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
@@ -155,7 +211,7 @@ def set_axes_equal(ax):
     origin = np.mean(limits, axis=1)
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     set_axes_radius(ax, origin, radius)
-
+"""
 """
 #Plot ECI Orbit
 plt.figure(1)
@@ -182,7 +238,7 @@ ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
 """
-
+"""
 #Plot separation along the star direction
 plt.figure(3)
 plt.clf()
@@ -236,3 +292,4 @@ cbar = plt.colorbar(lc1)
 plt.colorbar(lc2)
 #cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
 cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+"""

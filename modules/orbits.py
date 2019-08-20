@@ -39,8 +39,8 @@ class Reference_orbit:
         if (self.s_hat == zaxis).all():
            self.u_hat = np.array([1,0,0])
         else:
-           self.u_hat = np.cross(self.s_hat,zaxis)
-        self.v_hat = np.cross(self.s_hat,self.u_hat)
+           self.u_hat = np.cross(self.s_hat,zaxis)/np.linalg.norm(np.cross(self.s_hat,zaxis))
+        self.v_hat = np.cross(self.s_hat,self.u_hat)/np.linalg.norm(np.cross(self.s_hat,self.u_hat))
         self.UVmat = np.array([self.u_hat,self.v_hat,self.s_hat]) #LVLH rotation matrix
 
         #J2 Perturbation constants
@@ -57,17 +57,6 @@ class Reference_orbit:
 
         #Angular momentum vector of chief satellite
         self.h_0 = qt.rotate(zaxis,self.q0)
-
-        #Initial argument of latitude
-        #n = np.cross(zaxis,self.h_0)
-        #init_pos = qt.rotate(xaxis,self.q0)
-        #if init_pos[2]<0:
-        #    self.arg_0 = 2*np.pi - np.arccos(np.dot(n,init_pos))
-        #else:
-        #    self.arg_0 = np.arccos(np.dot(n,init_pos))
-
-        #Time delay for perturbation:
-        #self.t_0 = self.arg_0/self.Sch_k
 
         #New coord system:
         z_hat = self.h_0 #In direction of angular momentum
@@ -93,7 +82,6 @@ class Reference_orbit:
         theta = np.arccos(dot)
 
         psi = self.delta_r_max*np.cos(theta)/self.R_orb #Angle between chief and deputy WRT Earth
-        print(psi*self.R_orb)
         omega = -np.arctan(self.delta_r_max/self.R_orb*np.sin(theta)) #Amount of rotation
 
         #Define deputy orbital planes in terms of a rotation of the chief satellite
@@ -120,49 +108,37 @@ class Reference_orbit:
     def ref_orbit_pos(self,t,precession=True):
         if precession:
             J2 = 0.00108263
-            sq_mu = np.sqrt(const.GM_earth.value)
-            R_e = const.R_earth.value
-
-            #Parameters from Schweighart
-            t_dash = t #Ignore for now
-            factor = 3*sq_mu*J2*R_e**2/(2*self.R_orb**(3.5))*np.cos(self.inc_0)
-
-            i = self.inc_0 - factor/self.Sch_k*np.sin(self.inc_0)
-            Om = self.Om_0 - factor*t_dash
-            th = self.Sch_k*t_dash
-            dot_i = 0
-            dot_Om = -factor
-            dot_th = self.Sch_k
-
-            pos = np.zeros(3)
-            vel = np.zeros(3)
-
-            #Calculate state from given parameters
-            pos[0] = self.R_orb*(np.cos(Om)*np.cos(th)-np.sin(Om)*np.sin(th)*np.cos(i))
-            pos[1] = self.R_orb*(np.sin(Om)*np.cos(th)+np.cos(Om)*np.sin(th)*np.cos(i))
-            pos[2] = self.R_orb*(np.sin(th)*np.sin(i))
-
-            vel[0] = self.R_orb*(-np.sin(Om)*np.cos(th)*dot_Om - np.cos(Om)*np.sin(th)*dot_th -
-                                  np.cos(Om)*np.sin(th)*np.cos(i)*dot_Om - np.sin(Om)*np.cos(th)*np.cos(i)*dot_th)
-            vel[1] = self.R_orb*(np.cos(Om)*np.cos(th)*dot_Om - np.sin(Om)*np.sin(th)*dot_th -
-                                 np.sin(Om)*np.sin(th)*np.cos(i)*dot_Om + np.cos(Om)*np.cos(th)*np.cos(i)*dot_th)
-            vel[2] = self.R_orb*(np.cos(th)*np.sin(i)*dot_th)
-
+            omega = self.Sch_k
         else:
-            phase = t*self.ang_vel
+            J2 = 0
+            omega = self.ang_vel
 
-            pos = np.zeros(3)
-            vel = np.zeros(3)
+        sq_mu = np.sqrt(const.GM_earth.value)
+        R_e = const.R_earth.value
 
-            #Base orbit from phase
-            pos[0] = np.cos(phase) * self.R_orb
-            pos[1] = np.sin(phase) * self.R_orb
-            vel[0] = -np.sin(phase) * self.R_orb * self.ang_vel
-            vel[1] = np.cos(phase) * self.R_orb * self.ang_vel
+        #Parameters from Schweighart
+        factor = 3*sq_mu*J2*R_e**2/(2*self.R_orb**(3.5))*np.cos(self.inc_0)
 
-            #Rotate in orbit
-            pos = qt.rotate(pos,self.q0)
-            vel = qt.rotate(vel,self.q0)
+        i = self.inc_0 - factor/omega*np.sin(self.inc_0)
+        Om = self.Om_0 - factor*t
+        th = omega*t
+        dot_i = 0
+        dot_Om = -factor
+        dot_th = omega
+
+        pos = np.zeros(3)
+        vel = np.zeros(3)
+
+        #Calculate state from given parameters
+        pos[0] = self.R_orb*(np.cos(Om)*np.cos(th)-np.sin(Om)*np.sin(th)*np.cos(i))
+        pos[1] = self.R_orb*(np.sin(Om)*np.cos(th)+np.cos(Om)*np.sin(th)*np.cos(i))
+        pos[2] = self.R_orb*(np.sin(th)*np.sin(i))
+
+        vel[0] = self.R_orb*(-np.sin(Om)*np.cos(th)*dot_Om - np.cos(Om)*np.sin(th)*dot_th -
+                              np.cos(Om)*np.sin(th)*np.cos(i)*dot_Om - np.sin(Om)*np.cos(th)*np.cos(i)*dot_th)
+        vel[1] = self.R_orb*(np.cos(Om)*np.cos(th)*dot_Om - np.sin(Om)*np.sin(th)*dot_th -
+                             np.sin(Om)*np.sin(th)*np.cos(i)*dot_Om + np.cos(Om)*np.cos(th)*np.cos(i)*dot_th)
+        vel[2] = self.R_orb*(np.cos(th)*np.sin(i)*dot_th)
 
         rho_hat = pos/np.linalg.norm(pos) #Position unit vector (rho)
         xi_hat = vel/np.linalg.norm(vel) #Velocity unit vector (xi)
@@ -173,11 +149,35 @@ class Reference_orbit:
             pos_ref,vel_ref,LVLH,Base_pos = self.ref_orbit_pos(t+0.1,precession)
             pos_ref,vel_ref,LVLH,Base_neg = self.ref_orbit_pos(t-0.1,precession)
             b_hat_pos = Base_pos[0]
-            b_hat_neg = Base_pos[0]
+            b_hat_neg = Base_neg[0]
             b = (b_hat_pos + b_hat_neg)*0.5
             b_hat = b/np.linalg.norm(b)
         else:
             b_hat = np.cross(rho_hat,self.s_hat)/np.linalg.norm(np.cross(rho_hat,self.s_hat)) #Baseline unit vector
+        o_hat = np.cross(self.s_hat,b_hat) #Other unit vector
+        Base_mat = np.array([b_hat,o_hat,self.s_hat]) #Baseline rotation matrix
+
+        return pos,vel,LVLH_mat,Base_mat
+
+    """ Returns the position and velocity of the reference orbit at a given time t """
+    """ Also returns the ECI to LVLH/Baseline change of basis matrices """
+    def chief_orbit_pos(self,state,state2):
+        if not np.any(state):
+            raise Exception("You didn't give me the chief state. Check state != 0")
+        pos = state[:3]
+        vel = state[3:]
+
+        rho_hat = pos/np.linalg.norm(pos) #Position unit vector (rho)
+        xi_hat = vel/np.linalg.norm(vel) #Velocity unit vector (xi)
+        eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
+        LVLH_mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
+
+        if not np.any(np.cross(rho_hat,self.s_hat)):
+            if not np.any(state2):
+                raise Exception("Baseline not found. Check state2 != 0")
+            rho_hat = state2[:3]/np.linalg.norm(state2[:3])
+
+        b_hat = np.cross(rho_hat,self.s_hat)/np.linalg.norm(np.cross(rho_hat,self.s_hat)) #Baseline unit vector
         o_hat = np.cross(self.s_hat,b_hat) #Other unit vector
         Base_mat = np.array([b_hat,o_hat,self.s_hat]) #Baseline rotation matrix
 
@@ -213,8 +213,11 @@ class ECI_Sat(Satellite):
     """ Change to LVLH frame. Requires the position, velocity and LVLH matrix of """
     """ the reference orbit at the same time (for speedup sake). If necessary, can """
     """ make this not require any input """
-    def to_LVLH(self,precession=True):
-        pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+    def to_LVLH(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        if ref_orbit:
+            pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+        else:
+            pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
         non_zero_pos = np.dot(LVLH,self.pos) #Position in LVLH, origin at centre of Earth
         pos = non_zero_pos - np.dot(LVLH,pos_ref) #Position, origin at chief spacecraft
@@ -228,11 +231,11 @@ class ECI_Sat(Satellite):
         vel = np.dot(self.reference.UVmat,self.vel)
         return UV_Sat(pos,vel,self.time,self.reference)
 
-    def to_Baseline(self):
-        return self.to_LVLH().to_Baseline()
-        
-    def to_Curvy(self):
-        return self.to_LVLH().to_Curvy()
+    def to_Baseline(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH(precession,ref_orbit,state,state2).to_Baseline(precession,ref_orbit,state,state2)
+
+    def to_Curvy(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH(precession,ref_orbit,state,state2).to_Curvy()
 
 
 
@@ -257,8 +260,11 @@ class LVLH_Sat(Satellite):
     """ Change to ECI frame. Requires the position, velocity and LVLH matrix of """
     """ the reference orbit at the same time (for speedup sake). If necessary, can """
     """ make this not require any input """
-    def to_ECI(self,precession=True):
-        pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+    def to_ECI(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        if ref_orbit:
+            pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+        else:
+            pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
         inv_rotmat = LVLH.transpose() #LVLH to ECI change of basis matrix
         pos = np.dot(inv_rotmat,self.pos) + pos_ref #ECI position
@@ -270,16 +276,18 @@ class LVLH_Sat(Satellite):
     """ Change to Baseline frame. Requires the LVLH and Baseline matrox of the """
     """ reference orbit at the same time. Can also change to require less Input """
     """ at the sake of speed """
-    def to_Baseline(self,precession=True):
-        pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+    def to_Baseline(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        if ref_orbit:
+            pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+        else:
+            pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
         mat = np.dot(Base,LVLH.transpose())
         pos = np.dot(mat,self.pos)
         vel = np.dot(mat,self.vel)
         return Baseline_Sat(pos,vel,self.time,self.reference)
 
-    def to_Curvy(self,precession=True):
-        pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+    def to_Curvy(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
 
         x,y,z = self.pos
         dx,dy,dz = self.vel
@@ -305,20 +313,23 @@ class Baseline_Sat(Satellite):
     """ Change to LVLH frame. Requires the LVLH and Baseline matrox of the """
     """ reference orbit at the same time. Can also change to require less Input """
     """ at the sake of speed """
-    def to_LVLH(self,precession=True):
-        pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+    def to_LVLH(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        if ref_orbit:
+            pos_ref,vel_ref,LVLH,Base = self.reference.ref_orbit_pos(self.time,precession)
+        else:
+            pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
         mat = np.dot(LVLH,Base.transpose())
         pos = np.dot(mat,self.pos)
         vel = np.dot(mat,self.vel)
         return LVLH_Sat(pos,vel,self.time,self.reference)
-        
-    def to_Curvy(self):
-        return self.to_LVLH().to_Curvy()
-        
-    def to_ECI(self):
-        return self.to_LVLH().to_ECI()
-        
+
+    def to_Curvy(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH(precession,ref_orbit,state,state2).to_Curvy()
+
+    def to_ECI(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH(precession,ref_orbit,state,state2).to_ECI(precession,ref_orbit,state,state2)
+
 
 class Curvy_Sat(Satellite):
     def __init__(self,pos,vel,time,reference):
@@ -327,57 +338,48 @@ class Curvy_Sat(Satellite):
     """ Change to LVLH frame. Requires the LVLH and Baseline matrox of the """
     """ reference orbit at the same time. Can also change to require less Input """
     """ at the sake of speed """
-    def to_LVLH(self):
-        
+    def to_LVLH(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+
         xc,yc,zc = self.pos
         dxc,dyc,dzc = self.vel
         R0 = self.reference.R_orb
-        
+
         Rd = R0 + xc
         phi = yc/R0
         theta = zc/R0
-        
+
         x = Rd*np.cos(phi)*np.cos(theta) - R0
         y = Rd*np.sin(phi)*np.cos(theta)
         z = Rd*np.sin(theta)
-        
+
         dphi = dyc/R0
         dtheta = dzc/R0
-        
+
         dx = dxc*np.cos(phi)*np.cos(theta) - Rd*np.sin(phi)*np.cos(theta)*dphi - Rd*np.cos(phi)*np.sin(theta)*dtheta
         dy = dxc*np.sin(phi)*np.cos(theta) + Rd*np.cos(phi)*np.cos(theta)*dphi - Rd*np.sin(phi)*np.sin(theta)*dtheta
         dz = dxc*np.sin(theta) + Rd*np.cos(theta)*dtheta
         return LVLH_Sat(np.array([x,y,z]),np.array([dx,dy,dz]),self.time,self.reference)
 
-    def to_Baseline(self):
-        return self.to_LVLH().to_Baseline()
-        
-    def to_ECI(self):
-        return self.to_LVLH().to_ECI()
+    def to_Baseline(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH().to_Baseline(precession,ref_orbit,state,state2)
 
+    def to_ECI(self,precession=True,ref_orbit=False,state=np.zeros(6),state2=np.zeros(6)):
+        return self.to_LVLH().to_ECI(precession,ref_orbit,state,state2)
 
 
 """ Initialise the chief satellite at t = 0 from the reference orbit """
-def init_chief(reference,precession=True):
-    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(0,precession)
-    return ECI_Sat(pos_ref,vel_ref,0,reference)
-    
-    #ref = reference
-    #J2 = 0.00108263
-    #R_e = const.R_earth.value
+def init_chief(reference,precession=True,time=0):
+    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(time,precession)
+    return ECI_Sat(pos_ref,vel_ref,time,reference)
 
-    #temp_sat = ECI_Sat(pos_ref,vel_ref,0,ref).to_Curvy()
-    #temp_sat.vel[0] = temp_sat.pos[1]*ref.ang_vel*(1-ref.Sch_s)/(2*np.sqrt(1+ref.Sch_s))
-    #temp_sat.vel[1] = -2*temp_sat.pos[0]*ref.ang_vel*np.sqrt(1+ref.Sch_s) + 3*J2*R_e**2*ref.ang_vel**2/(4*ref.Sch_k*ref.R_orb)*np.sin(ref.inc_0)**2
-
-    #return temp_sat.to_ECI()
 
 """ Initialise a deputy at t=0 from the reference orbit """
 """ the n variable is for the number of the deputy (i.e 1 or 2) """
-def init_deputy(reference,n,precession=True):
+def init_deputy(reference,n,precession=True,time=0):
 
     #Reference orbit
-    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(0,precession)
+    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(time,precession)
+
     if precession:
         #New coord system:
         z_hat = np.cross(pos_ref,vel_ref)/np.linalg.norm(np.cross(pos_ref,vel_ref)) #In direction of angular momentum
@@ -405,7 +407,7 @@ def init_deputy(reference,n,precession=True):
         psi = reference.delta_r_max*np.cos(theta)/reference.R_orb #Angle between chief and deputy WRT Earth
         omega = -np.arctan(reference.delta_r_max/reference.R_orb*np.sin(theta)) #Amount of rotation
 
-        print(psi,omega,vel_ref)
+        #print(psi,omega,vel_ref)
 
         if n == 1:
             #Define deputy orbital planes in terms of a rotation of the chief satellite
@@ -429,15 +431,5 @@ def init_deputy(reference,n,precession=True):
             q = reference.q2
         else:
             raise Exception("Bad Deputy number")
-    
-    return ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference)
-    
-    #ref = reference
-    #J2 = 0.00108263
-    #R_e = const.R_earth.value
 
-    #temp_sat = ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),0,reference).to_Curvy()
-    #temp_sat.vel[0] = temp_sat.pos[1]*ref.ang_vel*(1-ref.Sch_s)/(2*np.sqrt(1+ref.Sch_s))
-    #temp_sat.vel[1] = -2*temp_sat.pos[0]*ref.ang_vel*np.sqrt(1+ref.Sch_s) + 3*J2*R_e**2*ref.ang_vel**2/(4*ref.Sch_k*ref.R_orb)*np.sin(ref.inc_0)**2
-
-    #return temp_sat.to_ECI()
+    return ECI_Sat(qt.rotate(pos_ref,q),qt.rotate(vel_ref,q),time,reference)

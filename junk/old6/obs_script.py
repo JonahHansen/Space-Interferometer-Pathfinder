@@ -33,7 +33,7 @@ dec = np.radians(0)#-40
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(40)
+antisun_angle = np.radians(60)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -44,25 +44,24 @@ def i_from_precession(rho):
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
 inc_0 = i_from_precession(precess_rate)
-#inc_0 = 0
+inc_0 = 39
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
 
 #Number of orbits
-n_orbits = 365.25*24*60*60/ref.period
+n_orbits = 1*24*60*60/ref.period
 #Number of phases in each orbit
 n_phases = ref.period/60/2
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-n_ra = 1
-n_dec = 180
+n_ra = 180
+n_dec = 90
 
 ras = np.linspace(0,np.radians(360),n_ra)
 decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
-#decs = np.array([0])
 ra,dec = np.meshgrid(ras,decs)
 
 s_hats = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]).transpose()
@@ -83,7 +82,6 @@ j = np.zeros((n_ra,n_dec))
 for t in times:
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
     obs[i] = check_obs(t,s_hats,pos_ref,antisun_angle,ref) #Check if observable
-    """
     for ix in range(n_ra):
         for iy in range(n_dec):
             if obs[i,ix,iy]:
@@ -93,10 +91,9 @@ for t in times:
                     for k in range(int(j[ix,iy])):
                         obs[i-1-k,ix,iy] = 0
                 j[ix,iy] = 0
-    """
     i += 1
     print(i*100/n_times)
 
-np.save("inch_dec_40.npy",obs)
-#percent = np.sum(obs,axis=0)/len(obs)*100
-#plt.imshow(obs[:,:,0],aspect="auto")
+percent = np.sum(obs,axis=0)/len(obs)*100
+plt.imshow(percent.transpose())
+plt.show()
