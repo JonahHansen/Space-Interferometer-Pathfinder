@@ -11,29 +11,32 @@ from scipy.optimize import fsolve
 """ that takes in a time and produces the satellite's state relative to the """
 """ reference orbit at that time."""
 
-def propagate_spacecraft(t0,state0,t,ref):
+def propagate_spacecraft(t0,state0,t,ref,HCW=False):
 
     r_ref = ref.R_orb #Reference orbit radius
-    i_ref = ref.inc_0 #Inclination orbit radius
 
     #Schweighart constants (defined in notebook)
-    c = ref.Sch_c
-    w = ref.ang_vel
-    k = ref.Sch_k
+    n = ref.ang_vel
+    if HCW:
+        c = 1
+        k = n
+        J2 = 0
+    else:
+        c = ref.Sch_c
+        k = ref.Sch_k
+        J2 = 0.00108263
 
-    J2 = 0.00108263
     Re = const.R_earth.value
+    i_ref = ref.inc_0 -(3*n*J2*Re**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
 
     #Self defined constants for the equations of motion
-    a = 2*w*c
-    b = (5*c**2-2)*w**2
-    d = 3*w**2*J2*Re**2/r_ref*np.sin(i_ref)**2
-    g = 3*w**2*J2*Re**2/r_ref*(0.5 - (1+3*np.cos(2*i_ref))/8)
-    al = np.sqrt(a**2-b)
-    be = (al**2)-4*k**2
+    a = 2*n*c
+    b = (5*c**2-2)*n**2
+    g = 3*n**2*J2*Re**2/r_ref*np.sin(i_ref)**2
+    d = np.sqrt(a**2-b)
+    e = (d**2)-4*k**2
 
-    la0 = -1/(4*al**2*be*k)
-    ka0 = -1/(8*al**2*be*k**2)
+    print(a,b,g,d,e)
 
     x0,y0,z0,dx0,dy0,dz0 = state0 #Initial conditions
 
@@ -52,15 +55,14 @@ def propagate_spacecraft(t0,state0,t,ref):
 
     phi_0 = np.arccos(np.cos(i_sat)*np.cos(i_ref)+np.sin(i_sat)*np.sin(i_ref)*np.cos(omega_0))
 
-    d_omega_sat = -3*w*J2*Re**2/(2*r_ref**2)*np.cos(i_sat)
+    d_omega_sat = -3*n*J2*Re**2/(2*r_ref**2)*np.cos(i_sat)
 
-    d_omega_ref = -3*w*J2*Re**2/(2*r_ref**2)*np.cos(i_ref)
+    d_omega_ref = -3*n*J2*Re**2/(2*r_ref**2)*np.cos(i_ref)
 
     temp = np.cos(gamma_0)*np.sin(gamma_0)*1/np.tan(omega_0)
     temp = temp if temp == temp else 0
 
-
-    q = w*c - (temp-np.sin(gamma_0)**2*np.cos(i_sat))*(d_omega_sat - d_omega_ref)-d_omega_sat*np.cos(i_sat)
+    q = n*c - (temp-np.sin(gamma_0)**2*np.cos(i_sat))*(d_omega_sat - d_omega_ref)-d_omega_sat*np.cos(i_sat)
 
     l = -r_ref*np.sin(i_sat)*np.sin(i_ref)*np.sin(omega_0)/np.sin(phi_0)*(d_omega_sat-d_omega_ref)
     l = l if l == l else 0
@@ -72,28 +74,23 @@ def propagate_spacecraft(t0,state0,t,ref):
     #Solve simultaneous equations
     m,phi = fsolve(equations,(0,0))
 
-    #Constants of the solved equations
-    la1 = -(be*k*(3*d-4*g+4*a*(a*x0+dy0))-a*d*be*np.cos(2*k*t0))
-    la2 = -al**2*d*(a-3*k)
-    la3 = k*(be*(3*d-4*g+4*(b*x0+a*dy0))+d*(-3*a**2+3*b+4*a*k)*np.cos(2*k*t0))
-    la4 = -2*al*k*(2*be*dx0+d*(a-3*k)*np.sin(2*k*t0))
-    
-    #print(la1,la2,la3,la4)
+    ka1 = b/(d**2)*(a*x0 + dy0 - g/(4*k)*np.cos(2*k*t0))
+    ka2 = y0 - a/(d**2)*dx0 + g*(b-3*a*k)/(8*d**2*k**2)*np.sin(2*k*t0)
+    ka3 = -(b/(d**2)*x0 + a/d**2*dy0 + g/(4*d**2*e)*(4*a*k - 3*d**2)*np.cos(2*k*t0))
+    ka4 = 1/(2*d*e)*(2*e*dx0 + g*(a-3*k)*np.sin(2*k*t0))
+    ka5 = g/(4*e*k)*(a-3*k)
+    ka6 = g/(8*b*k**2)*(3*a*k - b - 4*k**2)
 
-    ka1 = (2*k*(be*k*(-4*a**2*y0-a*(3*d-4*g+4*b*x0)*t0+4*a*dx0+4*b*(y0-dy0*t0)) +
-          b*d*be*t0*np.cos(2*k*t0)) - be*d*(b-3*a*k)*np.sin(2*k*t0))
-    ka2 = 2*k*(be*k*(a*(3*d-4*g+4*b*x0)+4*b*dy0)-b*d*be*np.cos(2*k*t0))
-    ka3 = al**2*d*(b-3*a*k+4*k**2)
-    ka4 = -4*a*k**2*(2*be*dx0 + d*(a-3*k)*np.sin(2*k*t0))
-    ka5 = 2*a*k**2/al*(-be*(3*d-4*g+4*b*x0+4*a*dy0)+d*(3*a**2-3*b-4*a*k)*np.cos(2*k*t0))
+    print(ka4)
 
+    #import pdb; pdb.set_trace()
     #Actual equations
-    x = la0*(la1 + la2*np.cos(2*k*t) + la3*np.cos(al*(t-t0)) + la4*np.sin(al*(t-t0)))
-    y = ka0*(ka1 + ka2*t + ka3*np.sin(2*k*t) + ka4*np.cos(al*(t-t0)) + ka5*np.sin(al*(t-t0)))
+    x = a/b*ka1 + ka3*np.cos(d*(t-t0)) + ka4*np.sin(d*(t-t0)) + ka5*np.cos(2*k*t)
+    y = ka2 - ka1*(t-t0) + a/d*ka4*np.cos(d*(t-t0)) -a/d*ka3*np.sin(d*(t-t0)) + ka6*np.sin(2*k*t)
     z = z0*np.cos(q*(t-t0)) + l*(t-t0)*np.sin(q*t+phi) + 1/q*np.sin(q*(t-t0))*(dz0 - l*np.sin(q*t0+phi))
 
-    dx = la0*(-2*k*la2*np.sin(2*k*t) - al*la3*np.sin(al*(t-t0)) + al*la4*np.cos(al*(t-t0)))
-    dy = ka0*(ka2 + 2*k*ka3*np.cos(2*k*t) - al*ka4*np.sin(al*(t-t0)) + al*ka5*np.cos(al*(t-t0)))
+    dx = - d*ka3*np.sin(d*(t-t0)) + d*ka4*np.cos(d*(t-t0)) - 2*k*ka5*np.sin(2*k*t)
+    dy = - ka1 - a*ka4*np.sin(d*(t-t0)) - a*ka3*np.cos(d*(t-t0)) + 2*k*ka6*np.cos(2*k*t)
     dz = (l*q*(t-t0)*np.cos(q*t+phi) - q*z0*np.sin(q*(t-t0)) +
          l*np.sin(q*t+phi) + np.cos(q*(t-t0))*(dz0-l*np.sin(q*t0+phi)))
 
