@@ -107,9 +107,9 @@ d2_sats = []
 
 print("Integration Done")
 for i in range(len(times)):
-    c_sats.append(orbits.ECI_Sat(chief_p_states[i,:3],chief_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
-    d1_sats.append(orbits.ECI_Sat(deputy1_p_states[i,:3],deputy1_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
-    d2_sats.append(orbits.ECI_Sat(deputy2_p_states[i,:3],deputy2_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
+    c_sats.append(orbits.ECI_Sat(chief_p_states[i,:3],chief_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
+    d1_sats.append(orbits.ECI_Sat(deputy1_p_states[i,:3],deputy1_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
+    d2_sats.append(orbits.ECI_Sat(deputy2_p_states[i,:3],deputy2_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
 print("Classifying Done")
 
 d1_rel_pos = np.zeros((n_times,3)) #Deputy1 position in star direction
@@ -141,7 +141,7 @@ plt.plot(times,d2_rel_pos[:,2],'r-',label="Deputy2")
 plt.ylabel(r"$\eta$ Separation (m)")
 plt.xlabel("Time (s)")
 
-plt.savefig('ECI_45_long.svg', format='svg')
+plt.savefig('ECI_Curvy_45_long.svg', format='svg')
 
 
 
