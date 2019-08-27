@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(94) #20
+inc_0 = np.radians(0) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(90) #0
+Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(-43) #90
-dec = np.radians(10)#-40
+ra = np.radians(0) #90
+dec = np.radians(90)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -65,7 +65,7 @@ def del_v_func(c,d1,d2,t,pt,ref):
     c_s_hat = np.dot(c.vel,ref.s_hat)
     d1_s_hat = np.dot(d1.vel,ref.s_hat)
     d2_s_hat = np.dot(d2.vel,ref.s_hat)
-    
+
     d1_rel_s = d1_s_hat - c_s_hat
     d2_rel_s = d2_s_hat - c_s_hat
     print(d1_rel_s)
@@ -74,25 +74,25 @@ def del_v_func(c,d1,d2,t,pt,ref):
     sat0 = c.to_Baseline(state=c.state)
     sat1 = d1.to_Baseline(state=c.state)
     sat2 = d2.to_Baseline(state=c.state)
-    
+
     csat = sat0.state
     dsat1 = sat1.state
     dsat2 = sat2.state
-    
+
     delvs1 = np.zeros(3)
     delvs2 = np.zeros(3)
     delvs0 = np.zeros(3)
-    
+
     """
     #delvs1[2] = -dsat1[2]/(t-pt)
     #delvs2[2] = -dsat2[2]/(t-pt)
     #import pdb; pdb.set_trace()
     #delvs1 = -1*d1_rel_s/(t-pt)
     #delvs2 = -1*d2_rel_s/(t-pt)
-    
+
     delvs1_sc = -dsat1[2]/(t-pt)
     delvs2_sc = -dsat2[2]/(t-pt)
-    
+
     if delvs1_sc < 0:
         if delvs2_sc < 0:
             delvs1[2] = -delvs2_sc
@@ -104,23 +104,23 @@ def del_v_func(c,d1,d2,t,pt,ref):
     elif delvs2_sc < 0:
             delvs1[2] -= delvs2_sc
             delvs0[2] -= delvs2_sc
-    
+
     """
-    
+
     max_s_sep = np.max([csat[2],dsat1[2],dsat2[2]])
     #print(max_s_sep)
-    
+
     del_t = (t-pt)/zeta
-    
+
     delvs0[2] = (max_s_sep - csat[2])/del_t
     delvs1[2] = (max_s_sep - dsat1[2])/del_t
     delvs2[2] = (max_s_sep - dsat2[2])/del_t
-    
+
     b1 = np.linalg.norm(dsat1[0:2])
     b2 = np.linalg.norm(dsat2[0:2])
     del_b = b2-b1
     #print(del_b)
-    
+
     if del_b >= 0:
         delvs2[2] += del_b/del_t
     elif del_b < 0:
@@ -132,17 +132,17 @@ def del_v_func(c,d1,d2,t,pt,ref):
     del_b_half = 0.5*del_b #Midpoint
     m0 = dsat1[0:3] + del_b_half #Midpoint from centre
     m0[2] = 00
-    
+
     delvb = m0/(t-pt)
     delvb = np.array([0,0,0])
     """
-    
+
     delv = np.array([delvs0[2],delvs1[2],delvs2[2]])
     #print(delv)
     sat0.vel += delvs0
     sat1.vel += delvs1
     sat2.vel += delvs2
-    
+
     new_sat0 = sat0.to_ECI(state = c.state).state
     new_sat1 = sat1.to_ECI(state = c.state).state
     new_sat2 = sat2.to_ECI(state = c.state).state
@@ -151,14 +151,14 @@ def del_v_func(c,d1,d2,t,pt,ref):
     c.state[3:] += delvs0*ref.s_hat
     d1.state[3:] += delvs1*ref.s_hat
     d2.state[3:] += delvs2*ref.s_hat
-    
+
     new_sat0 = c.state
     new_sat1 = d1.state
     new_sat2 = d2.state
     """
-    
+
     return delv,new_sat0,new_sat1,new_sat2
-    
+
 
 #------------------------------------------------------------------------------------------
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
@@ -190,35 +190,35 @@ while t0 < times[-1]:
     burn_pt = t0 + t_burn
     ts = np.linspace(t0,burn_pt,10) #Every 0.1s
     t_bank = np.append(t_bank,ts)
-    
+
     #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
     X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], chief_0, t_eval = ts, rtol = rtol, atol = atol)
     #Check if successful integration
     if not X_c.success:
         raise Exception("Integration Chief failed!!!!")
-    
+
     #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
     X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy1_0, t_eval = ts, rtol = rtol, atol = atol)
     #Check if successful integration
     if not X_d1.success:
         raise Exception("Integration Deputy 1 failed!!!!")
-    
+
     X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy2_0, t_eval = ts, rtol = rtol, atol = atol)
     if not X_d2.success:
         raise Exception("Integration Deputy 2 failed!!!!")
-    
+
     chief_p_states = X_c.y.transpose()
     deputy1_p_states = X_d1.y.transpose()
     deputy2_p_states = X_d2.y.transpose()
-    
+
     chief_states = np.append(chief_states,chief_p_states,axis=0)
     deputy1_states = np.append(deputy1_states,deputy1_p_states,axis=0)
     deputy2_states = np.append(deputy2_states,deputy2_p_states,axis=0)
-    
+
     c = orbits.ECI_Sat(chief_p_states[-1,:3],chief_p_states[-1,3:],ts[-1],ref)
     d1 = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],ts[-1],ref)
     d2 = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],ts[-1],ref)
-    
+
     delv,new_c,new_d1,new_d2 = del_v_func(c,d1,d2,burn_pt,t0,ref)
     #import pdb; pdb.set_trace()
     delv_bank.append(delv)
