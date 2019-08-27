@@ -5,8 +5,8 @@ from mpl_toolkits import mplot3d
 import astropy.constants as const
 from scipy.integrate import solve_ivp
 import modules.orbits as orbits
+import sys
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_solved_clean import propagate_spacecraft
 
 plt.ion()
 
@@ -16,51 +16,146 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(64) #20
+inc_0 = np.radians(94) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(90) #0
 
 #Stellar vector
-ra = np.radians(0) #90
-dec = np.radians(0)#-40
+ra = np.radians(-43) #90
+dec = np.radians(10)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
+#Tolerance and steps required for the integrator
+rtol = 1e-12
+atol = 1e-18
+
+zeta = float(sys.argv[2])
+
+def dX_dt(t,state,ref):
+    [x,y,z] = state[:3] #Position
+    v = state[3:] #Velocity
+
+    #First half of the differential vector (derivative of position, velocity)
+    dX0 = v[0]
+    dX1 = v[1]
+    dX2 = v[2]
+
+    J2 = 0.00108263 #J2 Parameter
+
+    r = np.linalg.norm(state[:3])
+
+    #Calculate J2 acceleration from the equation in ECI frame
+    J2_fac1 = 3/2*J2*const.GM_earth.value*const.R_earth.value**2/r**5
+    J2_fac2 = 5*z**2/r**2
+    J2_p = J2_fac1*np.array([x*(J2_fac2-1),y*(J2_fac2-1),z*(J2_fac2-3)])
+
+    r_hat = state[:3]/r
+    a = -const.GM_earth.value/r**2*r_hat + J2_p
+    dX3 = a[0]
+    dX4 = a[1]
+    dX5 = a[2]
+
+    return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
+
 
 def del_v_func(c,d1,d2,t,pt,ref):
-    sat0 = orbits.Curvy_Sat(c[:3],c[3:],t,ref).to_Baseline()
-    sat1 = orbits.Curvy_Sat(d1[:3],d1[3:],t,ref).to_Baseline()
-    sat2 = orbits.Curvy_Sat(d2[:3],d2[3:],t,ref).to_Baseline()
+    """
+    c_s_hat = np.dot(c.vel,ref.s_hat)
+    d1_s_hat = np.dot(d1.vel,ref.s_hat)
+    d2_s_hat = np.dot(d2.vel,ref.s_hat)
     
-    dsat1 = sat1.state-sat0.state
-    dsat2 = sat2.state-sat0.state
+    d1_rel_s = d1_s_hat - c_s_hat
+    d2_rel_s = d2_s_hat - c_s_hat
+    print(d1_rel_s)
+
+    """
+    sat0 = c.to_Baseline(state=c.state)
+    sat1 = d1.to_Baseline(state=c.state)
+    sat2 = d2.to_Baseline(state=c.state)
+    
+    csat = sat0.state
+    dsat1 = sat1.state
+    dsat2 = sat2.state
     
     delvs1 = np.zeros(3)
     delvs2 = np.zeros(3)
-    delvb = np.zeros(3)
+    delvs0 = np.zeros(3)
     
-    delvs1[2] = -dsat1[2]/(t-pt)
-    delvs2[2] = -dsat2[2]/(t-pt)
+    """
+    #delvs1[2] = -dsat1[2]/(t-pt)
+    #delvs2[2] = -dsat2[2]/(t-pt)
+    #import pdb; pdb.set_trace()
+    #delvs1 = -1*d1_rel_s/(t-pt)
+    #delvs2 = -1*d2_rel_s/(t-pt)
     
+    delvs1_sc = -dsat1[2]/(t-pt)
+    delvs2_sc = -dsat2[2]/(t-pt)
+    
+    if delvs1_sc < 0:
+        if delvs2_sc < 0:
+            delvs1[2] = -delvs2_sc
+            delvs0[2] = -(delvs1_sc + delvs2_sc)
+            delvs2[2] = -delvs1_sc
+        else:
+            delvs2[2] -= delvs1_sc
+            delvs0[2] -= delvs1_sc
+    elif delvs2_sc < 0:
+            delvs1[2] -= delvs2_sc
+            delvs0[2] -= delvs2_sc
+    
+    """
+    
+    max_s_sep = np.max([csat[2],dsat1[2],dsat2[2]])
+    #print(max_s_sep)
+    
+    del_t = (t-pt)/zeta
+    
+    delvs0[2] = (max_s_sep - csat[2])/del_t
+    delvs1[2] = (max_s_sep - dsat1[2])/del_t
+    delvs2[2] = (max_s_sep - dsat2[2])/del_t
+    
+    b1 = np.linalg.norm(dsat1[0:2])
+    b2 = np.linalg.norm(dsat2[0:2])
+    del_b = b2-b1
+    #print(del_b)
+    
+    if del_b >= 0:
+        delvs2[2] += del_b/del_t
+    elif del_b < 0:
+        delvs1[2] += -del_b/del_t
+
+    """
     #Calculate position vector to the midpoint of the two deputies
     del_b = dsat1[0:3] - dsat2[0:3] #Separation vector
     del_b_half = 0.5*del_b #Midpoint
     m0 = dsat1[0:3] + del_b_half #Midpoint from centre
-    m0[2] = 0
+    m0[2] = 00
     
     delvb = m0/(t-pt)
     delvb = np.array([0,0,0])
+    """
     
-    delv = np.array([np.linalg.norm(delvs1),np.linalg.norm(delvs2),np.linalg.norm(delvb)])
-    
-    sat0.vel += delvb
+    delv = np.array([delvs0[2],delvs1[2],delvs2[2]])
+    #print(delv)
+    sat0.vel += delvs0
     sat1.vel += delvs1
     sat2.vel += delvs2
     
-    new_sat0 = sat0.to_Curvy().state
-    new_sat1 = sat1.to_Curvy().state
-    new_sat2 = sat2.to_Curvy().state
+    new_sat0 = sat0.to_ECI(state = c.state).state
+    new_sat1 = sat1.to_ECI(state = c.state).state
+    new_sat2 = sat2.to_ECI(state = c.state).state
+    """
+    #import pdb; pdb.set_trace()
+    c.state[3:] += delvs0*ref.s_hat
+    d1.state[3:] += delvs1*ref.s_hat
+    d2.state[3:] += delvs2*ref.s_hat
+    
+    new_sat0 = c.state
+    new_sat1 = d1.state
+    new_sat2 = d2.state
+    """
     
     return delv,new_sat0,new_sat1,new_sat2
     
@@ -78,46 +173,70 @@ n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
 #Initial states of the satellites
-chief_0 = orbits.init_chief(ref).to_LVLH().state
-deputy1_0 = orbits.init_deputy(ref,1).to_LVLH().state
-deputy2_0 = orbits.init_deputy(ref,2).to_LVLH().state
+chief_0 = orbits.init_chief(ref).state
+deputy1_0 = orbits.init_deputy(ref,1).state
+deputy2_0 = orbits.init_deputy(ref,2).state
 
 chief_states = np.array([chief_0])
 deputy1_states = np.array([deputy1_0])
 deputy2_states = np.array([deputy2_0])
 delv_bank = []
 
-t_burn = 1
-t0 = 0.1
+t_burn = int(sys.argv[1])
+t0 = 0.0
 t_bank = np.array([0])
 
 while t0 < times[-1]:
     burn_pt = t0 + t_burn
-    ts = np.linspace(t0,burn_pt,t_burn) #Every 0.1s
+    ts = np.linspace(t0,burn_pt,10) #Every 0.1s
     t_bank = np.append(t_bank,ts)
-    chief_states = np.append(chief_states,propagate_spacecraft(t0,chief_0,ts,ref).transpose(),axis=0)
-    deputy1_states = np.append(deputy1_states,propagate_spacecraft(t0,deputy1_0,ts,ref).transpose(),axis=0)
-    deputy2_states = np.append(deputy2_states,propagate_spacecraft(t0,deputy2_0,ts,ref).transpose(),axis=0)
     
-    delv,new_c,new_d1,new_d2 = del_v_func(chief_states[-1],deputy1_states[-1],deputy2_states[-1],burn_pt,t0,ref)
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], chief_0, t_eval = ts, rtol = rtol, atol = atol)
+    #Check if successful integration
+    if not X_c.success:
+        raise Exception("Integration Chief failed!!!!")
     
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy1_0, t_eval = ts, rtol = rtol, atol = atol)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration Deputy 1 failed!!!!")
+    
+    X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy2_0, t_eval = ts, rtol = rtol, atol = atol)
+    if not X_d2.success:
+        raise Exception("Integration Deputy 2 failed!!!!")
+    
+    chief_p_states = X_c.y.transpose()
+    deputy1_p_states = X_d1.y.transpose()
+    deputy2_p_states = X_d2.y.transpose()
+    
+    chief_states = np.append(chief_states,chief_p_states,axis=0)
+    deputy1_states = np.append(deputy1_states,deputy1_p_states,axis=0)
+    deputy2_states = np.append(deputy2_states,deputy2_p_states,axis=0)
+    
+    c = orbits.ECI_Sat(chief_p_states[-1,:3],chief_p_states[-1,3:],ts[-1],ref)
+    d1 = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],ts[-1],ref)
+    d2 = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],ts[-1],ref)
+    
+    delv,new_c,new_d1,new_d2 = del_v_func(c,d1,d2,burn_pt,t0,ref)
+    #import pdb; pdb.set_trace()
     delv_bank.append(delv)
     chief_0 = new_c
     deputy1_0 = new_d1
     deputy2_0 = new_d2
     t0 = burn_pt
+    #print(t0)
 
-d1_rel_states = deputy1_states - np.array(chief_states)
-d2_rel_states = np.array(deputy2_states) - np.array(chief_states)
+n_times = len(chief_states)
 
 rel_p_dep1 = []
 rel_p_dep2 = []
 
 print("Integration Done")
-for i in range(len(times)):
-    pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t_bank[i],True)
-    rel_p_dep1.append(orbits.LVLH_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],t_bank[i],ref).to_Baseline())
-    rel_p_dep2.append(orbits.LVLH_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],t_bank[i],ref).to_Baseline())
+for i in range(len(t_bank)):
+    rel_p_dep1.append(orbits.ECI_Sat(deputy1_states[i,:3],deputy1_states[i,3:],t_bank[i],ref).to_Baseline(state=chief_states[i]))
+    rel_p_dep2.append(orbits.ECI_Sat(deputy2_states[i,:3],deputy2_states[i,3:],t_bank[i],ref).to_Baseline(state=chief_states[i]))
 print("Classifying Done")
 
 #--------------------------------------------------------------------------------------------- #
@@ -143,13 +262,13 @@ for ix in range(n_times):
     b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
 
     #Separation of the two deputies in the star direction
-    s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
+    s_hat_sep[ix] = s_hat_drd2[ix] - s_hat_drd1[ix]
     #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
-    #Sum of the separation along the star direction and the baseline direction
-    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+    #Delta of the separation along the star direction and the baseline direction
+    total_sep[ix] = baseline_sep[ix] - s_hat_sep[ix]
 
 print(np.sum(np.array(delv_bank),axis=0))
-print(np.max(np.abs(s_hat_sep)))
+print(np.max(np.abs(total_sep)))
 
 # ---------------------------------------------------------------------- #
 ### PLOTTING STUFF ###
@@ -157,12 +276,9 @@ print(np.max(np.abs(s_hat_sep)))
 #Plot separation along the star direction
 plt.figure(3)
 plt.clf()
-#plt.plot(times,s_hat_drd1,"b-",label="SCHWEIGHART Deputy 1, s direction")
-#plt.plot(times,s_hat_drd2,"g-",label="SCHWEIGHART Deputy 2, s direction")
-#plt.plot(times,s_hat_sep,"r-",label="SCHWEIGHART Separation, s direction")
-plt.plot(times,s_hat_drd1,"b-",label="Deputy 1, s direction")
-plt.plot(times,s_hat_drd2,"g-",label="Deputy 2, s direction")
-plt.plot(times,s_hat_sep,"r-",label="Separation, s direction")
+plt.plot(t_bank,s_hat_drd1,"b-",label="Deputy 1, s direction")
+plt.plot(t_bank,s_hat_drd2,"g-",label="Deputy 2, s direction")
+plt.plot(t_bank,s_hat_sep,"r-",label="Separation, s direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
@@ -171,7 +287,7 @@ plt.legend()
 #Plot separation along the baseline direction
 plt.figure(4)
 plt.clf()
-plt.plot(times,baseline_sep,"y-",label="Separation, baseline direction")
+plt.plot(t_bank,baseline_sep,"y-",label="Separation, baseline direction")
 #plt.plot(times,total_sep,"c-",label="Total direction")
 plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
@@ -181,29 +297,8 @@ plt.legend()
 #Plot separation in the baseline frame
 plt.figure(5)
 plt.clf()
-
-points1 = np.array([b_hat_drd1, s_hat_drd1]).T.reshape(-1, 1, 2)
-points2 = np.array([b_hat_drd2, s_hat_drd2]).T.reshape(-1, 1, 2)
-segments1 = np.concatenate([points1[:-1], points1[1:]], axis=1)
-segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
-norm = plt.Normalize(times.min(), times.max())
-ax = plt.gca()
-lc1 = LineCollection(segments1, cmap='YlOrRd', norm=norm)
-lc1.set_array(times)
-lc1.set_linewidth(2)
-ax.add_collection(lc1)
-lc2 = LineCollection(segments2, cmap='YlGnBu', norm=norm)
-lc2.set_array(times)
-lc2.set_linewidth(2)
-ax.add_collection(lc2)
-space_f = 1.2
-plt.xlim(np.min(space_f*np.minimum(b_hat_drd1,b_hat_drd2)), np.max(space_f*np.maximum(b_hat_drd1,b_hat_drd2)))
-plt.ylim(np.min(space_f*np.minimum(s_hat_drd1,s_hat_drd2)), np.max(space_f*np.maximum(s_hat_drd1,s_hat_drd2)))
-plt.xlabel("Baseline direction (m)")
-plt.ylabel("Star direction (m)")
-plt.title("Position of deputies due to \n perturbations in Baseline frame")
-
-cbar = plt.colorbar(lc1)
-plt.colorbar(lc2)
-#cbar.set_label('Time (Schweighart) (s)', rotation=270, labelpad = 15)
-cbar.set_label('Time (s)', rotation=270, labelpad = 15)
+plt.plot(t_bank,total_sep,"c-",label="Total direction")
+plt.xlabel("Times(s)")
+plt.ylabel("Separation(m)")
+plt.title('Separations against time due to perturbations')
+plt.legend()

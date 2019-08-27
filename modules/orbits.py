@@ -169,7 +169,7 @@ class Reference_orbit:
 
         rho_hat = pos/np.linalg.norm(pos) #Position unit vector (rho)
         xi_hat = vel/np.linalg.norm(vel) #Velocity unit vector (xi)
-        eta_hat = np.cross(rho_hat,xi_hat) #Angular momentum vector (eta)
+        eta_hat = np.cross(rho_hat,xi_hat)/np.linalg.norm(np.cross(rho_hat,xi_hat)) #Angular momentum vector (eta)
         LVLH_mat = np.array([rho_hat,xi_hat,eta_hat]) #LVLH rotation matrix
 
         if not np.any(np.cross(rho_hat,self.s_hat)):
@@ -266,7 +266,7 @@ class LVLH_Sat(Satellite):
         else:
             pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
-        inv_rotmat = LVLH.transpose() #LVLH to ECI change of basis matrix
+        inv_rotmat = np.linalg.inv(LVLH) #LVLH to ECI change of basis matrix
         pos = np.dot(inv_rotmat,self.pos) + pos_ref #ECI position
         omega_L = np.array([0,0,np.linalg.norm(np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2)])
         #Velocity in ECI frame, removing the rotation of the LVLH frame
@@ -282,7 +282,7 @@ class LVLH_Sat(Satellite):
         else:
             pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
-        mat = np.dot(Base,LVLH.transpose())
+        mat = np.dot(Base,np.linalg.inv(LVLH))
         pos = np.dot(mat,self.pos)
         vel = np.dot(mat,self.vel)
         return Baseline_Sat(pos,vel,self.time,self.reference)
@@ -319,7 +319,7 @@ class Baseline_Sat(Satellite):
         else:
             pos_ref,vel_ref,LVLH,Base = self.reference.chief_orbit_pos(state,state2)
 
-        mat = np.dot(LVLH,Base.transpose())
+        mat = np.dot(LVLH,np.linalg.inv(Base))
         pos = np.dot(mat,self.pos)
         vel = np.dot(mat,self.vel)
         return LVLH_Sat(pos,vel,self.time,self.reference)

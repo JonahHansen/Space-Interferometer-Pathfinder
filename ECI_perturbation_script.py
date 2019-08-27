@@ -22,7 +22,7 @@ Om_0 = np.radians(90) #0
 
 #Stellar vector
 ra = np.radians(0) #90
-dec = np.radians(45)#-40
+dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -32,7 +32,7 @@ delta_r_max = 0.3e3
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 100
+n_orbits = 2
 #Number of phases in each orbit
 n_phases = 100
 #Total evaluation points
