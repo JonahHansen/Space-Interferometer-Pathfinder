@@ -9,7 +9,7 @@ def find_anti_sun_vector(t):
     oblq = np.radians(23.4) #Obliquity of the ecliptic
     Earth_sun_ang_vel = 2*np.pi/(365.25*24*60*60) #Angular velocity of the Earth around the Sun
     phase = t*Earth_sun_ang_vel
-    pos = np.array([np.cos(phase)*np.cos(oblq),np.sin(phase),np.cos(phase)*np.sin(oblq)])
+    pos = np.array([np.cos(phase),np.sin(phase)*np.cos(oblq),np.sin(phase)*np.sin(oblq)])
     return pos
 
 """ Check if star vector is within antisun """

@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(0) #20
+inc_0 = np.radians(90) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(90) #0
 
 #Stellar vector
 ra = np.radians(0) #90
-dec = np.radians(90)#-40
+dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -39,8 +39,10 @@ n_phases = 100
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
+t0 = 2*np.pi/(8*ref.Sch_k)
+
 #Initial reference orbit state
-pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)
+pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t0)
 
 HCW = 0
 
@@ -50,13 +52,13 @@ else:
     precession = True
 
 #Initial states of the satellites
-chief_0 = orbits.init_chief(ref,precession).to_Curvy(precession=precession,ref_orbit=True)
-deputy1_0 = orbits.init_deputy(ref,1,precession).to_Curvy(precession=precession,ref_orbit=True)
-deputy2_0 = orbits.init_deputy(ref,2,precession).to_Curvy(precession=precession,ref_orbit=True)
+chief_0 = orbits.init_chief(ref,precession,time=t0).to_Curvy(precession=precession,ref_orbit=True)
+deputy1_0 = orbits.init_deputy(ref,1,precession,time=t0).to_Curvy(precession=precession,ref_orbit=True)
+deputy2_0 = orbits.init_deputy(ref,2,precession,time=t0).to_Curvy(precession=precession,ref_orbit=True)
 
-chief_p_states = propagate_spacecraft(0,chief_0.state,times,ref,HCW=HCW).transpose()
-deputy1_p_states = propagate_spacecraft(0,deputy1_0.state,times,ref,HCW=HCW).transpose()
-deputy2_p_states = propagate_spacecraft(0,deputy2_0.state,times,ref,HCW=HCW).transpose()
+chief_p_states = propagate_spacecraft(t0,chief_0.state,times,ref,HCW=HCW).transpose()
+deputy1_p_states = propagate_spacecraft(t0,deputy1_0.state,times,ref,HCW=HCW).transpose()
+deputy2_p_states = propagate_spacecraft(t0,deputy2_0.state,times,ref,HCW=HCW).transpose()
 
 d1_rel_states = deputy1_p_states# - chief_p_states
 d2_rel_states = deputy2_p_states# - chief_p_states
@@ -101,4 +103,4 @@ plt.plot(times,d2_pos[:,2],'r-',label="Deputy2")
 plt.ylabel(r"$\eta$ Separation (m)")
 plt.xlabel("Time (s)")
 
-plt.savefig('SCH_0.svg', format='svg')
+plt.savefig('SCH_90.svg', format='svg')

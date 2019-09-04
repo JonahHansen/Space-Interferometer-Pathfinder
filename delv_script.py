@@ -16,13 +16,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(0) #20
+inc_0 = np.radians(90) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(90) #0
 
 #Stellar vector
 ra = np.radians(0) #90
-dec = np.radians(90)#-40
+dec = np.radians(45)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3

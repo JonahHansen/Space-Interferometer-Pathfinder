@@ -18,10 +18,12 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     #Schweighart constants (defined in notebook)
     n = ref.ang_vel
     if HCW:
+        s = 0
         c = 1
         k = n
         J2 = 0
     else:
+        s = ref.Sch_s
         c = ref.Sch_c
         k = ref.Sch_k
         J2 = 0.00108263
@@ -30,13 +32,11 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     i_ref = ref.inc_0 -(3*n*J2*Re**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
 
     #Self defined constants for the equations of motion
-    a = 2*n*c
-    b = (5*c**2-2)*n**2
-    g = 3*n**2*J2*Re**2/r_ref*np.sin(i_ref)**2
-    d = np.sqrt(a**2-b)
-    e = (d**2)-4*k**2
-
-    print(a,b,g,d,e)
+    a = n*np.sqrt(1-s)
+    b = 2*c/(np.sqrt(1-s))
+    g = b**2 - 1
+    d = a/k
+    z = 3*n**2*J2*Re**2/r_ref*np.sin(i_ref)**2/(((a**2)-4*k**2)*4*d)
 
     x0,y0,z0,dx0,dy0,dz0 = state0 #Initial conditions
 
@@ -74,24 +74,25 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     #Solve simultaneous equations
     m,phi = fsolve(equations,(0,0))
 
-    ka1 = b/(d**2)*(a*x0 + dy0 - g/(4*k)*np.cos(2*k*t0))
-    ka2 = y0 - a/(d**2)*dx0 + g*(b-3*a*k)/(8*d**2*k**2)*np.sin(2*k*t0)
-    ka3 = -(b/(d**2)*x0 + a/d**2*dy0 + g/(4*d**2*e)*(4*a*k - 3*d**2)*np.cos(2*k*t0))
-    ka4 = 1/(2*d*e)*(2*e*dx0 + g*(a-3*k)*np.sin(2*k*t0))
-    ka5 = g/(4*e*k)*(a-3*k)
-    ka6 = g/(8*b*k**2)*(3*a*k - b - 4*k**2)
-
-    print(ka4)
+    ka1 = b**2*x0 + b/a*dy0 - b*z*(d**2-4)*np.cos(2*k*t0)
+    ka2 = y0 - b/a*dx0 + 0.5*z*(d**2-4)*(g*d-3*b)*np.sin(2*k*t0)
+    ka3 = -g*x0 - b/a*dy0 - z*(4*b-3*d)*np.cos(2*k*t0)
+    ka4 = 1/a*dx0 + 2*z*(b*d-3)*np.sin(2*k*t0)
+    ka5 = z*(b*d**2-3*d)
+    ka6 = 0.5*z*d*(3*b*d - g*d**2 - 4)
+    ka7 = z0
+    ka8 = (dz0 - l*np.sin(q*t0 + phi))/q
+    
+    print(np.cos(2*k*t0))
 
     #import pdb; pdb.set_trace()
     #Actual equations
-    x = a/b*ka1 + ka3*np.cos(d*(t-t0)) + ka4*np.sin(d*(t-t0)) + ka5*np.cos(2*k*t)
-    y = ka2 - ka1*(t-t0) + a/d*ka4*np.cos(d*(t-t0)) -a/d*ka3*np.sin(d*(t-t0)) + ka6*np.sin(2*k*t)
-    z = z0*np.cos(q*(t-t0)) + l*(t-t0)*np.sin(q*t+phi) + 1/q*np.sin(q*(t-t0))*(dz0 - l*np.sin(q*t0+phi))
+    x = ka1 + ka3*np.cos(a*(t-t0)) + ka4*np.sin(a*(t-t0)) + ka5*np.cos(2*k*t)
+    y = ka2 - a*g/b*ka1*(t-t0) + b*ka4*np.cos(a*(t-t0)) - b*ka3*np.sin(a*(t-t0)) + ka6*np.sin(2*k*t)
+    z = ka7*np.cos(q*(t-t0)) + l*(t-t0)*np.sin(q*t+phi) + ka8*np.sin(q*(t-t0))
 
-    dx = - d*ka3*np.sin(d*(t-t0)) + d*ka4*np.cos(d*(t-t0)) - 2*k*ka5*np.sin(2*k*t)
-    dy = - ka1 - a*ka4*np.sin(d*(t-t0)) - a*ka3*np.cos(d*(t-t0)) + 2*k*ka6*np.cos(2*k*t)
-    dz = (l*q*(t-t0)*np.cos(q*t+phi) - q*z0*np.sin(q*(t-t0)) +
-         l*np.sin(q*t+phi) + np.cos(q*(t-t0))*(dz0-l*np.sin(q*t0+phi)))
+    dx = - a*ka3*np.sin(a*(t-t0)) + a*ka4*np.cos(a*(t-t0)) - 2*k*ka5*np.sin(2*k*t)
+    dy = - a*g/b*ka1 - a*b*ka4*np.sin(a*(t-t0)) - a*b*ka3*np.cos(a*(t-t0)) + 2*k*ka6*np.cos(2*k*t)
+    dz = - q*ka7*np.sin(q*(t-t0)) + l*q*(t-t0)*np.cos(q*t+phi) + l*np.sin(q*t+phi) + q*ka8*np.cos(q*(t-t0))
 
     return np.array([x,y,z,dx,dy,dz])
