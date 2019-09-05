@@ -20,17 +20,17 @@ mu = const.GM_earth.value
 J2 = 0.00108263
 
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(90) #0
 
 #Stellar vector
-ra = np.radians(0) #90
-dec = np.radians(45)#-40
+ra = np.radians(67) #90
+dec = np.radians(25)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(30)
+antisun_angle = np.radians(60)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -41,7 +41,7 @@ def i_from_precession(rho):
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
 inc_0 = i_from_precession(precess_rate)
-inc_0 = np.radians(39)
+#inc_0 = np.radians(39)
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
@@ -49,7 +49,7 @@ ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 #Number of orbits
 n_orbits = 30*24*60*60/ref.period
 #Number of phases in each orbit
-n_phases = ref.period/60/2
+n_phases = ref.period/60/5
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
