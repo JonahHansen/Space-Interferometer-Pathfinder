@@ -13,11 +13,11 @@ from matplotlib.collections import LineCollection
 plt.ion()
 
 def cost_function(sig_chief, sig_state1, sig_state2, delv):
-    kappa_c = 0.0001*np.array([1,1,1,1,1,1])
-    kappa_d1 = np.array([1000,1,1,1000,1,1])
-    kappa_d2 = np.array([1000,1,1,1000,1,1])
-    kappa_dv = 1
-    phi = np.dot(kappa_c,sig_chief**2) + np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state1**2) + kappa_dv*delv**2
+    kappa_c = 0.001*np.array([1,1,1,1,1,1])
+    kappa_d1 = 10*np.array([10,1,1,100,10,10])
+    kappa_d2 = 10*np.array([10,1,1,100,10,10])
+    kappa_dv = 100*np.array([1,1,1])
+    phi = np.dot(kappa_c,sig_chief**2) + np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2)
     return phi
 
 def dX_dt(t,state,ref):
@@ -46,25 +46,23 @@ def dX_dt(t,state,ref):
 
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
-def correct_orbit(ref,c0,d10,d20,t0,tfinal,t_burn1,t_burn2):
+def correct_orbit(ref,c0,d10,d20,n_burns,burn_times):
     #Tolerance and steps required for the integrator
     rtol = 1e-12
     atol = 1e-18
+    times = np.zeros((n_burns+1,50))
 
-    t1 = np.linspace(t0,t_burn1,50)
-    t2 = np.linspace(t_burn1,t_burn2,50)
-    t3 = np.linspace(t_burn2,tfinal,50)
-
-    times = np.array([t1,t2,t3])
+    for i in range(n_burns+1):
+        times[i] = np.linspace(burn_times[i],burn_times[i+1],50)
 
     def optimiser(dvls):
         #import pdb; pdb.set_trace()
-        chief_states = np.zeros((50*3,6))
-        deputy1_states = np.zeros((50*3,6))
-        deputy2_states = np.zeros((50*3,6))
-        delv_bank2 = np.zeros((2,3,3))
+        chief_states = np.zeros((50*(n_burns+1),6))
+        deputy1_states = np.zeros((50*(n_burns+1),6))
+        deputy2_states = np.zeros((50*(n_burns+1),6))
+        delv_bank2 = np.zeros((n_burns,3,3))
 
-        dvls = dvls.reshape((2,3,3))
+        dvls = dvls.reshape((n_burns,3,3))
         #print(dvls)
         #print(c0)
 
@@ -72,7 +70,7 @@ def correct_orbit(ref,c0,d10,d20,t0,tfinal,t_burn1,t_burn2):
         d1 = d10
         d2 = d20
 
-        for i in range(2):
+        for i in range(n_burns):
             #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
             X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[i,0],times[i,-1]], c, t_eval = times[i], rtol = rtol, atol = atol)
             #Check if successful integration
@@ -110,18 +108,18 @@ def correct_orbit(ref,c0,d10,d20,t0,tfinal,t_burn1,t_burn2):
             d2 = deputy2_states[50+i*50-1] + np.append(np.zeros(3),delv_d2)
 
         #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-        X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[2,0],times[2,-1]], c, t_eval = times[2], rtol = rtol, atol = atol)
+        X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[n_burns,0],times[n_burns,-1]], c, t_eval = times[n_burns], rtol = rtol, atol = atol)
         #Check if successful integration
         if not X_c.success:
             raise Exception("Integration Chief failed!!!!")
 
         #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-        X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[2,0],times[2,-1]], d1, t_eval = times[2], rtol = rtol, atol = atol)
+        X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[n_burns,0],times[n_burns,-1]], d1, t_eval = times[n_burns], rtol = rtol, atol = atol)
         #Check if successful integration
         if not X_d1.success:
             raise Exception("Integration Deputy 1 failed!!!!")
 
-        X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[2,0],times[2,-1]], d2, t_eval = times[2], rtol = rtol, atol = atol)
+        X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[n_burns,0],times[n_burns,-1]], d2, t_eval = times[n_burns], rtol = rtol, atol = atol)
         if not X_d2.success:
             raise Exception("Integration Deputy 2 failed!!!!")
 
@@ -129,30 +127,30 @@ def correct_orbit(ref,c0,d10,d20,t0,tfinal,t_burn1,t_burn2):
         deputy1_p_states = X_d1.y.transpose()
         deputy2_p_states = X_d2.y.transpose()
 
-        chief_states[100:150] = chief_p_states
-        deputy1_states[100:150] = deputy1_p_states
-        deputy2_states[100:150] = deputy2_p_states
+        chief_states[n_burns*50:n_burns*50+50] = chief_p_states
+        deputy1_states[n_burns*50:n_burns*50+50] = deputy1_p_states
+        deputy2_states[n_burns*50:n_burns*50+50] = deputy2_p_states
 
         c_final = state=chief_states[-1]
-        d1_final = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],times[2,-1],ref).to_Baseline(state=chief_p_states[-1])
-        d2_final = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],times[2,-1],ref).to_Baseline(state=chief_p_states[-1])
+        d1_final = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=chief_p_states[-1])
+        d2_final = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=chief_p_states[-1])
 
-        c_true = orbits.init_chief(ref,time=times[2,-1]).state
-        d1_true = orbits.init_deputy(ref,1,time=times[2,-1]).to_Baseline(state=c_true)
-        d2_true = orbits.init_deputy(ref,2,time=times[2,-1]).to_Baseline(state=c_true)
+        c_true = orbits.init_chief(ref,time=times[n_burns,-1]).state
+        d1_true = orbits.init_deputy(ref,1,time=times[n_burns,-1]).to_Baseline(state=c_true)
+        d2_true = orbits.init_deputy(ref,2,time=times[n_burns,-1]).to_Baseline(state=c_true)
 
         print(c_final-c_true)
         print(d1_final.state-d1_true.state)
         print(d2_final.state-d2_true.state)
-        print(np.sum(delv_bank2))
-        PHI = cost_function(c_final-c_true, d1_final.state-d1_true.state, d2_final.state - d2_true.state, np.sum(delv_bank2))
+        print(np.sum(np.linalg.norm(delv_bank2,axis=2),axis=0))
+        PHI = cost_function(c_final-c_true, d1_final.state-d1_true.state, d2_final.state - d2_true.state, np.sum(np.linalg.norm(delv_bank2,axis=2),axis=0))
         print(PHI)
         #import pdb; pdb.set_trace()
         return PHI
 
-    delvs = np.zeros((2,3,3))
-
-    x = minimize(optimiser,delvs)
+    delvs = np.zeros((n_burns,3,3))
+    x = optimiser(delvs)
+    #x = minimize(optimiser,delvs)
 
     return x
 
@@ -233,7 +231,7 @@ def del_v_func(c,d1,d2,t,pt,ref):
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 0.5
+n_orbits = 1
 #Number of phases in each orbit
 n_phases = 500
 #Total evaluation points
@@ -301,7 +299,8 @@ d10 = deputy1_states[-1]
 d20 = deputy2_states[-1]
 t0 = times[-1]
 t_end = ref.period
-t_burn1 = t0 + 60*5
-t_burn2 = t_end - 60*10
 
-y = correct_orbit(ref,c0,d10,d20,t0,t_end,t_burn1,t_burn2)
+n_burns = 0
+burn_times = [t0, t_end]
+
+y = correct_orbit(ref,c0,d10,d20,n_burns,burn_times)
