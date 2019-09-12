@@ -32,12 +32,12 @@ delta_r_max = 0.3e3
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 2
+n_orbits = 1
 #Number of phases in each orbit
 n_phases = 100
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
-times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
+times = np.linspace(0,ref.periodK*n_orbits,n_times) #Create list of times
 
 #Initial reference orbit state
 pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(0)

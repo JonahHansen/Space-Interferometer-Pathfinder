@@ -49,6 +49,9 @@ class Reference_orbit:
         self.Sch_c = np.sqrt(1+self.Sch_s)
         self.Sch_k = self.ang_vel*self.Sch_c + 3*self.ang_vel*J2*const.R_earth.value**2/(2*R_orb**2)*(np.cos(inc_0)**2)
 
+        self.periodK = 2*np.pi/self.Sch_k
+        self.periodNC = 2*np.pi/(self.Sch_c*self.ang_vel)
+
         #Quaternion rotation of reference (chief) orbit
         q_Om = qt.to_q(zaxis,Om_0)
         q_inc = qt.to_q(xaxis,inc_0)
