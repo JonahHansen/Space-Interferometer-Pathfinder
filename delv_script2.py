@@ -12,12 +12,11 @@ from matplotlib.collections import LineCollection
 
 plt.ion()
 
-def cost_function(sig_chief, sig_state1, sig_state2, delv):
-    kappa_c = 0.001*np.array([1,1,1,1,1,1])
-    kappa_d1 = 10*np.array([10,1,1,100,10,10])
-    kappa_d2 = 10*np.array([10,1,1,100,10,10])
-    kappa_dv = 100*np.array([1,1,1])
-    phi = np.dot(kappa_c,sig_chief**2) + np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2)
+def cost_function(sig_state1, sig_state2, delv):
+    kappa_d1 = np.array([10,1,1,100,10,10])
+    kappa_d2 = np.array([10,1,1,100,10,10])
+    kappa_dv = np.array([1,1,1])
+    phi = np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2)
     return phi
 
 def dX_dt(t,state,ref):
@@ -132,25 +131,23 @@ def correct_orbit(ref,c0,d10,d20,n_burns,burn_times):
         deputy2_states[n_burns*50:n_burns*50+50] = deputy2_p_states
 
         c_final = state=chief_states[-1]
-        d1_final = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=chief_p_states[-1])
-        d2_final = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=chief_p_states[-1])
+        d1_final = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final)
+        d2_final = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final)
 
-        c_true = orbits.init_chief(ref,time=times[n_burns,-1]).state
-        d1_true = orbits.init_deputy(ref,1,time=times[n_burns,-1]).to_Baseline(state=c_true)
-        d2_true = orbits.init_deputy(ref,2,time=times[n_burns,-1]).to_Baseline(state=c_true)
+        d1_true = orbits.init_deputy(ref,1,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final)
+        d2_true = orbits.init_deputy(ref,2,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final)
 
-        print(c_final-c_true)
         print(d1_final.state-d1_true.state)
         print(d2_final.state-d2_true.state)
         print(np.sum(np.linalg.norm(delv_bank2,axis=2),axis=0))
-        PHI = cost_function(c_final-c_true, d1_final.state-d1_true.state, d2_final.state - d2_true.state, np.sum(np.linalg.norm(delv_bank2,axis=2),axis=0))
+        PHI = cost_function(d1_final.state-d1_true.state, d2_final.state - d2_true.state, np.sum(np.linalg.norm(delv_bank2,axis=2),axis=0))
         print(PHI)
         #import pdb; pdb.set_trace()
         return PHI
 
     delvs = np.zeros((n_burns,3,3))
-    x = optimiser(delvs)
-    #x = minimize(optimiser,delvs)
+    #x = optimiser(delvs)
+    x = minimize(optimiser,delvs)
 
     return x
 
@@ -300,7 +297,7 @@ d20 = deputy2_states[-1]
 t0 = times[-1]
 t_end = ref.period
 
-n_burns = 0
-burn_times = [t0, t_end]
+n_burns = 2
+burn_times = [t0, t0 + 5*60, t_end - 10*60, t_end]
 
 y = correct_orbit(ref,c0,d10,d20,n_burns,burn_times)

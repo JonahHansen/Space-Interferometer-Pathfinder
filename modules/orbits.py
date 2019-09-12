@@ -375,10 +375,12 @@ def init_chief(reference,precession=True,time=0):
 
 """ Initialise a deputy at t=0 from the reference orbit """
 """ the n variable is for the number of the deputy (i.e 1 or 2) """
-def init_deputy(reference,n,precession=True,time=0):
+def init_deputy(reference,n,precession=True,time=0,ref_orbit=True,state=np.zeros(6),state2=np.zeros(6)):
 
-    #Reference orbit
-    pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(time,precession)
+    if ref_orbit:
+        pos_ref,vel_ref,LVLH,Base = reference.ref_orbit_pos(time,precession)
+    else:
+        pos_ref,vel_ref,LVLH,Base = reference.chief_orbit_pos(state,state2)
 
     if precession:
         #New coord system:

@@ -21,7 +21,7 @@ inc_0 = np.radians(90) #20
 Om_0 = np.radians(90) #0
 
 #Stellar vector
-ra = np.radians(0) #90
+ra = np.radians(45) #90
 dec = np.radians(0)#-40
 
 #The max distance to the other satellites in m
