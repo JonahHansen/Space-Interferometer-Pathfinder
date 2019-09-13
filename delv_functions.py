@@ -41,8 +41,8 @@ def cost_function(sig_state1, sig_state2, d1, d2, delv):
     br = np.linalg.norm(d1[:3]) - np.linalg.norm(d2[:3])
     bv = np.linalg.norm(d1[3:]) - np.linalg.norm(d2[3:])
 
-    kappa_br = 1e7
-    kappa_bv = 1e10
+    kappa_br = 1e8
+    kappa_bv = 1e12
     #kappa_b = 5000*np.array([1,1,1,1,1,1])
     kappa_dv = np.array([1,1,1])
     phi = np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2) + kappa_br*br**2 + kappa_br*bv**2#+ np.dot(kappa_b,baseline**2)
