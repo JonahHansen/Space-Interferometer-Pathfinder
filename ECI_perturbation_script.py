@@ -18,11 +18,11 @@ R_orb = R_e + alt
 #Orbital inclination
 inc_0 = np.radians(90) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(90) #0
+Om_0 = np.radians(0) #0
 
 #Stellar vector
-ra = np.radians(45) #90
-dec = np.radians(0)#-40
+ra = np.radians(74) #90
+dec = np.radians(-50)#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -107,9 +107,9 @@ d2_sats = []
 
 print("Integration Done")
 for i in range(len(times)):
-    c_sats.append(orbits.ECI_Sat(chief_p_states[i,:3],chief_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
-    d1_sats.append(orbits.ECI_Sat(deputy1_p_states[i,:3],deputy1_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
-    d2_sats.append(orbits.ECI_Sat(deputy2_p_states[i,:3],deputy2_p_states[i,3:],times[i],ref).to_Curvy(state=chief_p_states[i]))
+    c_sats.append(orbits.ECI_Sat(chief_p_states[i,:3],chief_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
+    d1_sats.append(orbits.ECI_Sat(deputy1_p_states[i,:3],deputy1_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
+    d2_sats.append(orbits.ECI_Sat(deputy2_p_states[i,:3],deputy2_p_states[i,3:],times[i],ref).to_Baseline(state=chief_p_states[i]))
 print("Classifying Done")
 
 d1_rel_pos = np.zeros((n_times,3)) #Deputy1 position in star direction
@@ -148,7 +148,7 @@ plt.savefig('ECI_Curvy_45_long.svg', format='svg')
 
 
 
-"""
+
 #--------------------------------------------------------------------------------------------- #
 #Separations and accelerations
 baseline_sep = np.zeros(n_times) #Separation along the baseline
@@ -161,21 +161,21 @@ total_sep = np.zeros(n_times) #Total separation
 
 for ix in range(n_times):
     #Baseline separations is simply the difference between the positions of the two deputies
-    baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
+    baseline_sep[ix] = np.linalg.norm(d2_rel_pos[ix]) - np.linalg.norm(d1_rel_pos[ix])
 
     #Component of perturbed orbit in star direction
-    s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
-    s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
+    s_hat_drd1[ix] = d1_rel_pos[ix,2]
+    s_hat_drd2[ix] = d2_rel_pos[ix,2]
 
     #Component of perturbed orbit in baseline direction
-    b_hat_drd1[ix] = rel_p_dep1[ix].pos[0]
-    b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
+    #b_hat_drd1[ix] = rel_p_dep1[ix].pos[0]
+    #b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
 
     #Separation of the two deputies in the star direction
     s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
     #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
     #Sum of the separation along the star direction and the baseline direction
-    #total_sep[ix] = baseline_sep[ix] + s_hat_sep[ix]
+    total_sep[ix] = baseline_sep[ix] - s_hat_sep[ix]
 
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
@@ -239,7 +239,7 @@ def set_axes_equal(ax):
     origin = np.mean(limits, axis=1)
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     set_axes_radius(ax, origin, radius)
-"""
+
 """
 #Plot ECI Orbit
 plt.figure(1)

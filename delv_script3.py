@@ -46,7 +46,7 @@ t_final = (ix+0.5)*period
 c, d1, d2, delv, tbank = delv_f.integration_fix(ref, c0, d10, d20, t0, t_final, t_burn, zeta)
 
 delv_f.plotit(ix*2+1,ref,tbank,c,d1,d2)
-
+"""
 t02 = tbank[-1]
 t_end = (ix+1)*period
 n_burns = 2
@@ -72,6 +72,6 @@ c4, d14, d24, delv, tbank = delv_f.integration_fix(ref, c3, d13, d23, t0, t_fina
 
 delv_f.plotit(ix*2+1,ref,tbank,c4,d14,d24)
 print("Delv for orbit %s: "%ix + str(np.sum(delv,axis=0)))
-
+"""
 
 plt.show()

@@ -60,16 +60,13 @@ def del_v_func(c,d1,d2,t,pt,ref,zeta):
 
     delvs1 = np.zeros(3)
     delvs2 = np.zeros(3)
-    delvs0 = np.zeros(3)
-
-    max_s_sep = np.max([csat[2],dsat1[2],dsat2[2]])
 
     del_t = (t-pt)/zeta
 
-    delvs0[2] = (max_s_sep - csat[2])/del_t
-    delvs1[2] = (max_s_sep - dsat1[2])/del_t
-    delvs2[2] = (max_s_sep - dsat2[2])/del_t
-
+    #delvs0[2] = (max_s_sep - csat[2])/del_t
+    delvs1[2] = - dsat1[2]/del_t
+    delvs2[2] = - dsat2[2]/del_t
+    """
     b1 = np.linalg.norm(dsat1[0:2])
     b2 = np.linalg.norm(dsat2[0:2])
     del_b = b2-b1
@@ -79,14 +76,13 @@ def del_v_func(c,d1,d2,t,pt,ref,zeta):
         delvs2[2] += del_b/del_t
     elif del_b < 0:
         delvs1[2] += -del_b/del_t
-
-    delv = np.array([delvs0[2],delvs1[2],delvs2[2]])
+    """
+    delv = np.array([0,delvs1[2],delvs2[2]])
     #print(delv)
-    sat0.vel += delvs0
     sat1.vel += delvs1
     sat2.vel += delvs2
 
-    new_sat0 = sat0.to_ECI(state = c.state).state
+    new_sat0 = c.state
     new_sat1 = sat1.to_ECI(state = c.state).state
     new_sat2 = sat2.to_ECI(state = c.state).state
 
@@ -147,6 +143,48 @@ def integration_fix(ref, c0, d10, d20, t0, t_final, t_burn, zeta):
 
     return chief_states,deputy1_states,deputy2_states,delv_bank,t_bank
 
+def integration_fix2(ref, c0, d10, d20, t0, t_final):
+    #Tolerance and steps required for the integrator
+    rtol = 1e-12
+    atol = 1e-18
+
+    t_bank = np.linspace(t0,t_final,500)
+
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [t_bank[0],t_bank[-1]], c0, t_eval = t_bank, rtol = rtol, atol = atol)
+    #Check if successful integration
+    if not X_c.success:
+        raise Exception("Integration Chief failed!!!!")
+
+    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
+    X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [t_bank[0],t_bank[-1]], d10, t_eval = t_bank, rtol = rtol, atol = atol)
+    #Check if successful integration
+    if not X_d1.success:
+        raise Exception("Integration Deputy 1 failed!!!!")
+
+    X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [t_bank[0],t_bank[-1]], d20, t_eval = t_bank, rtol = rtol, atol = atol)
+    if not X_d2.success:
+        raise Exception("Integration Deputy 2 failed!!!!")
+
+    chief_p_states = X_c.y.transpose()
+    deputy1_p_states = X_d1.y.transpose()
+    deputy2_p_states = X_d2.y.transpose()
+
+    return chief_p_states,deputy1_p_states,deputy2_p_states,t_bank
+
+def reset_star_n_baseline(ref,c,d1,d2,time):
+    d1sat = orbits.ECI_Sat(d1[:3],d1[3:],time,ref).to_Baseline(state=c)
+    d2sat = orbits.ECI_Sat(d2[:3],d2[3:],time,ref).to_Baseline(state=c)
+    
+    d1sat.pos[2] = 0
+    d2sat.pos[2] = 0
+    
+    d1 = d1sat.to_ECI(state=c).state
+    d2 = d2sat.to_ECI(state=c).state
+    return d1, d2
+    
+
+
 def plotit(num,ref,t_bank,chief_states,deputy1_states,deputy2_states):
 
     rel_p_dep1 = []
@@ -187,6 +225,44 @@ def plotit(num,ref,t_bank,chief_states,deputy1_states,deputy2_states):
 
     print("Total sep = " + str(np.max(np.abs(total_sep))))
 
+    #Numerical differentiation twice - position -> acceleration
+    def acc(pos,times):
+        vel = np.gradient(pos, times, edge_order=2)
+        acc = np.gradient(vel, times, edge_order=2)
+        return acc
+
+    #Accelerations - numerically integrate the position/time arrays found above
+    #Returns the absolute value of the acceleration in a given direction
+    acc_s1 = np.abs(acc(s_hat_drd1,t_bank))
+    acc_s2 = np.abs(acc(s_hat_drd2,t_bank))
+    acc_delta_b = np.abs(acc(baseline_sep,t_bank))
+    acc_delta_s = np.abs(acc(s_hat_sep,t_bank))
+    acc_total = np.abs(acc(total_sep,t_bank))
+
+    #Maximum accelerations
+    max_acc_s1 = max(acc_s1)
+    max_acc_s2 = max(acc_s2)
+    max_acc_delta_b = max(acc_delta_b)
+    max_acc_delta_s = max(acc_delta_s)
+    max_acc_total = max(acc_total)
+
+    #Delta v (Integral of the absolute value of the acceleration)
+    delta_v_s1 = np.trapz(acc_s1)
+    delta_v_s2 = np.trapz(acc_s2)
+    delta_v_delta_b = np.trapz(acc_delta_b)
+    delta_v_delta_s = np.trapz(acc_delta_s)
+    delta_v_total = np.trapz(acc_total)
+
+    #Result array
+    #result[0] is the max a between deputy 1 and chief in the star direction
+    #result[1] is the max a between deputy 2 and chief in the star direction
+    #result[2] is the max a between the two deputies in the star direction (ie the difference between 0 and 1)
+    #result[3] is the max a in the baseline direction
+    #result[4] is the max total a (sum of 2 and 3; the total acceleration that needs to be corrected for)
+    #result[5-9] are the same, but for delta v
+
+    print(delta_v_s1 + delta_v_s2 + delta_v_delta_b)
+    
     # ---------------------------------------------------------------------- #
     ### PLOTTING STUFF ###
 
@@ -323,7 +399,7 @@ def recharge_fix(ref,c0,d10,d20,n_burns,burn_times):
         #print(d2_final.state-d2_true.state)
         #print(np.sum(delv_bank,axis=0))
         PHI = cost_function(d1_final-d1_true, d2_final - d2_true, d1_final, d2_final, np.sum(delv_bank,axis=0))
-        print(PHI)
+        #print(PHI)
         #import pdb; pdb.set_trace()
         return PHI
 
