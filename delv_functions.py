@@ -35,14 +35,14 @@ def dX_dt(t,state,ref):
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
 def cost_function(sig_state1, sig_state2, d1, d2, delv):
-    kappa_d1 = 10*np.array([10,1,1e7,10,10,1e9])
-    kappa_d2 = 10*np.array([10,1,1e7,10,10,1e9])
+    kappa_d1 = 1000*np.array([1,1,3,2,2,3])
+    kappa_d2 = 1000*np.array([1,1,3,2,2,3])
 
     br = np.linalg.norm(d1[:3]) - np.linalg.norm(d2[:3])
     bv = np.linalg.norm(d1[3:]) - np.linalg.norm(d2[3:])
 
-    kappa_br = 1e8
-    kappa_bv = 1e12
+    kappa_br = 0e8
+    kappa_bv = 0e12
     #kappa_b = 5000*np.array([1,1,1,1,1,1])
     kappa_dv = np.array([1,1,1])
     phi = np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2) + kappa_br*br**2 + kappa_br*bv**2#+ np.dot(kappa_b,baseline**2)
@@ -314,7 +314,7 @@ def recharge_fix(ref,c0,d10,d20,n_burns,burn_times):
         deputy2_states = np.zeros((50*(n_burns+1),6))
         delv_bank2 = np.zeros((n_burns,3))
 
-        delvs = delvs.reshape((n_burns,3,3))
+        delvs = delvs.reshape((n_burns,2,3))
         #print(dvls)
         #print(c0)
 
@@ -349,13 +349,13 @@ def recharge_fix(ref,c0,d10,d20,n_burns,burn_times):
 
             #import pdb; pdb.set_trace()
 
-            delv_c = delvs[i,0]
-            delv_d1 = delvs[i,1]
-            delv_d2 = delvs[i,2]
+            delv_c = 0
+            delv_d1 = delvs[i,0]
+            delv_d2 = delvs[i,1]
 
             delv_bank2[i] = np.array([np.linalg.norm(delv_c),np.linalg.norm(delv_d1),np.linalg.norm(delv_d2)])
 
-            c = chief_states[50+i*50-1] + np.append(np.zeros(3),delv_c)
+            c = chief_states[50+i*50-1]# + np.append(np.zeros(3),delv_c)
             d1 = deputy1_states[50+i*50-1] + np.append(np.zeros(3),delv_d1)
             d2 = deputy2_states[50+i*50-1] + np.append(np.zeros(3),delv_d2)
 
@@ -395,16 +395,29 @@ def recharge_fix(ref,c0,d10,d20,n_burns,burn_times):
         d1_true = orbits.init_deputy(ref,1,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
         d2_true = orbits.init_deputy(ref,2,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
 
-        #print(d1_final.state-d1_true.state)
-        #print(d2_final.state-d2_true.state)
+        #print(d1_final-d1_true)
+        #print(d2_final-d2_true)
         #print(np.sum(delv_bank,axis=0))
         PHI = cost_function(d1_final-d1_true, d2_final - d2_true, d1_final, d2_final, np.sum(delv_bank,axis=0))
         #print(PHI)
         #import pdb; pdb.set_trace()
         return PHI
 
-    delvs = np.zeros((n_burns,3,3))
-    x = minimize(optimiser,delvs,method="Nelder-Mead")
+    delvs = np.zeros((n_burns,2,3))
+    x = minimize(optimiser,delvs,method="Powell")
     chief_states, deputy1_states, deputy2_states, delv_bank = correct_orbit(x.x)
+
+    c_final = state=chief_states[-1]
+    d1_final = orbits.ECI_Sat(deputy1_states[-1,:3],deputy1_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
+    d2_final = orbits.ECI_Sat(deputy2_states[-1,:3],deputy2_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
+
+    d1_true = orbits.init_deputy(ref,1,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
+    d2_true = orbits.init_deputy(ref,2,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
+
+    print(d1_final-d1_true)
+    print(d2_final-d2_true)
+
+
+
 
     return chief_states, deputy1_states, deputy2_states, delv_bank, times.reshape(np.size(times))

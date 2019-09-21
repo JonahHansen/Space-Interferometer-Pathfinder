@@ -7,6 +7,7 @@ from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from matplotlib.collections import LineCollection
 from modules.Schweighart_J2_solved import propagate_spacecraft
+import sys
 
 plt.ion()
 
@@ -16,13 +17,13 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(90) #20
+inc_0 = np.radians(float(sys.argv[1])) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(float(sys.argv[2])) #0
 
 #Stellar vector
-ra = np.radians(74) #90
-dec = np.radians(-50)#-40
+ra = np.radians(float(sys.argv[3])) #90
+dec = np.radians(float(sys.argv[4]))#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
@@ -141,7 +142,7 @@ plt.plot(times,d2_rel_pos[:,2],'r-',label="Deputy2")
 plt.ylabel(r"$\eta$ Separation (m)")
 plt.xlabel("Time (s)")
 
-plt.savefig('ECI_Curvy_45_long.svg', format='svg')
+#plt.savefig('ECI_Curvy_45_long.svg', format='svg')
 
 
 
@@ -167,16 +168,6 @@ for ix in range(n_times):
     s_hat_drd1[ix] = d1_rel_pos[ix,2]
     s_hat_drd2[ix] = d2_rel_pos[ix,2]
 
-    #Component of perturbed orbit in baseline direction
-    #b_hat_drd1[ix] = rel_p_dep1[ix].pos[0]
-    #b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
-
-    #Separation of the two deputies in the star direction
-    s_hat_sep[ix] = s_hat_drd1[ix] - s_hat_drd2[ix]
-    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
-    #Sum of the separation along the star direction and the baseline direction
-    total_sep[ix] = baseline_sep[ix] - s_hat_sep[ix]
-
 #Numerical differentiation twice - position -> acceleration
 def acc(pos,times):
     vel = np.gradient(pos, times, edge_order=2)
@@ -188,22 +179,20 @@ def acc(pos,times):
 acc_s1 = np.abs(acc(s_hat_drd1,times))
 acc_s2 = np.abs(acc(s_hat_drd2,times))
 acc_delta_b = np.abs(acc(baseline_sep,times))
-acc_delta_s = np.abs(acc(s_hat_sep,times))
-acc_total = np.abs(acc(total_sep,times))
 
 #Maximum accelerations
 max_acc_s1 = max(acc_s1)
 max_acc_s2 = max(acc_s2)
 max_acc_delta_b = max(acc_delta_b)
-max_acc_delta_s = max(acc_delta_s)
-max_acc_total = max(acc_total)
 
 #Delta v (Integral of the absolute value of the acceleration)
 delta_v_s1 = np.trapz(acc_s1)
 delta_v_s2 = np.trapz(acc_s2)
 delta_v_delta_b = np.trapz(acc_delta_b)
-delta_v_delta_s = np.trapz(acc_delta_s)
-delta_v_total = np.trapz(acc_total)
+
+max_acc = np.array([0.,max_acc_delta_b,max_acc_delta_b]) + max_acc_s1 + max_acc_s2
+delta_v = np.array([0.,delta_v_delta_b,delta_v_delta_b]) + delta_v_s1 + delta_v_s2
+percent = delta_v/np.array([0.04,0.08,0.08])*100
 
 #Result array
 #result[0] is the max a between deputy 1 and chief in the star direction
@@ -213,10 +202,8 @@ delta_v_total = np.trapz(acc_total)
 #result[4] is the max total a (sum of 2 and 3; the total acceleration that needs to be corrected for)
 #result[5-9] are the same, but for delta v
 
-result = np.array([max_acc_s1,max_acc_s2,max_acc_delta_s,
-                   max_acc_delta_b,max_acc_total,delta_v_s1,delta_v_s2,
-                   delta_v_delta_s,delta_v_delta_b,delta_v_total])
-
+result = np.array([max_acc,delta_v,percent])
+print(result)
 # ---------------------------------------------------------------------- #
 ### PLOTTING STUFF ###
 
@@ -266,7 +253,7 @@ ax2.set_zlabel('h (m)')
 ax2.set_title('Orbit in LVLH frame')
 set_axes_equal(ax2)
 """
-"""
+
 #Plot separation along the star direction
 plt.figure(3)
 plt.clf()
@@ -290,7 +277,7 @@ plt.xlabel("Times(s)")
 plt.ylabel("Separation(m)")
 plt.title('Separations against time due to perturbations')
 plt.legend()
-
+"""
 #Plot separation in the baseline frame
 plt.figure(5)
 plt.clf()

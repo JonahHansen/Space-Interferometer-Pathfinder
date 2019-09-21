@@ -8,10 +8,6 @@ import modules.quaternions as qt
 
 plt.ion()
 
-def split(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-
 #Altitude of satellite
 alt = 500e3 #In m
 #Radius of the Earth
@@ -25,13 +21,15 @@ mu = const.GM_earth.value
 J2 = 0.00108263
 
 #Longitude of the Ascending Node
-Om_0 = np.radians(90) #0
+Om_0 = np.radians(0) #0
+
+ecliptic = 1
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(180)
+antisun_angle = np.radians(60)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -50,19 +48,39 @@ ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
 #Number of orbits
 n_orbits = int(365.25*24*60*60/ref.period)
 #Number of phases in each orbit
-n_phases = 60
+n_phases = 40
 #Total evaluation points
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-n_ra = 360
+n_ra = 180
 n_dec = 180
-ras = np.linspace(0,np.radians(360),n_ra)
-decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
 
-ra,dec = np.meshgrid(ras,decs)
+def to_radec(lat,lon):
+    ob = np.radians(23.4)
+    
+    cacd = np.cos(lat)*np.cos(lon)
+    sacd = np.cos(lat)*np.sin(lon)*np.cos(ob)-np.sin(lat)*np.sin(ob)
+    sd = np.sin(lat)*np.cos(ob) + np.cos(lat)*np.sin(ob)*np.sin(lon)
+    
+    ra = np.arctan2(sacd,cacd)
+    dec = np.arctan2(sd,np.sqrt(cacd**2+sacd**2))
+    return ra,dec
+
+if ecliptic:
+    lons = np.linspace(0,np.radians(360),n_ra)
+    lats = np.linspace(np.radians(-90),np.radians(90),n_dec)
+    lon,lat = np.meshgrid(lons,lats)
+    ra,dec = to_radec(lat,lon)
+else:
+    ras = np.linspace(0,np.radians(360),n_ra)
+    decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
+    ra,dec = np.meshgrid(ras,decs)
+
 
 s_hats = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]).transpose()
+
+#import pdb; pdb.set_trace()
 
 """Initialise arrays"""
 obs = np.zeros((n_times,n_ra,n_dec)) #Observable? array
@@ -91,13 +109,21 @@ for t in times:
                     j[ix,iy] = 0
     """
     i += 1
-    print(i*100/n_times)
-
-x = list(split(obs,12))
-y = [sum(a)/len(a)*100 for a in x]
+    print(i*100./n_times)
 
 percent = sum(obs)/len(obs)*100
-output_dict = {"radec":radec, "percent":percent, "Calendar":y}
 
-with open('pkfire.json', 'w') as f:  # writing JSON object
-     json.dump(result, f)
+plt.clf()
+plt.imshow(percent.transpose(),aspect="auto",extent=[0,360,-90,90],cmap="inferno")
+plt.title("Observability over a year \n "+r"$i = %d\degree$, $\Omega = %d\degree$, $\gamma= %d\degree$"%(round(np.degrees(inc_0)),round(np.degrees(Om_0)),round(np.degrees(antisun_angle))))
+cbar = plt.colorbar()
+cbar.set_label("Percentage viewable over a year")
+plt.clim(0,25)
+if ecliptic:
+    plt.xlabel(r"Ecliptic Longitude $\lambda$ [$\degree$]")
+    plt.ylabel(r"Ecliptic Latitude $\beta$ [$\degree$]")
+    plt.savefig('2Obs_om%d_inc%d_ec_as%d.svg'%(round(np.degrees(Om_0)),round(np.degrees(inc_0)),round(np.degrees(antisun_angle))), format='svg')
+else:
+    plt.xlabel(r"Right Ascension $\alpha$ [$\degree$]")
+    plt.ylabel(r"Declination $\delta$ [$\degree$]")
+    plt.savefig('2Obs_om%d_inc%d_eq_as%d.svg'%(round(np.degrees(Om_0)),round(np.degrees(inc_0)),round(np.degrees(antisun_angle))), format='svg')

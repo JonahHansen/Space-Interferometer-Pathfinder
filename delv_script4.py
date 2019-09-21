@@ -36,7 +36,7 @@ d20 = orbits.init_deputy(ref,2).state
 n_orbits = 2
 period = ref.periodK
 
-for ix in range(2):
+for ix in range(4):
 
     print("Beginning orbit %s"%ix)
 
@@ -52,7 +52,7 @@ for ix in range(2):
     t02 = tbank[-1]
     t_end = (ix+1)*period
     n_burns = 2
-    burn_times = [t02, t02 + 10*60, t02 + 35*60, t_end]
+    burn_times = [t02, t02 + 10*60, t_end - 10*60, t_end]
 
     c2, d12, d22, delv2, tbank2 = delv_f.recharge_fix(ref, c[-1], d1_f, d2_f, n_burns, burn_times)
 
@@ -64,7 +64,8 @@ for ix in range(2):
     d10 = d12[-1]
     d20 = d22[-1]
 
-ix = 2
+ix = 4
+print("Beginning orbit %s"%ix)
 t0 = ix*period
 t_final = (ix+0.5)*period
 
@@ -74,4 +75,4 @@ d1_f,d2_f = delv_f.reset_star_n_baseline(ref,c[-1],d1[-1],d2[-1],tbank[-1])
 
 delv_f.plotit(ix*2+1,ref,tbank,c,d1,d2)
 
-plt.show()
+#plt.show()
