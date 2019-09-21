@@ -36,7 +36,7 @@ d20 = orbits.init_deputy(ref,2).state
 n_orbits = 2
 period = ref.periodK
 
-for ix in range(4):
+for ix in range(5):
 
     print("Beginning orbit %s"%ix)
 
@@ -64,7 +64,7 @@ for ix in range(4):
     d10 = d12[-1]
     d20 = d22[-1]
 
-ix = 4
+ix += 1
 print("Beginning orbit %s"%ix)
 t0 = ix*period
 t_final = (ix+0.5)*period

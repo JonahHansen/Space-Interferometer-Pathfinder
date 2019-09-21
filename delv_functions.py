@@ -175,14 +175,14 @@ def integration_fix2(ref, c0, d10, d20, t0, t_final):
 def reset_star_n_baseline(ref,c,d1,d2,time):
     d1sat = orbits.ECI_Sat(d1[:3],d1[3:],time,ref).to_Baseline(state=c)
     d2sat = orbits.ECI_Sat(d2[:3],d2[3:],time,ref).to_Baseline(state=c)
-    
+
     d1sat.pos[2] = 0
     d2sat.pos[2] = 0
-    
+
     d1 = d1sat.to_ECI(state=c).state
     d2 = d2sat.to_ECI(state=c).state
     return d1, d2
-    
+
 
 
 def plotit(num,ref,t_bank,chief_states,deputy1_states,deputy2_states):
@@ -262,7 +262,7 @@ def plotit(num,ref,t_bank,chief_states,deputy1_states,deputy2_states):
     #result[5-9] are the same, but for delta v
 
     print(delta_v_s1 + delta_v_s2 + delta_v_delta_b)
-    
+
     # ---------------------------------------------------------------------- #
     ### PLOTTING STUFF ###
 
@@ -404,7 +404,7 @@ def recharge_fix(ref,c0,d10,d20,n_burns,burn_times):
         return PHI
 
     delvs = np.zeros((n_burns,2,3))
-    x = minimize(optimiser,delvs,method="Powell")
+    x = minimize(optimiser,delvs,method="Nelder-Mead")
     chief_states, deputy1_states, deputy2_states, delv_bank = correct_orbit(x.x)
 
     c_final = state=chief_states[-1]

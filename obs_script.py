@@ -21,13 +21,13 @@ mu = const.GM_earth.value
 J2 = 0.00108263
 
 #Longitude of the Ascending Node
-Om_0 = np.radians(0) #0
+Om_0 = np.radians(90) #0
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(60)
+antisun_angle = np.radians(180)
 
 dec_flag = 1
 #Calculate required inclination from precession rate
@@ -38,8 +38,8 @@ def i_from_precession(rho):
 #Desired rate of precession
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
-inc_0 = i_from_precession(precess_rate)
-#inc_0 = np.radians(39)
+#inc_0 = i_from_precession(precess_rate)
+inc_0 = np.radians(39)
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
@@ -99,10 +99,13 @@ for t in times:
     print(i*100/n_times)
 B = np.mean(np.reshape(obs,(int(obs.shape[0]/n_phases),n_phases,1,180)),1)*100
 
-plt.clf()
+fig = plt.figure(1)
+fig.clf()
+ax1 = plt.subplot(1,1,1)
+fig.subplots_adjust(bottom=0.2)
 if dec_flag:
     plt.imshow(B[:,0,:].transpose(),aspect="auto",extent=[0,n_orbits,-90,90],cmap="inferno")
-    plt.ylabel("Dec (degrees)")
+    ax1.set_ylabel(r"Declination $\delta$ $[\degree]$")
     plt.title("Observability over a year \n "+r"$i = %d\degree$, $\Omega = %d\degree$, $\alpha = %d\degree$, $\gamma= %d\degree$"%(round(np.degrees(inc_0)),round(np.degrees(Om_0)),round(np.degrees(ras[0])),round(np.degrees(antisun_angle))))
 
 else:
@@ -110,10 +113,35 @@ else:
     plt.ylabel("Ra (degrees)")
     plt.title("Observability over a year \n "+r"$i = %d\degree$, $\Omega = %d\degree$, $\delta = 0\degree$, $\gamma= %d\degree$"%(round(np.degrees(inc_0)),round(np.degrees(Om_0)),round(np.degrees(antisun_angle))))
 
-plt.xlabel("Orbit number")
+ax1.set_xlabel("Orbit number")
 cbar = plt.colorbar()
 cbar.set_label("Percentage viewable over an orbit")
 plt.clim(0,100)
+
+ax2 = ax1.twiny()
+
+
+ax2.xaxis.set_ticks_position("bottom")
+ax2.xaxis.set_label_position("bottom")
+
+# Offset the twin axis below the host
+ax2.spines["bottom"].set_position(("axes", -0.15))
+
+# Turn on the frame for the twin axis, but then hide all
+# but the bottom spine
+ax2.set_frame_on(True)
+ax2.patch.set_visible(False)
+
+new_tick_locations = np.linspace(0,1,7)
+
+def tick_function(X):
+    V = 1/(1+X)
+    return ["%.3f" % z for z in V]
+
+ax2.spines["bottom"].set_visible(True)
+ax2.set_xticks(new_tick_locations)
+ax2.set_xticklabels(np.linspace(0,ref.period*n_orbits/60/60/24,7).astype(int))
+ax2.set_xlabel(r"Time (Days)")
 
 plt.savefig('Obs_om%d_inc%d_ra%d_as%d.svg'%(round(np.degrees(Om_0)),round(np.degrees(inc_0)),round(np.degrees(ras[0])),round(np.degrees(antisun_angle))), format='svg')
 
