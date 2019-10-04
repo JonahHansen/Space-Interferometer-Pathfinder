@@ -58,12 +58,12 @@ def del_v_reconfigure(ECI1,ECI2):
     #import pdb; pdb.set_trace()
     T1 = del_t1 + period
     a1 = (mu*(T1/(2*np.pi))**2)**(1/3)
-    del_v1 = np.abs(vis_viva(ECI1.R_orb,a1) - vis_viva(ECI1.R_orb,ECI1.R_orb))
+    del_v1 = 2*np.abs(vis_viva(ECI1.R_orb,a1) - vis_viva(ECI1.R_orb,ECI1.R_orb))
 
     del_t2 = t_b2 - t_a2
     T2 = del_t2 + period
     a2 = (mu*(T2/(2*np.pi))**2)**(1/3)
-    del_v2 = np.abs(vis_viva(ECI1.R_orb,a2) - vis_viva(ECI1.R_orb,ECI1.R_orb))
+    del_v2 = 2*np.abs(vis_viva(ECI1.R_orb,a2) - vis_viva(ECI1.R_orb,ECI1.R_orb))
     
     print("Phase change: " + str(del_v1) + " , " + str(del_v2))
 

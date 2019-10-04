@@ -33,7 +33,7 @@ delta_r_max = 0.3e3
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
 #Number of orbits
-n_orbits = 1
+n_orbits = 0.5
 #Number of phases in each orbit
 n_phases = 100
 #Total evaluation points
@@ -79,6 +79,8 @@ def dX_dt(t,state,ref):
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]
+    
+    print(1/2*(np.linalg.norm(v)**2) - const.GM_earth.value/r)
 
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
@@ -186,12 +188,15 @@ max_acc_s2 = max(acc_s2)
 max_acc_delta_b = max(acc_delta_b)
 
 #Delta v (Integral of the absolute value of the acceleration)
-delta_v_s1 = np.trapz(acc_s1)
-delta_v_s2 = np.trapz(acc_s2)
-delta_v_delta_b = np.trapz(acc_delta_b)
+delta_v_s1 = np.trapz(acc_s1,times)
+delta_v_s2 = np.trapz(acc_s2,times)
+delta_v_delta_b = np.trapz(acc_delta_b,times)
 
-max_acc = np.array([0.,max_acc_delta_b,max_acc_delta_b]) + max_acc_s1 + max_acc_s2
-delta_v = np.array([0.,delta_v_delta_b,delta_v_delta_b]) + delta_v_s1 + delta_v_s2
+print("Delv delb: " + str(delta_v_delta_b))
+print("Delv s1: " + str(delta_v_s1))
+
+max_acc = np.array([0.,max_acc_delta_b + max_acc_s2,max_acc_delta_b + max_acc_s2]) + max_acc_s1
+delta_v = np.array([0.,delta_v_delta_b + delta_v_s2,delta_v_delta_b + delta_v_s2]) + delta_v_s1
 percent = delta_v/np.array([0.04,0.08,0.08])*100
 
 #Result array
