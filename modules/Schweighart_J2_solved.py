@@ -82,8 +82,8 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     ka6 = 0.5*z*d*(3*b*d - g*d**2 - 4)
     ka7 = z0
     ka8 = (dz0 - l*np.sin(q*t0 + phi))/q
-    
-    print(np.cos(2*k*t0))
+
+    print(ka1,ka2,ka3,ka4,ka5,ka6,ka7,ka8)
 
     #import pdb; pdb.set_trace()
     #Actual equations

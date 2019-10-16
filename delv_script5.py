@@ -39,14 +39,14 @@ ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 ######################## J2 Propagation #################################
 
 """ J2 Perturbation acceleration function
-    
+
     Inputs:
         t - time
         state - state of satellite
         ref - reference orbit
-        
+
     Output: Acceleration at time t
-    
+
 """
 def dX_dt(t,state,ref):
     [x,y,z] = state[:3] #Position
@@ -77,12 +77,12 @@ def dX_dt(t,state,ref):
 
 
 """ Propagates the orbit using the ECI J2 integrator
-    
+
     Inputs:
         X0 - initial state
         times - list of times for evaluation
         ref - reference orbit
-        
+
     Output: list of states at the given times
 
 """
@@ -103,14 +103,14 @@ def propagate_orbit(X0, times, ref):
 ###################### Integration Correction ############################
 
 """ Calculate the max delta v required during the integration times
-    
+
     Inputs:
         c_states - list of chief states
         d1_states - list of deputy1 states
         d2_states - list of deputy2 states
         times - list of times
         ref - reference orbit
-        
+
     Output: array of max delta v [chief, deputy1, deputy2]
 
 """
@@ -154,7 +154,7 @@ def calc_delv(c_states,d1_states,d2_states,times,ref):
     delta_v_s1 = np.trapz(acc_s1,times)
     delta_v_s2 = np.trapz(acc_s2,times)
     delta_v_delta_b = np.trapz(acc_delta_b,times)
-    
+
     delv_deputy = delta_v_s1 + delta_v_s2 + delta_v_delta_b
     delv_chief = delta_v_s1 + delta_v_s2
 
@@ -171,7 +171,7 @@ def calc_delv(c_states,d1_states,d2_states,times,ref):
         t0 - starting time
         t_final - end time
         ref - reference orbit
-        
+
     Output:
         c_states - list of chief states
         d1_states - list of deputy1 states (s direction set to 0)
@@ -179,9 +179,9 @@ def calc_delv(c_states,d1_states,d2_states,times,ref):
         delv - array of max delta v required to fix during integration [chief, deputy1, deputy2]
 
 """
-    
+
 def propagate_integration(c0, d10, d20, t0, t_final, ref):
-    
+
     #List of times
     times = np.linspace(t0,t_final,500)
 
@@ -218,21 +218,21 @@ def propagate_integration(c0, d10, d20, t0, t_final, ref):
         ideal_d1 - ideal end state of deputy 1
         ideal_d2 - ideal end state of deputy 2
         delv - list of total delv used in thrusting [chief, deputy1, deputy2]
-        
+
     Output:
         Phi - cost variable
 """
 
 def cost_function(d1, d2, ideal_d1, ideal_d2, delv):
-    
+
     #Calculate residuals
     sig_state1 = d1 - ideal_d1
     sig_state2 = d2 - ideal_d2
-    
+
     #Weights for the state residuals
     kappa_d1 = 1000*np.array([1,1,3,2,2,3])
     kappa_d2 = 1000*np.array([1,1,3,2,2,3])
-    
+
     #Weights for the delta v components
     kappa_dv = np.array([1,1,1])
 
@@ -241,7 +241,7 @@ def cost_function(d1, d2, ideal_d1, ideal_d2, delv):
 
 
 def root_function(d1, d2, ideal_d1, ideal_d2):
-    
+
     #Calculate residuals
     sig_state1 = d1 - ideal_d1
     sig_state2 = d2 - ideal_d2
@@ -261,7 +261,7 @@ def root_function(d1, d2, ideal_d1, ideal_d2):
         burn_times - List of times of thrusts, starting with initial time and ending
                      with final time. ie. [t0, thrust 1, thrust 2, t_final]
         ref - reference orbit
-    
+
     Output:
         c_states - list of chief states
         d1_states - list of deputy1 states (s direction set to 0)
@@ -271,38 +271,38 @@ def root_function(d1, d2, ideal_d1, ideal_d2):
 
 
 def recharge_fix(c0,d10,d20,burn_times,ref):
-    
+
     #Number of burns is the number of middle elements in the array
     n_burns = len(burn_times)-2
-    
+
     #List of times, broken up between burns
     times = np.zeros((n_burns+1,50))
 
     for i in range(n_burns+1):
         times[i] = np.linspace(burn_times[i],burn_times[i+1],50)
 
-    
+
     #Initialise variables
     c_states_fin = np.zeros((50*(n_burns+1),6))
     d1_states_fin = np.zeros((50*(n_burns+1),6))
     d2_states_fin = np.zeros((50*(n_burns+1),6))
     delv_bank_fin = np.zeros((n_burns,3))
 
-    
+
     #Propagate the satellites until the thrust time
     c_states_part = propagate_orbit(c0,times[0],ref)
     d1_states_part = propagate_orbit(d10,times[0],ref)
     d2_states_part = propagate_orbit(d20,times[0],ref)
-    
+
     #Save into array
     c_states_fin[:50] = c_states_part
     d1_states_fin[:50] = d1_states_part
     d2_states_fin[:50] = d2_states_part
-    
+
     """ Function to return the states and delta v of the spacecraft
         given a list of delta v burns at the times set
         by the variable "burn times"
-        
+
         Currently NOT thrusting chief satellite
     """
     def correct_orbit(delvs):
@@ -331,13 +331,13 @@ def recharge_fix(c0,d10,d20,burn_times,ref):
         d2 = d2_states_fin[49] + np.append(np.zeros(3),delv_d2)
 
         for i in range(0,n_burns-1):
-            
+
             #import pdb; pdb.set_trace()
             #Propagate the satellites until the thrust time
             c_states_part = propagate_orbit(c,times[i+1],ref)
             d1_states_part = propagate_orbit(d1,times[i+1],ref)
             d2_states_part = propagate_orbit(d2,times[i+1],ref)
-            
+
             #Save into array
             c_states[i*50:i*50+50] = c_states_part
             d1_states[i*50:i*50+50] = d1_states_part
@@ -373,13 +373,13 @@ def recharge_fix(c0,d10,d20,burn_times,ref):
         Takes in a list of delta vs and attempts to minimise using the cost function
     """
     def optimiser(delvs):
-        
+
         #Given the delta vs, calculate the states
         c_states, d1_states, d2_states, delv_bank = correct_orbit(delvs)
 
         #Final chief state
         c_final = state=c_states[-1]
-        
+
         #Final deputy states in the baseline frame
         d1_final = orbits.ECI_Sat(d1_states[-1,:3],d1_states[-1,3:],times[n_burns,-1],ref).state#.to_Baseline(state=c_final).state
         d2_final = orbits.ECI_Sat(d2_states[-1,:3],d2_states[-1,3:],times[n_burns,-1],ref).state#.to_Baseline(state=c_final).state
@@ -395,13 +395,13 @@ def recharge_fix(c0,d10,d20,burn_times,ref):
         #print(Phi)
 
         return Phi
-    
+
     #Optimise the thrusts. Nelder Mead seems to work the best
     x = root(optimiser,np.zeros((n_burns,2,3)),method='hybr')
-    
+
     #Calculate states based on optimum thrusts
     c_states, d1_states, d2_states, delv_bank = correct_orbit(x.x)
-    
+
     c_states_fin[50:] = c_states
     d1_states_fin[50:] = d1_states
     d2_states_fin[50:] = d2_states
@@ -409,7 +409,7 @@ def recharge_fix(c0,d10,d20,burn_times,ref):
     #Calculate residuals to print to terminal:
     #Final chief state
     c_final = state=c_states[-1]
-    
+
     #Final deputy states in the baseline frame
     d1_final = orbits.ECI_Sat(d1_states[-1,:3],d1_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
     d2_final = orbits.ECI_Sat(d2_states[-1,:3],d2_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
@@ -435,7 +435,7 @@ d20 = orbits.init_deputy(ref,2).state
 n_orbits = 16
 
 #What period to use? NC/K for Schweighart correction
-period = ref.periodNC
+period = ref.periodK
 
 total_delv = np.zeros((n_orbits,3))
 
@@ -453,7 +453,7 @@ for ix in range(n_orbits):
     #Half way to end of orbit
     t02 = t_final
     t_end = (ix+1)*period
-    
+
     #Middle times are the times at which a thrust will occur (in s).
     #i.e an array of length 4 has two thrusts...
     burn_times = [t02, t02 + 10*60, t_end - 10*60, t_end]
@@ -466,7 +466,7 @@ for ix in range(n_orbits):
     print("Delv for integration fix %s: "%ix + str(delv))
     print("Delv for recharge fix %s: "%ix + str(np.sum(delv2,axis=0)))
     print("Total Delv for orbit fix %s: "%ix + str(np.sum(delv2,axis=0)+delv))
-    
+
     total_delv[ix] = np.sum(delv2,axis=0)+delv
 
     #New initial states

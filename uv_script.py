@@ -20,7 +20,7 @@ mu = const.GM_earth.value
 J2 = 0.00108263
 
 #Longitude of the Ascending Node
-Om_0 = np.radians(90) #0
+Om_0 = np.radians(40) #0
 
 #Stellar vector
 ra = np.radians(67) #90
@@ -30,7 +30,7 @@ dec = np.radians(25)#-40
 delta_r_max = 0.3e3
 
 #Angle within anti-sun axis
-antisun_angle = np.radians(60)
+antisun_angle = np.radians(40)
 
 #Calculate required inclination from precession rate
 def i_from_precession(rho):
@@ -40,8 +40,8 @@ def i_from_precession(rho):
 #Desired rate of precession
 precess_rate = np.radians(360)/(365.25*24*60*60)
 #Inclination from precession
-inc_0 = i_from_precession(precess_rate)
-#inc_0 = np.radians(39)
+#inc_0 = i_from_precession(precess_rate)
+inc_0 = np.radians(39)
 #------------------------------------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
@@ -83,12 +83,12 @@ for t in times:
 neg_uv = -u_v
 uv = np.concatenate((u_v,neg_uv))
 #plt.clf()
-plt.scatter(uv[:,0],uv[:,1],s=1,label=r"$\gamma = %d$"%round(np.degrees(antisun_angle)))
-plt.xlabel("u(m)")
-plt.ylabel("v(m)")
+plt.scatter(uv[:,0],uv[:,1],s=1,label=r"$\gamma = %d\degree$"%round(np.degrees(antisun_angle)))
+plt.xlabel(r"$u$ [m]")
+plt.ylabel(r"$v$ [m]")
 plt.title("UV plane coverage over a month \n "+r"$i = %d\degree$, $\Omega = %d\degree$, $\alpha = %d\degree$, $\delta = %d\degree$"%(round(np.degrees(inc_0)),round(np.degrees(Om_0)),round(np.degrees(ra)),round(np.degrees(dec))))
 plt.legend()
-plt.savefig('UV_comp_om%d_inc%d_ra%d_dec%d.svg'%(round(np.degrees(Om_0)),round(np.degrees(inc_0)),round(np.degrees(ra)),round(np.degrees(dec))), format='svg')
+#plt.savefig('UV_comp_om%d_inc%d_ra%d_dec%d.svg'%(round(np.degrees(Om_0)),round(np.degrees(inc_0)),round(np.degrees(ra)),round(np.degrees(dec))), format='svg')
 
 """
 antisun_angle = np.radians(30)
