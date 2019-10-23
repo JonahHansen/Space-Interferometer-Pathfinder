@@ -155,8 +155,8 @@ def calc_delv(c_states,d1_states,d2_states,times,ref):
     delta_v_s2 = np.trapz(acc_s2,times)
     delta_v_delta_b = np.trapz(acc_delta_b,times)
 
-    delv_deputy = delta_v_s1 + delta_v_s2 + delta_v_delta_b
-    delv_chief = delta_v_s1 + delta_v_s2
+    delv_deputy = 2*delta_v_s1 + delta_v_delta_b
+    delv_chief = delta_v_s1
 
     return np.array([delv_chief, delv_deputy, delv_deputy])
 
@@ -247,7 +247,7 @@ def root_function(d1, d2, ideal_d1, ideal_d2):
     sig_state2 = d2 - ideal_d2
 
 
-    Phi = np.append(sig_state1**2,sig_state2**2)
+    Phi = np.append(sig_state1,sig_state2)
     return Phi
 
 
@@ -349,7 +349,7 @@ def recharge_fix(c0,d10,d20,burn_times,ref):
             delv_d2 = delvs[i+1,1]
 
             #Save delta v into array
-            delv_bank[i] = np.array([np.linalg.norm(delv_c),np.linalg.norm(delv_d1),np.linalg.norm(delv_d2)])
+            delv_bank[i+1] = np.array([np.linalg.norm(delv_c),np.linalg.norm(delv_d1),np.linalg.norm(delv_d2)])
 
             #Add delta v to the final state and loop
             c = c_states[50+i*50-1]# + np.append(np.zeros(3),delv_c)
@@ -432,7 +432,7 @@ d10 = orbits.init_deputy(ref,1).state
 d20 = orbits.init_deputy(ref,2).state
 
 #Number of orbits to calculate
-n_orbits = 16
+n_orbits = 1
 
 #What period to use? NC/K for Schweighart correction
 period = ref.periodK

@@ -40,7 +40,7 @@ n_phases = 100
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
-t0 = 0*2*np.pi/(8*ref.Sch_k)
+t0 = 2*np.pi/(8*ref.Sch_k)
 
 #Initial reference orbit state
 pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t0)
