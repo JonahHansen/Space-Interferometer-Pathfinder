@@ -3,8 +3,16 @@ import astropy.constants as const
 from scipy.optimize import fsolve
 import modules.quaternions as qt
 
-""" J2 Perturbation function from Schweighart's paper """
-""" Relative to reference orbit """
+"""
+J2 Perturbation function from Schweighart's paper.
+Takes an initial satellite/ref orbit and returns a function
+that calculates the state at any time t. Relative to reference orbit.
+Inputs:
+    sat0 - initial satellite class in LVLH frame
+    ref - reference orbit
+Output:
+    J2_pert_func - an integrable function that propagates a satellite's position
+"""
 def J2_pert_num(sat0,ref):
 
     #DEFINE VARIABLES AS IN PAPER
@@ -53,7 +61,15 @@ def J2_pert_num(sat0,ref):
     #Solve simultaneous equations
     m,phi = fsolve(equations,(0,0))
 
-    #Equations of motion
+    
+    """
+    Equations of motion in LVLH frame (from Schweighart). To be integrated!
+    Inputs:
+        t - time
+        state - state of satellite
+    Outputs:
+        Derivative of the state
+    """
     def J2_pert_func(t,state):
         [x,y,z] = state[:3] #Position
         [dx,dy,dz] = state[3:] #Velocity
@@ -61,14 +77,8 @@ def J2_pert_num(sat0,ref):
         dX1 = dy
         dX2 = dz
 
-        #Gamma2 = n**2/r_ref*np.array([-3*x**2 + 1.5*y**2 + 1.5*z**2, 3*x*y, 3*x*z])
-        #Gamma3 = (n/r_ref)**2*np.array([4*x**3-6*x*(y**2+z**2),-6*x**2*y+1.5*y**3+1.5*y*z**2,-6*x**2*z+1.5*z**3+1.5*z*y**2])
-        Gamma2 = np.array([0,0,0])
-        Gamma3 = np.array([0,0,0])
-
         dX3 = 2*n*c*dy + (5*c**2-2)*n**2*x - 3*n**2*J2*(R_e**2/r_ref)*(0.5 - ((3*np.sin(i_ref)**2*np.sin(k*t)**2)/2) - ((1+3*np.cos(2*i_ref))/8))
         dX4 = -2*n*c*dx - 3*n**2*J2*(R_e**2/r_ref)*np.sin(i_ref)**2*np.sin(k*t)*np.cos(k*t)
-        #print(dX4)
         dX5 = -q**2*z + 2*l*q*np.cos(q*t+phi)
 
         return np.array([dX0,dX1,dX2,dX3,dX4,dX5])

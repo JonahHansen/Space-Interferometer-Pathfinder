@@ -1,4 +1,9 @@
-from __future__ import print_function
+"""
+Script to calculate the observability of the spacecraft over a year.
+Plots a map of RA/DEC or Ecliptic LAT/LON
+Requires an insane amount of memory!!
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.constants as const
@@ -23,6 +28,7 @@ J2 = 0.00108263
 #Longitude of the Ascending Node
 Om_0 = np.radians(0) #0
 
+#Flag to use ecliptic rather than equatorial coordinates
 ecliptic = 1
 
 #The max distance to the other satellites in m
@@ -38,10 +44,13 @@ def i_from_precession(rho):
 
 #Desired rate of precession
 precess_rate = np.radians(360)/(365.25*24*60*60)
-#Inclination from precession
-inc_0 = i_from_precession(precess_rate)
-#inc_0 = np.radians(39)
-#------------------------------------------------------------------------------------------
+
+#Inclination from precession (uncomment for heliosynchronous)
+#inc_0 = i_from_precession(precess_rate)
+
+#uncomment for 39 degree orbit
+inc_0 = np.radians(39)
+#---------------------------------------------------------------
 #Calculate orbit, in the geocentric (ECI) frame
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, 0, 0)
 
@@ -53,11 +62,13 @@ n_phases = 40
 n_times = int(n_orbits*n_phases)
 times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
 
+#Number of points for the map
 n_ra = 180
 n_dec = 180
 
+#Convert to RA/DEC from ecliptic coordinates
 def to_radec(lat,lon):
-    ob = np.radians(23.4)
+    ob = np.radians(23.4) #obliquity of the ecliptic
     
     cacd = np.cos(lat)*np.cos(lon)
     sacd = np.cos(lat)*np.sin(lon)*np.cos(ob)-np.sin(lat)*np.sin(ob)
@@ -67,36 +78,40 @@ def to_radec(lat,lon):
     dec = np.arctan2(sd,np.sqrt(cacd**2+sacd**2))
     return ra,dec
 
+#If ecliptic, generate a map of ecliptic coordinates and convert to RA/DEC
 if ecliptic:
     lons = np.linspace(0,np.radians(360),n_ra)
     lats = np.linspace(np.radians(-90),np.radians(90),n_dec)
     lon,lat = np.meshgrid(lons,lats)
     ra,dec = to_radec(lat,lon)
+    
+#Otherise, just create a map of RA/DEC
 else:
     ras = np.linspace(0,np.radians(360),n_ra)
     decs = np.linspace(np.radians(-90),np.radians(90),n_dec)
     ra,dec = np.meshgrid(ras,decs)
 
-
+#Grid of star vectors
 s_hats = np.array([np.cos(ra)*np.cos(dec), np.sin(ra)*np.cos(dec), np.sin(dec)]).transpose()
 
-#import pdb; pdb.set_trace()
-
-"""Initialise arrays"""
+#Initialise arrays
 obs = np.zeros((n_times,n_ra,n_dec)) #Observable? array
 
+#Continuous observing over what period?
 time_for_observing = 45 #Min
 obs_num = int(n_phases/(ref.period/60/time_for_observing))
 
 i = 0
 j = np.zeros((n_ra,n_dec))
 
-""" Initialise a deputy at a given time t from the reference orbit """
-""" the n variable is for the number of the deputy (i.e 1 or 2) """
-
 for t in times:
+    
+    #Get position from reference orbit
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
-    obs[i] = check_obs(t,s_hats,pos_ref,antisun_angle,ref) #Check if observable
+    #Check if observable (entire sky at once!!!)
+    obs[i] = check_obs(t,s_hats,pos_ref,antisun_angle,ref)
+    
+    #Stuff for continuous observing
     """
         for ix in range(n_ra):
             for iy in range(n_dec):
@@ -108,11 +123,14 @@ for t in times:
                             obs[i-1-k,ix,iy] = 0
                     j[ix,iy] = 0
     """
+    
     i += 1
     print(i*100./n_times)
 
+#Percentage of the year that is observable for a given star
 percent = sum(obs)/len(obs)*100
 
+#Plot
 plt.clf()
 plt.imshow(percent.transpose(),aspect="auto",extent=[0,360,-90,90],cmap="inferno")
 plt.title("Observability over a year \n "+r"$i = %d\degree$, $\Omega = %d\degree$, $\gamma= %d\degree$"%(round(np.degrees(inc_0)),round(np.degrees(Om_0)),round(np.degrees(antisun_angle))))

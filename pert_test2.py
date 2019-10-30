@@ -1,4 +1,6 @@
-from __future__ import print_function
+""" Script comparing a bunch of methods to calculate J2 perturbed satellite motion """
+""" None really work, and this is a mess of a script """
+
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits import mplot3d
@@ -7,9 +9,9 @@ from scipy.integrate import solve_ivp
 import modules.orbits as orbits
 from scipy.optimize import fsolve
 from matplotlib.collections import LineCollection
-from modules.Schweighart_J2_solved import propagate_spacecraft
+from modules.Analytical_LVLH_motion import propagate_spacecraft
 from modules.old_perturbations import dX_dt
-from modules.Schweighart_J2 import J2_pert_num
+from modules.Numerical_LVLH_motion import J2_pert_num
 import sys
 
 plt.ion()

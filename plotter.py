@@ -1,7 +1,6 @@
 """
 A script to plot orbits simply for illustration
 Note that cartopy and Basemap both should work here.
-7 Feb 2019: Version 2.0 by Jonah Hansen. Works for circular orbits.
 """
 from __future__ import print_function
 import matplotlib.pyplot as plt
@@ -40,9 +39,11 @@ points = ['r.', 'g.', 'g.']
 #Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
 ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
+#Array of times
 num_times = 1000
 times = np.linspace(0,ref.period,num_times)
 
+#Positions of satellites in the ECI, LVLH and Baseline frames
 c_pos = np.zeros((num_times,3))
 dep1_pos = np.zeros((num_times,3))
 dep2_pos = np.zeros((num_times,3))
@@ -54,22 +55,23 @@ Base_pos1 = np.zeros((num_times,3))
 Base_pos2 = np.zeros((num_times,3))
 s_hats = np.zeros((num_times,3))
 
+
 i = 0
 for t in times:
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
-    chief = orbits.init_chief(ref,False,t)
+    chief = orbits.init_chief(ref,precession=False,time=t)
     c_pos[i] = chief.pos
-    dep1 = orbits.init_deputy(ref,1,False,time=t)
-    dep2 = orbits.init_deputy(ref,2,False,time=t)
+    dep1 = orbits.init_deputy(ref,1,precession=False,time=t)
+    dep2 = orbits.init_deputy(ref,2,precession=False,time=t)
     dep1_pos[i] = dep1.pos
     dep2_pos[i] = dep2.pos
-    LVLH_pos0[i] = chief.to_LVLH(ref_orbit=True).pos
-    LVLH_pos1[i] = dep1.to_LVLH(ref_orbit=True).pos
-    LVLH_pos2[i] = dep2.to_LVLH(ref_orbit=True).pos
-    Base_pos0[i] = chief.to_Baseline(ref_orbit=True).pos
-    Base_pos1[i] = dep1.to_Baseline(ref_orbit=True).pos
-    Base_pos2[i] = dep2.to_Baseline(ref_orbit=True).pos
-    s_hats[i] = np.dot(LVLH,ref.s_hat)
+    LVLH_pos0[i] = chief.to_LVLH(precession=False,ref_orbit=True).pos
+    LVLH_pos1[i] = dep1.to_LVLH(precession=False,ref_orbit=True).pos
+    LVLH_pos2[i] = dep2.to_LVLH(precession=False,ref_orbit=True).pos
+    Base_pos0[i] = chief.to_Baseline(precession=False,ref_orbit=True).pos
+    Base_pos1[i] = dep1.to_Baseline(precession=False,ref_orbit=True).pos
+    Base_pos2[i] = dep2.to_Baseline(precession=False,ref_orbit=True).pos
+    s_hats[i] = np.dot(LVLH,ref.s_hat) #Calculate s_hat in LVLH frame
     i += 1
 
 #All ECI positions
@@ -116,12 +118,15 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,10)): #np.pi, 31*
         sat_lvlh = [np.interp( (sat_phase) % (2*np.pi), ref.ang_vel*times, lvlh[:,ii]) for ii in range(3)]
         lvlh_ls.append(sat_lvlh)
 
-    #Interpolate LVLH orbit, to make LVLH plot
+    #Interpolate Baseline orbit, to make Baseline plot
     for base in Base_all:
         sat_base = [np.interp( (sat_phase) % (2*np.pi), ref.ang_vel*times, base[:,ii]) for ii in range(3)]
         base_ls.append(sat_base)
 
     plt.tight_layout()
+    
+    #LVLH Subplot
+    
     plt.subplot(233, aspect='equal')
     #plt.axes().set_aspect('equal')
 
@@ -152,6 +157,8 @@ for im_ix, sat_phase in enumerate(np.linspace(1.*np.pi,3*np.pi,10)): #np.pi, 31*
 
     plt.arrow(0,0,delta_r_max*km*s[1],delta_r_max*km*s[2],width=delta_r_max*km/40,color='k')
 
+    #Baseline Subplot
+    
     plt.subplot(236, aspect='equal')
     #plt.axes().set_aspect('equal')
 

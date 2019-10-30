@@ -2,21 +2,30 @@ import numpy as np
 import astropy.constants as const
 from scipy.optimize import fsolve
 
-""" Implementation of the solutions to Schweghart's equations of motion """
+""" Implementation of the solutions to HCW and Schweghart's equations of motion """
 
-""" equations_creation: takes in the reference orbit and produces a function """
-""" that takes in the initial conditions for the integrated equations """
 
-""" set_init_conditions: takes in initial conditions and returns a Function """
-""" that takes in a time and produces the satellite's state relative to the """
-""" reference orbit at that time."""
-
+"""
+Propagates the LVLH state of a spacecraft through time
+Inputs:
+    t0 - Initial time
+    state0 - Initial LVLH state of spacecraft
+    t - array of times to evaluate state at
+    ref - reference orbit
+    HCW - Use HCW equations instead (i.e J2 = 0)
+Outputs:
+    States of spacecraft at each time in t.
+    Given as [[x0,x1,x2,...],[y0,y1,y2,...],...]
+    Transpose to get it in the form:
+    [[x0,y0,z0,dx0,dy0,dz0],[x1,y1,z1,dx1,dy1,dz1],...]
+"""
 def propagate_spacecraft(t0,state0,t,ref,HCW=False):
 
     r_ref = ref.R_orb #Reference orbit radius
 
     #Schweighart constants (defined in notebook)
     n = ref.ang_vel
+    #If using HCW, set J2 = 0 etc.
     if HCW:
         s = 0
         c = 1
@@ -28,8 +37,10 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
         k = ref.Sch_k
         J2 = 0.00108263
 
+    #Earth radius
     Re = const.R_earth.value
-    i_ref = ref.inc_0 -(3*n*J2*Re**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)#Inclination of the reference orbit (and chief)
+    #Inclination of the reference orbit (and chief)
+    i_ref = ref.inc_0 -(3*n*J2*Re**2)/(2*k*r_ref**2)*np.cos(ref.inc_0)*np.sin(ref.inc_0)
 
     #Self defined constants for the equations of motion
     a = n*np.sqrt(1-s)
@@ -74,6 +85,7 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     #Solve simultaneous equations
     m,phi = fsolve(equations,(0,0))
 
+    #Coefficients for the equations of motion
     ka1 = b**2*x0 + b/a*dy0 - b*z*(d**2-4)*np.cos(2*k*t0)
     ka2 = y0 - b/a*dx0 + 0.5*z*(d**2-4)*(g*d-3*b)*np.sin(2*k*t0)
     ka3 = -g*x0 - b/a*dy0 - z*(4*b-3*d)*np.cos(2*k*t0)
@@ -83,9 +95,6 @@ def propagate_spacecraft(t0,state0,t,ref,HCW=False):
     ka7 = z0
     ka8 = (dz0 - l*np.sin(q*t0 + phi))/q
 
-    print(ka1,ka2,ka3,ka4,ka5,ka6,ka7,ka8)
-
-    #import pdb; pdb.set_trace()
     #Actual equations
     x = ka1 + ka3*np.cos(a*(t-t0)) + ka4*np.sin(a*(t-t0)) + ka5*np.cos(2*k*t)
     y = ka2 - a*g/b*ka1*(t-t0) + b*ka4*np.cos(a*(t-t0)) - b*ka3*np.sin(a*(t-t0)) + ka6*np.sin(2*k*t)

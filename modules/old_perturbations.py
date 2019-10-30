@@ -1,4 +1,5 @@
-""" Perturbations Module """
+""" Perturbations Module based on change of basis matrix """
+""" OLD VERSION OF CODE!!! DOES NOT NECESSARILY WORK"""
 import numpy as np
 import astropy.constants as const
 import modules.orbits as orbits
@@ -69,9 +70,6 @@ def dX_dt(t, state, ref):
     #LVLH_J2_p = 0
     #Acceleration is the HCW Equations, plus the required perturbations
     #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + Gamma3
-
-    #Print kinetic energy while integrating
-    #print(r[0] + v[0]/n)
 
     #Second half of the differential vector (derivative of velocity, acceleration)
     dX3 = a[0]

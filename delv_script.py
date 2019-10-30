@@ -1,14 +1,14 @@
-from __future__ import print_function
-import matplotlib.pyplot as plt
-import numpy as np
-from mpl_toolkits import mplot3d
-import astropy.constants as const
-from scipy.integrate import solve_ivp
-import modules.orbits as orbits
-import sys
-from matplotlib.collections import LineCollection
+""" SCRIPT TO TEST ORBIT CORRECTIONS AND DELTA V REQUIREMENTS """
+""" Takes in inc, Om, ra, dec from the command line """
 
-plt.ion()
+import numpy as np
+import astropy.constants as const
+import modules.orbits as orbits
+from scipy.integrate import solve_ivp
+from scipy.optimize import minimize, root, brentq
+import sys
+
+#Set up orbital configuration
 
 alt = 500e3 #In m
 R_e = const.R_earth.value  #In m
@@ -16,23 +16,30 @@ R_e = const.R_earth.value  #In m
 R_orb = R_e + alt
 
 #Orbital inclination
-inc_0 = np.radians(40) #20
+inc_0 = np.radians(float(sys.argv[1])) #20
 #Longitude of the Ascending Node
-Om_0 = np.radians(90) #0
+Om_0 = np.radians(float(sys.argv[2])) #0
 
 #Stellar vector
-ra = np.radians(29) #90
-dec = np.radians(45)#-40
+ra = np.radians(float(sys.argv[3])) #90
+dec = np.radians(float(sys.argv[4]))#-40
 
 #The max distance to the other satellites in m
 delta_r_max = 0.3e3
 
-#Tolerance and steps required for the integrator
-rtol = 1e-12
-atol = 1e-18
+#Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
+ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
 
-zeta = float(sys.argv[2])
 
+######################## J2 Propagation #################################
+
+""" J2 Perturbation acceleration function
+    Inputs:
+        t - time
+        state - state of satellite
+        ref - reference orbit
+    Output: Acceleration at time t
+"""
 def dX_dt(t,state,ref):
     [x,y,z] = state[:3] #Position
     v = state[3:] #Velocity
@@ -60,245 +67,395 @@ def dX_dt(t,state,ref):
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 
 
-def del_v_func(c,d1,d2,t,pt,ref):
-    """
-    c_s_hat = np.dot(c.vel,ref.s_hat)
-    d1_s_hat = np.dot(d1.vel,ref.s_hat)
-    d2_s_hat = np.dot(d2.vel,ref.s_hat)
-
-    d1_rel_s = d1_s_hat - c_s_hat
-    d2_rel_s = d2_s_hat - c_s_hat
-    print(d1_rel_s)
-
-    """
-    sat0 = c.to_Baseline(state=c.state)
-    sat1 = d1.to_Baseline(state=c.state)
-    sat2 = d2.to_Baseline(state=c.state)
-
-    csat = sat0.state
-    dsat1 = sat1.state
-    dsat2 = sat2.state
-
-    delvs1 = np.zeros(3)
-    delvs2 = np.zeros(3)
-    delvs0 = np.zeros(3)
-
-    """
-    #delvs1[2] = -dsat1[2]/(t-pt)
-    #delvs2[2] = -dsat2[2]/(t-pt)
-    #import pdb; pdb.set_trace()
-    #delvs1 = -1*d1_rel_s/(t-pt)
-    #delvs2 = -1*d2_rel_s/(t-pt)
-
-    delvs1_sc = -dsat1[2]/(t-pt)
-    delvs2_sc = -dsat2[2]/(t-pt)
-
-    if delvs1_sc < 0:
-        if delvs2_sc < 0:
-            delvs1[2] = -delvs2_sc
-            delvs0[2] = -(delvs1_sc + delvs2_sc)
-            delvs2[2] = -delvs1_sc
-        else:
-            delvs2[2] -= delvs1_sc
-            delvs0[2] -= delvs1_sc
-    elif delvs2_sc < 0:
-            delvs1[2] -= delvs2_sc
-            delvs0[2] -= delvs2_sc
-
-    """
-
-    max_s_sep = np.max([csat[2],dsat1[2],dsat2[2]])
-    #print(max_s_sep)
-
-    del_t = (t-pt)/zeta
-
-    delvs0[2] = (max_s_sep - csat[2])/del_t
-    delvs1[2] = (max_s_sep - dsat1[2])/del_t
-    delvs2[2] = (max_s_sep - dsat2[2])/del_t
-
-    b1 = np.linalg.norm(dsat1[0:2])
-    b2 = np.linalg.norm(dsat2[0:2])
-    del_b = b2-b1
-    #print(del_b)
-
-    if del_b >= 0:
-        delvs2[2] += del_b/del_t
-    elif del_b < 0:
-        delvs1[2] += -del_b/del_t
-
-    """
-    #Calculate position vector to the midpoint of the two deputies
-    del_b = dsat1[0:3] - dsat2[0:3] #Separation vector
-    del_b_half = 0.5*del_b #Midpoint
-    m0 = dsat1[0:3] + del_b_half #Midpoint from centre
-    m0[2] = 00
-
-    delvb = m0/(t-pt)
-    delvb = np.array([0,0,0])
-    """
-
-    delv = np.array([delvs0[2],delvs1[2],delvs2[2]])
-    #print(delv)
-    sat0.vel += delvs0
-    sat1.vel += delvs1
-    sat2.vel += delvs2
-
-    new_sat0 = sat0.to_ECI(state = c.state).state
-    new_sat1 = sat1.to_ECI(state = c.state).state
-    new_sat2 = sat2.to_ECI(state = c.state).state
-    """
-    #import pdb; pdb.set_trace()
-    c.state[3:] += delvs0*ref.s_hat
-    d1.state[3:] += delvs1*ref.s_hat
-    d2.state[3:] += delvs2*ref.s_hat
-
-    new_sat0 = c.state
-    new_sat1 = d1.state
-    new_sat2 = d2.state
-    """
-
-    return delv,new_sat0,new_sat1,new_sat2
-
-
-#------------------------------------------------------------------------------------------
-#Calculate reference orbit, in the geocentric (ECI) frame (See Orbit module)
-ref = orbits.Reference_orbit(R_orb, delta_r_max, inc_0, Om_0, ra, dec)
-
-#Number of orbits
-n_orbits = 0.5
-#Number of phases in each orbit
-n_phases = 500
-#Total evaluation points
-n_times = int(n_orbits*n_phases)
-times = np.linspace(0,ref.period*n_orbits,n_times) #Create list of times
-
-#Initial states of the satellites
-chief_0 = orbits.init_chief(ref).state
-deputy1_0 = orbits.init_deputy(ref,1).state
-deputy2_0 = orbits.init_deputy(ref,2).state
-
-chief_states = np.array([chief_0])
-deputy1_states = np.array([deputy1_0])
-deputy2_states = np.array([deputy2_0])
-delv_bank = []
-
-t_burn = int(sys.argv[1])
-t0 = 0.0
-t_bank = np.array([0])
-
-while t0 < times[-1]:
-    burn_pt = t0 + t_burn
-    ts = np.linspace(t0,burn_pt,10) #Every 0.1s
-    t_bank = np.append(t_bank,ts)
+""" Propagates the orbit using the ECI J2 integrator
+    Inputs:
+        X0 - initial state
+        times - list of times for evaluation
+        ref - reference orbit
+    Output: list of states at the given times
+"""
+def propagate_orbit(X0, times, ref):
+    rtol = 1e-12
+    atol = 1e-18
 
     #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-    X_c = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], chief_0, t_eval = ts, rtol = rtol, atol = atol)
+    X = solve_ivp(lambda t, y: dX_dt(t,y,ref), [times[0],times[-1]], X0, t_eval = times, rtol = rtol, atol = atol)
     #Check if successful integration
-    if not X_c.success:
-        raise Exception("Integration Chief failed!!!!")
+    if not X.success:
+        raise Exception("Integration failed!!!!")
 
-    #Integrate the orbits using HCW and Perturbations D.E (Found in perturbation module)
-    X_d1 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy1_0, t_eval = ts, rtol = rtol, atol = atol)
-    #Check if successful integration
-    if not X_d1.success:
-        raise Exception("Integration Deputy 1 failed!!!!")
+    states = X.y.transpose()
+    return states
 
-    X_d2 = solve_ivp(lambda t, y: dX_dt(t,y,ref), [ts[0],ts[-1]], deputy2_0, t_eval = ts, rtol = rtol, atol = atol)
-    if not X_d2.success:
-        raise Exception("Integration Deputy 2 failed!!!!")
 
-    chief_p_states = X_c.y.transpose()
-    deputy1_p_states = X_d1.y.transpose()
-    deputy2_p_states = X_d2.y.transpose()
+###################### Integration Correction ############################
 
-    chief_states = np.append(chief_states,chief_p_states,axis=0)
-    deputy1_states = np.append(deputy1_states,deputy1_p_states,axis=0)
-    deputy2_states = np.append(deputy2_states,deputy2_p_states,axis=0)
+""" Calculate the max delta v required during the integration times
+    Inputs:
+        c_states - list of chief states
+        d1_states - list of deputy1 states
+        d2_states - list of deputy2 states
+        times - list of times
+        ref - reference orbit
+    Output: array of max delta v [chief, deputy1, deputy2]
+"""
+def calc_delv(c_states,d1_states,d2_states,times,ref):
+    dep1_base = []
+    dep2_base = []
 
-    c = orbits.ECI_Sat(chief_p_states[-1,:3],chief_p_states[-1,3:],ts[-1],ref)
-    d1 = orbits.ECI_Sat(deputy1_p_states[-1,:3],deputy1_p_states[-1,3:],ts[-1],ref)
-    d2 = orbits.ECI_Sat(deputy2_p_states[-1,:3],deputy2_p_states[-1,3:],ts[-1],ref)
+    #Convert states to baseline frame
+    for i in range(len(times)):
+        dep1_base.append(orbits.ECI_Sat(d1_states[i,:3],d1_states[i,3:],times[i],ref).to_Baseline(state=c_states[i]))
+        dep2_base.append(orbits.ECI_Sat(d2_states[i,:3],d2_states[i,3:],times[i],ref).to_Baseline(state=c_states[i]))
 
-    delv,new_c,new_d1,new_d2 = del_v_func(c,d1,d2,burn_pt,t0,ref)
-    #import pdb; pdb.set_trace()
-    delv_bank.append(delv)
-    chief_0 = new_c
-    deputy1_0 = new_d1
-    deputy2_0 = new_d2
-    t0 = burn_pt
-    #print(t0)
+    n_times = len(times)
 
-n_times = len(chief_states)
+    #Separations and accelerations
+    baseline_sep = np.zeros(n_times) #Separation along the baseline
+    s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
+    s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
 
-rel_p_dep1 = []
-rel_p_dep2 = []
+    for ix in range(n_times):
+        #Baseline separations is simply the difference between the positions of the two deputies
+        baseline_sep[ix] = np.linalg.norm(dep2_base[ix].pos) - np.linalg.norm(dep1_base[ix].pos)
 
-print("Integration Done")
-for i in range(len(t_bank)):
-    rel_p_dep1.append(orbits.ECI_Sat(deputy1_states[i,:3],deputy1_states[i,3:],t_bank[i],ref).to_Baseline(state=chief_states[i]))
-    rel_p_dep2.append(orbits.ECI_Sat(deputy2_states[i,:3],deputy2_states[i,3:],t_bank[i],ref).to_Baseline(state=chief_states[i]))
-print("Classifying Done")
+        #Component of perturbed orbit in star direction
+        s_hat_drd1[ix] = dep1_base[ix].pos[2]
+        s_hat_drd2[ix] = dep2_base[ix].pos[2]
 
-#--------------------------------------------------------------------------------------------- #
-#Separations and accelerations
-baseline_sep = np.zeros(n_times) #Separation along the baseline
-s_hat_drd1 = np.zeros(n_times) #Deputy1 position in star direction
-s_hat_drd2 = np.zeros(n_times) #Deputy2 position in star direction
-b_hat_drd1 = np.zeros(n_times) #Deputy1 position in baseline direction
-b_hat_drd2 = np.zeros(n_times) #Deputy2 position in baseline direction
-s_hat_sep = np.zeros(n_times) #Separation along the baseline
-total_sep = np.zeros(n_times) #Total separation
+    #Numerical differentiation twice - position -> acceleration
+    def acc(pos,times):
+        vel = np.gradient(pos, times, edge_order=2)
+        acc = np.gradient(vel, times, edge_order=2)
+        return acc
 
-for ix in range(n_times):
-    #Baseline separations is simply the difference between the positions of the two deputies
-    baseline_sep[ix] = np.linalg.norm(rel_p_dep2[ix].pos) - np.linalg.norm(rel_p_dep1[ix].pos)
+    #Accelerations - numerically integrate the position/time arrays found above
+    #Returns the absolute value of the acceleration in a given direction
+    acc_s1 = np.abs(acc(s_hat_drd1,times))
+    acc_s2 = np.abs(acc(s_hat_drd2,times))
+    acc_delta_b = np.abs(acc(baseline_sep,times))
 
-    #Component of perturbed orbit in star direction
-    s_hat_drd1[ix] = rel_p_dep1[ix].pos[2]
-    s_hat_drd2[ix] = rel_p_dep2[ix].pos[2]
+    #Delta v (Integral of the absolute value of the acceleration)
+    delta_v_s1 = np.trapz(acc_s1,times)
+    delta_v_s2 = np.trapz(acc_s2,times)
+    delta_v_delta_b = np.trapz(acc_delta_b,times)
 
-    #Component of perturbed orbit in baseline direction
-    b_hat_drd1[ix] = rel_p_dep1[ix].pos[0]
-    b_hat_drd2[ix] = rel_p_dep2[ix].pos[0]
+    delv_deputy = 2*delta_v_s1 + delta_v_delta_b
+    delv_chief = delta_v_s1
 
-    #Separation of the two deputies in the star direction
-    s_hat_sep[ix] = s_hat_drd2[ix] - s_hat_drd1[ix]
-    #baseline_sep[ix] = b_hat_drd1[ix] + b_hat_drd2[ix]
-    #Delta of the separation along the star direction and the baseline direction
-    total_sep[ix] = baseline_sep[ix] - s_hat_sep[ix]
+    return np.array([delv_chief, delv_deputy, delv_deputy])
 
-print(np.sum(np.array(delv_bank),axis=0))
-print(np.max(np.abs(total_sep)))
 
-# ---------------------------------------------------------------------- #
-### PLOTTING STUFF ###
+""" Function that propagates the spacecraft from the start of integration
+    to the end of integration, and then forces the star separation to be zero
+    Inputs:
+        c0 - initial chief state
+        d10 - initial deputy1 state
+        d20 - initial deputy2 states
+        t0 - starting time
+        t_final - end time
+        ref - reference orbit
+    Outputs:
+        c_states - list of chief states
+        d1_states - list of deputy1 states (s direction set to 0)
+        d2_states - list of deputy2 states (s direction set to 0)
+        delv - array of max delta v required to fix during integration [chief, deputy1, deputy2]
+"""
+def propagate_integration(c0, d10, d20, t0, t_final, ref):
 
-#Plot separation along the star direction
-plt.figure(3)
-plt.clf()
-plt.plot(t_bank,s_hat_drd1,"b-",label="Deputy 1, s direction")
-plt.plot(t_bank,s_hat_drd2,"g-",label="Deputy 2, s direction")
-plt.plot(t_bank,s_hat_sep,"r-",label="Separation, s direction")
-plt.xlabel("Times(s)")
-plt.ylabel("Separation(m)")
-plt.title('Separations against time due to perturbations')
-plt.legend()
+    #List of times
+    times = np.linspace(t0,t_final,500)
 
-#Plot separation along the baseline direction
-plt.figure(4)
-plt.clf()
-plt.plot(t_bank,baseline_sep,"y-",label="Separation, baseline direction")
-#plt.plot(times,total_sep,"c-",label="Total direction")
-plt.xlabel("Times(s)")
-plt.ylabel("Separation(m)")
-plt.title('Separations against time due to perturbations')
-plt.legend()
+    #propagate the satellites to the end of integration
+    c_states = propagate_orbit(c0,times,ref)
+    d1_states = propagate_orbit(d10,times,ref)
+    d2_states = propagate_orbit(d20,times,ref)
 
-#Plot separation in the baseline frame
-plt.figure(5)
-plt.clf()
-plt.plot(t_bank,total_sep,"c-",label="Total direction")
-plt.xlabel("Times(s)")
-plt.ylabel("Separation(m)")
-plt.title('Separations against time due to perturbations')
-plt.legend()
+    #Calculate maximum delta v
+    delv = calc_delv(c_states,d1_states,d2_states,times,ref)
+
+    #Convert deputies to baseline frame
+    d1sat = orbits.ECI_Sat(d1_states[-1,:3],d1_states[-1,3:],times[-1],ref).to_Baseline(state=c_states[-1])
+    d2sat = orbits.ECI_Sat(d2_states[-1,:3],d2_states[-1,3:],times[-1],ref).to_Baseline(state=c_states[-1])
+
+    #Force s direction to be 0
+    d1sat.pos[2] = 0
+    d2sat.pos[2] = 0
+
+    #Convert back to ECI frame
+    d1_states[-1] = d1sat.to_ECI(state=c_states[-1]).state
+    d2_states[-1] = d2sat.to_ECI(state=c_states[-1]).state
+
+    return c_states,d1_states,d2_states, delv
+
+
+######################## Recharge correction ##################################
+
+""" Cost function for optimiser
+    Inputs:
+        d1 - final state vector of deputy1
+        d2 - final the state vector of deputy1
+        ideal_d1 - ideal end state of deputy 1
+        ideal_d2 - ideal end state of deputy 2
+        delv - list of total delv used in thrusting [chief, deputy1, deputy2]
+    Outputs:
+        Phi - cost variable
+"""
+def cost_function(d1, d2, ideal_d1, ideal_d2, delv):
+
+    #Calculate residuals
+    sig_state1 = d1 - ideal_d1
+    sig_state2 = d2 - ideal_d2
+
+    #Weights for the state residuals
+    kappa_d1 = 1000*np.array([1,1,3,2,2,3])
+    kappa_d2 = 1000*np.array([1,1,3,2,2,3])
+
+    #Weights for the delta v components
+    kappa_dv = np.array([1,1,1])
+
+    Phi = np.dot(kappa_d1,sig_state1**2) + np.dot(kappa_d1,sig_state2**2) + np.dot(kappa_dv,delv**2)
+    return Phi
+
+
+""" Root function for solver
+    Inputs:
+        d1 - final state vector of deputy1
+        d2 - final the state vector of deputy1
+        ideal_d1 - ideal end state of deputy 1
+        ideal_d2 - ideal end state of deputy 2
+    Output:
+        Phi - variable to reduce down to zero
+"""
+def root_function(d1, d2, ideal_d1, ideal_d2):
+
+    #Calculate residuals
+    sig_state1 = d1 - ideal_d1
+    sig_state2 = d2 - ideal_d2
+
+
+    Phi = np.append(sig_state1,sig_state2)
+    return Phi
+
+
+""" Calculate the states of the satellites for the rest of the orbit
+    by calculating the optimum thrusts at a list of given times
+
+    Input:
+        c0 - initial chief state
+        d10 - initial deputy1 state
+        d20 - initial deputy2 state
+        burn_times - List of times of thrusts, starting with initial time and ending
+                     with final time. ie. [t0, thrust 1, thrust 2, t_final]
+        ref - reference orbit
+
+    Output:
+        c_states - list of chief states
+        d1_states - list of deputy1 states (s direction set to 0)
+        d2_states - list of deputy2 states (s direction set to 0)
+        delv - array of max delta v required to fix during integration [chief, deputy1, deputy2]
+"""
+def recharge_fix(c0,d10,d20,burn_times,ref):
+
+    #Number of burns is the number of middle elements in the array
+    n_burns = len(burn_times)-2
+
+    #List of times, broken up between burns
+    times = np.zeros((n_burns+1,50))
+
+    for i in range(n_burns+1):
+        times[i] = np.linspace(burn_times[i],burn_times[i+1],50)
+
+
+    #Initialise variables
+    c_states_fin = np.zeros((50*(n_burns+1),6))
+    d1_states_fin = np.zeros((50*(n_burns+1),6))
+    d2_states_fin = np.zeros((50*(n_burns+1),6))
+    delv_bank_fin = np.zeros((n_burns,3))
+
+
+    #Propagate the satellites until the thrust time
+    c_states_part = propagate_orbit(c0,times[0],ref)
+    d1_states_part = propagate_orbit(d10,times[0],ref)
+    d2_states_part = propagate_orbit(d20,times[0],ref)
+
+    #Save into array
+    c_states_fin[:50] = c_states_part
+    d1_states_fin[:50] = d1_states_part
+    d2_states_fin[:50] = d2_states_part
+
+    """ Function to return the states and delta v of the spacecraft
+        given a list of delta v burns at the times set
+        by the variable "burn times"
+
+        Currently NOT thrusting chief satellite
+    """
+    def correct_orbit(delvs):
+
+        #Initialise variables
+        c_states = np.zeros((50*(n_burns),6))
+        d1_states = np.zeros((50*(n_burns),6))
+        d2_states = np.zeros((50*(n_burns),6))
+        delv_bank = np.zeros((n_burns,3))
+
+
+        #Reshape (due to the optimiser)
+        delvs = delvs.reshape((n_burns,2,3))
+
+        #Delta v for first thrust
+        delv_c = 0
+        delv_d1 = delvs[0,0]
+        delv_d2 = delvs[0,1]
+
+        #Save delta v into array
+        delv_bank[0] = np.array([np.linalg.norm(delv_c),np.linalg.norm(delv_d1),np.linalg.norm(delv_d2)])
+
+        #Add delta v to the final state and loop
+        c = c_states_fin[49]# + np.append(np.zeros(3),delv_c)
+        d1 = d1_states_fin[49] + np.append(np.zeros(3),delv_d1)
+        d2 = d2_states_fin[49] + np.append(np.zeros(3),delv_d2)
+
+        for i in range(0,n_burns-1):
+
+            #Propagate the satellites until the thrust time
+            c_states_part = propagate_orbit(c,times[i+1],ref)
+            d1_states_part = propagate_orbit(d1,times[i+1],ref)
+            d2_states_part = propagate_orbit(d2,times[i+1],ref)
+
+            #Save into array
+            c_states[i*50:i*50+50] = c_states_part
+            d1_states[i*50:i*50+50] = d1_states_part
+            d2_states[i*50:i*50+50] = d2_states_part
+
+            #Delta v for current thrust
+            delv_c = 0
+            delv_d1 = delvs[i+1,0]
+            delv_d2 = delvs[i+1,1]
+
+            #Save delta v into array
+            delv_bank[i+1] = np.array([np.linalg.norm(delv_c),np.linalg.norm(delv_d1),np.linalg.norm(delv_d2)])
+
+            #Add delta v to the final state and loop
+            c = c_states[50+i*50-1]# + np.append(np.zeros(3),delv_c)
+            d1 = d1_states[50+i*50-1] + np.append(np.zeros(3),delv_d1)
+            d2 = d2_states[50+i*50-1] + np.append(np.zeros(3),delv_d2)
+
+        #Propagate the satellites after the final thrust
+        c_states_part = propagate_orbit(c,times[n_burns],ref)
+        d1_states_part = propagate_orbit(d1,times[n_burns],ref)
+        d2_states_part = propagate_orbit(d2,times[n_burns],ref)
+
+        #Save to array and return the array of states and delta v
+        c_states[(n_burns-1)*50:(n_burns-1)*50+50] = c_states_part
+        d1_states[(n_burns-1)*50:(n_burns-1)*50+50] = d1_states_part
+        d2_states[(n_burns-1)*50:(n_burns-1)*50+50] = d2_states_part
+
+        return c_states, d1_states, d2_states, delv_bank
+
+
+    """ Optimiser (Root finder) function
+        Takes in a list of delta vs and attempts to minimise (solve) using the cost (root) function
+    """
+    def optimiser(delvs):
+
+        #Given the delta vs, calculate the states
+        c_states, d1_states, d2_states, delv_bank = correct_orbit(delvs)
+
+        #Final chief state
+        c_final = state=c_states[-1]
+
+        #Final deputy states in the baseline frame
+        d1_final = orbits.ECI_Sat(d1_states[-1,:3],d1_states[-1,3:],times[n_burns,-1],ref).state#.to_Baseline(state=c_final).state
+        d2_final = orbits.ECI_Sat(d2_states[-1,:3],d2_states[-1,3:],times[n_burns,-1],ref).state#.to_Baseline(state=c_final).state
+
+        #Ideal deputy states (where the deputies should be given the position of the chief)
+        d1_ideal = orbits.init_deputy(ref,1,time=times[n_burns,-1],ref_orbit=False,state=c_final).state#.to_Baseline(state=c_final).state
+        d2_ideal = orbits.init_deputy(ref,2,time=times[n_burns,-1],ref_orbit=False,state=c_final).state#.to_Baseline(state=c_final).state
+
+        #Cost function calculation
+        #Phi = cost_function(d1_final, d2_final, d1_ideal, d2_ideal, np.sum(delv_bank,axis=0))
+        
+        #Root function calculation
+        Phi = root_function(d1_final, d2_final, d1_ideal, d2_ideal)
+        #print(Phi)
+
+        return Phi
+
+    #Solve for the thrusts.
+    x = root(optimiser,np.zeros((n_burns,2,3)),method='hybr')
+
+    #Calculate states based on optimum thrusts
+    c_states, d1_states, d2_states, delv_bank = correct_orbit(x.x)
+
+    c_states_fin[50:] = c_states
+    d1_states_fin[50:] = d1_states
+    d2_states_fin[50:] = d2_states
+
+    #Calculate residuals to print to terminal:
+    #Final chief state
+    c_final = state=c_states[-1]
+
+    #Final deputy states in the baseline frame
+    d1_final = orbits.ECI_Sat(d1_states[-1,:3],d1_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
+    d2_final = orbits.ECI_Sat(d2_states[-1,:3],d2_states[-1,3:],times[n_burns,-1],ref).to_Baseline(state=c_final).state
+
+    #Ideal deputy states (where the deputies should be given the position of the chief)
+    d1_ideal = orbits.init_deputy(ref,1,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
+    d2_ideal = orbits.init_deputy(ref,2,time=times[n_burns,-1],ref_orbit=False,state=c_final).to_Baseline(state=c_final).state
+
+    print("Residuals for Deputy 1: " + str(np.abs(d1_final-d1_ideal)))
+    print("Residuals for Deputy 2: " + str(np.abs(d2_final-d2_ideal)))
+
+    return c_states_fin, d1_states_fin, d2_states_fin, delv_bank
+
+
+################################### Script part ##############################################
+
+if __name__ == "__main__":
+    #Initial states of the satellites
+    c0 = orbits.init_chief(ref).state
+    d10 = orbits.init_deputy(ref,1).state
+    d20 = orbits.init_deputy(ref,2).state
+    
+    #Number of orbits to calculate
+    n_orbits = 1
+    
+    #What period to use? NC/K for Schweighart correction
+    period = ref.periodK
+    
+    total_delv = np.zeros((n_orbits,3))
+    
+    for ix in range(n_orbits):
+    
+        print("Beginning orbit %s"%ix)
+    
+        #Start and end of integration
+        t0 = ix*period
+        t_final = (ix+0.5)*period
+    
+        #Propagate through integration, forcing s direction to be 0
+        c, d1, d2, delv = propagate_integration(c0, d10, d20, t0, t_final, ref)
+    
+        #Half way to end of orbit
+        t02 = t_final
+        t_end = (ix+1)*period
+    
+        #Middle times are the times at which a thrust will occur (in s).
+        #i.e an array of length 4 has two thrusts...
+        burn_times = [t02, t02 + 10*60, t_end - 10*60, t_end]
+    
+    
+        #Correct the orbit through optimising the thrust
+        c2, d12, d22, delv2 = recharge_fix(c[-1], d1[-1], d2[-1], burn_times, ref)
+    
+        #Print the delv used per satellite in orbit correction
+        print("Delv for integration fix %s: "%ix + str(delv))
+        print("Delv for recharge fix %s: "%ix + str(np.sum(delv2,axis=0)))
+        print("Total Delv for orbit fix %s: "%ix + str(np.sum(delv2,axis=0)+delv))
+    
+        total_delv[ix] = np.sum(delv2,axis=0)+delv
+    
+        #New initial states
+        c0 = c2[-1]
+        d10 = d12[-1]
+        d20 = d22[-1]
