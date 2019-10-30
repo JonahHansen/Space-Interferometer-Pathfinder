@@ -88,8 +88,6 @@ def dX_dt(t,state,ref):
     dX3 = a[0]
     dX4 = a[1]
     dX5 = a[2]
-    
-    print(1/2*(np.linalg.norm(v)**2) - const.GM_earth.value/r)
 
     return np.array([dX0,dX1,dX2,dX3,dX4,dX5])
 

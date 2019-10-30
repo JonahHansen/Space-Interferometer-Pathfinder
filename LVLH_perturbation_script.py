@@ -70,16 +70,15 @@ deputy2_p_states = propagate_spacecraft(t0,deputy2_0.state,times,ref,HCW=HCW).tr
 d1_rel_states = deputy1_p_states #- chief_p_states
 d2_rel_states = deputy2_p_states #- chief_p_states
 
-rel_p_dep1 = []
-rel_p_dep2 = []
+rel_p_dep1 = np.zeros((len(times),3))
+rel_p_dep2 = np.zeros((len(times),3))
 
 print("Integration Done")
 
 #Change to satellite class and retrieve position
 for i in range(len(times)):
-    rel_p_dep1.append(orbits.Curvy_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref)).pos
-    rel_p_dep2.append(orbits.Curvy_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref)).pos
-
+    rel_p_dep1[i] = orbits.Curvy_Sat(d1_rel_states[i,:3],d1_rel_states[i,3:],times[i],ref).pos
+    rel_p_dep2[i] = orbits.Curvy_Sat(d2_rel_states[i,:3],d2_rel_states[i,3:],times[i],ref).pos
 
 #Change to minutes
 times = times/60
