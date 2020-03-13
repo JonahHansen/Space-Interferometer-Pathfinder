@@ -1,4 +1,5 @@
-""" Perturbations Module """
+""" Perturbations Module based on change of basis matrix """
+""" OLD VERSION OF CODE!!! DOES NOT NECESSARILY WORK"""
 import numpy as np
 import astropy.constants as const
 import modules.orbits as orbits
@@ -25,8 +26,6 @@ def J2_pert(r_d,r_c,R_orb):
     #Separation acceleration
     J2_p = J2_p_d - J2_p_c
 
-    #import pdb; pdb.set_trace()
-
     return J2_p
 
 """ Master Differential equation function for the integrator - Integrates HCW equations """
@@ -47,25 +46,15 @@ def dX_dt(t, state, ref):
     pos_ref,vel_ref,LVLH,Base = ref.ref_orbit_pos(t)
     w = np.cross(pos_ref,vel_ref)/np.linalg.norm(pos_ref)**2
     n = np.linalg.norm(w) #Angular velocity
-    
-    pos_ref2,vel_ref2,LVLH2,Base2 = ref.ref_orbit_pos(t-1)
-    w2 = np.cross(pos_ref2,vel_ref2)/np.linalg.norm(pos_ref2)**2
-    
-    dn = (w-w2)/1
-    
+
     #print(n-ref.ang_vel*ref.Sch_c)
     omega = np.array([0,0,n]) #Angular velocity vector in LVLH frame
 
-    pos_sat = orbits.LVLH_Sat(r,v,t,ref).to_ECI().pos
+    pos_sat = orbits.LVLH_Sat(r,v,t,ref).to_ECI(ref_orbit=True).pos
 
     """ J2 Acceleration """
     J2_p = J2_pert(pos_sat,pos_ref,ref.R_orb) #Calculate J2 in ECI frame
     LVLH_J2_p = np.dot(LVLH,J2_p) #Convert to LVLH frame
-
-    #phi = qt.to_q(np.array([0,0,1]),r[1]/ref.R_orb)
-    #theta = qt.to_q(np.array([0,1,0]),r[2]/ref.R_orb)
-    #q = qt.comb_rot(phi,theta)
-    #LVLH_J2_p2 = qt.rotate(LVLH_J2_p,q)
 
     #HCW Equations (second order correction, see Butcher 16)
     K = np.diag(np.array([3*n**2,0,-(n**2)]))
@@ -77,14 +66,10 @@ def dX_dt(t, state, ref):
     #Position vector of deputy
     rd = np.array([ref.R_orb+r[0],r[1],r[2]])
     #Acceleration vector - analytical version (See Butcher 18)
-    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,r)) - np.cross(dn,r) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + const.GM_earth.value*np.dot(LVLH,pos_ref)/ref.R_orb**3  + LVLH_J2_p# + LVLH_solar_p + LVLH_drag_p
+    a = -2*np.cross(omega,v) - np.cross(omega,np.cross(omega,r)) - const.GM_earth.value*rd/np.linalg.norm(rd)**3 + const.GM_earth.value*np.dot(LVLH,pos_ref)/ref.R_orb**3  + LVLH_J2_p# + LVLH_solar_p + LVLH_drag_p
     #LVLH_J2_p = 0
-    #import pdb; pdb.set_trace()
     #Acceleration is the HCW Equations, plus the required perturbations
     #a = -2*np.cross(omega,v) + np.matmul(K,r) + Gamma2 + LVLH_J2_p + Gamma3
-
-    #Print kinetic energy while integrating
-    #print(r[0] + v[0]/n)
 
     #Second half of the differential vector (derivative of velocity, acceleration)
     dX3 = a[0]

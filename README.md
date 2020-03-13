@@ -1,27 +1,24 @@
 # Astrophysical Space-Interferometer Pathfinder (ASP)
-Jonah Honours Project on Space Interferometry and Orbital Dynamics
+Jonah Honours Project on Space Interferometry and Orbital Dynamics... This repo is less of a mess than it was...
 
 ### Main files (Scripts):
 
 * plotter - plots the orbit in 3D and animates it
-* perturbation_script - script to calculate (integrate), as well as plot the orbit with given perturbations (Schweighart Numerical method)
-* multi_pert- calculates acceleration due to perturbations for many orbits with multiprocessing
-* perturbation_script_sol - same as perturbation script, but uses the Analytical Schweighart formulation. Preferred script.
-* Acc_plot - Plots the data from multi_pert
-* Obs_script - Script to test observability functions, plots u-v plane and calculates observability
-* Obs_multi - multiprocessing version of obs_script. Does not calculate the u-v plane
-* Read_observability - Read (and plot) data from obs_multi
-* delv3 - Currently unworking full orbit simulation. Needs a lot of work.
+* LVLH_perturbation_script - script to calculate and plot the orbit with J2 perturbation in the LVLH frame (Analytical Schweighart/HCW method)
+* ECI_perturbation_script - script to calculate and plot the orbit with J2 perturbation in the ECI frame (Numerical method)
+* pert_test2 - Script comparing different J2 perturbation methods (none really work... and is honestly a mess of a script)
+* obs_script - Script to test observability functions, and calculate observability plot of a slice of RA/DEC over time
+* obs_multi - Calculate observability plot of a map of RA and DEC. Requires huge amount of memory
+* uv_script - Script to calculate the UV plane over a period of time and plot it
+* delv_script - Calculates the delta v required during multiple orbits through a full orbit simulation
+* reconfig_script - Script to calculate the delta v required in reconfiguring the orbit
 
 ### Modules
 
-* quaternions.py: helper functions for quaternion rotation
-* orbits - contains the reference orbit class, calculates and holds the relevant orbit parameters, as well as helper functions to calculate the state vectors of the satellites in the different frames
-* Schweighart_J2 - module that uses the J2 perturbation function given by Schweighart 2002. Uses the absolute numerical implementation.
-* Schweighart_J2_rel - module that uses the J2 perturbation function given by Schweighart 2002. Uses the relative numerical implementation.
-* Schweighart_J2_solved - module that uses the J2 perturbation function given by Schweighart 2002. Uses the absolute analytical solution. Currently preffered.
-* Reconfiguration - Calculates the delta-v requirement to reconfigure an orbit (Not a great module, may be currently broken)
-* Observability - Functions to determine whether the star is viewable or not
-
-### Junk:
- Many old versions of code. Later versions of Old are relatively newer. Use to jumpstart other scripts
+* quaternions - helper functions for quaternion rotation
+* orbits - contains the reference orbit class, which calculates and holds the relevant orbit parameters. Also has the Satellite class, used to help calculate the state vectors of the satellites in the different frames. Finally holds the functions that initialise the chief and deputy satellites.
+* Numerical_LVLH_motion - module that uses the numerical J2 perturbation function given by Schweighart 2002.
+* Analytical_LVLH_motion - module that uses the analytical J2 perturbation function given by Schweighart 2002. Can also reduce down to the analytical HCW equations.
+* old_perturbations - module containing the time varying LVLH transition matrix method to calculate perturbation. Almost certainly broken.
+* reconfiguration - Calculates the delta-v requirement to reconfigure an orbit
+* observability - Functions to determine whether the star is viewable or not
